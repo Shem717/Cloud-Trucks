@@ -4,7 +4,9 @@ import { decryptCredentials } from '@/lib/crypto';
 interface SearchCriteria {
     id: string;
     origin_city: string | null;
+    origin_state: string | null;
     dest_city: string | null;
+    destination_state: string | null;
     min_rate: number | null;
     equipment_type: string | null;
 }
@@ -22,31 +24,7 @@ interface CloudTrucksLoad {
     rate_per_mile: number;
 }
 
-/**
- * Login to CloudTrucks
- */
-async function login(page: Page, email: string, password: string): Promise<boolean> {
-    try {
-        console.log('Navigating to CloudTrucks login...');
-        await page.goto('https://app.cloudtrucks.com/login', { waitUntil: 'networkidle' });
-
-        // Fill login form
-        await page.fill('input[type="email"]', email);
-        await page.fill('input[type="password"]', password);
-
-        // Click login button
-        await page.click('button[type="submit"]');
-
-        // Wait for navigation to dashboard
-        await page.waitForURL('**/dashboard', { timeout: 15000 });
-        console.log('Login successful');
-        return true;
-
-    } catch (error) {
-        console.error('Login failed:', error);
-        return false;
-    }
-}
+// ... existing code ...
 
 /**
  * Search for loads based on criteria
@@ -61,10 +39,13 @@ async function searchLoads(
         await page.waitForTimeout(2000);
 
         // Enter pickup location if specified
-        if (criteria.origin_city) {
+        if (criteria.origin_city || criteria.origin_state) {
             const pickupInput = page.locator('input[placeholder="Enter Location"]').first();
             await pickupInput.click();
-            await pickupInput.fill(criteria.origin_city);
+
+            // Build query string like "San Jose, CA" or just "CA" or just "San Jose"
+            const query = [criteria.origin_city, criteria.origin_state].filter(Boolean).join(', ');
+            await pickupInput.fill(query);
             await page.waitForTimeout(1000);
 
             // Select from autocomplete
@@ -75,14 +56,17 @@ async function searchLoads(
         }
 
         // Enter dropoff location if specified
-        if (criteria.dest_city) {
+        if (criteria.dest_city || criteria.destination_state) {
             const dropoffInput = page.locator('input[placeholder="Enter Location"]').nth(1);
             await dropoffInput.click();
-            await dropoffInput.fill(criteria.dest_city);
+
+            // Build query string
+            const query = [criteria.dest_city, criteria.destination_state].filter(Boolean).join(', ');
+            await dropoffInput.fill(query);
             await page.waitForTimeout(1000);
 
             // Select from autocomplete
-            const suggestion = page.locator('.mult istop-path-item-location').first();
+            const suggestion = page.locator('.multistop-path-item-location').first();
             if (await suggestion.isVisible({ timeout: 3000 })) {
                 await suggestion.click();
             }
