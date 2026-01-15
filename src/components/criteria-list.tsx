@@ -11,12 +11,14 @@ interface Criteria {
     origin_city: string | null;
     origin_state: string | null;
     pickup_distance: number | null;
+    pickup_date: string | null;
     dest_city: string | null;
     destination_state: string | null;
     min_rate: number | null;
     min_weight: number | null;
     max_weight: number | null;
     equipment_type: string | null;
+    booking_type: string | null; // 'instant', 'standard'
     active: boolean;
     created_at: string;
 }
@@ -108,6 +110,11 @@ export function CriteriaList({ refreshTrigger }: { refreshTrigger?: number }) {
                                     <Badge variant="outline">
                                         <Truck className="h-3 w-3 mr-1" />
                                         {c.equipment_type}
+                                    </Badge>
+                                )}
+                                {c.booking_type && (
+                                    <Badge variant="outline" className={c.booking_type === 'instant' ? 'border-blue-500 text-blue-400' : ''}>
+                                        {c.booking_type === 'instant' ? 'Instant Book' : 'Standard Book'}
                                     </Badge>
                                 )}
                             </div>

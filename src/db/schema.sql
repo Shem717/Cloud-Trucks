@@ -25,14 +25,26 @@ create table public.search_criteria (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid references public.users(id) on delete cascade not null,
   origin_city text,
+  origin_state text,
+  pickup_distance int default 50,
+  pickup_date date,
   dest_city text,
+  destination_state text,
   min_rate numeric,
   min_weight int,
-  max_weight int,
-  equipment_type text, -- 'Van', 'Reefer', 'Flatbed'
+  max_weight int default 45000,
+  equipment_type text, -- 'Dry Van', 'Power Only'
+  booking_type text, -- 'instant', 'standard', null for any
   active boolean default true,
   created_at timestamp with time zone default now()
 );
+
+-- Migration: Add new columns if table exists (run this separately if table already exists)
+-- ALTER TABLE public.search_criteria ADD COLUMN IF NOT EXISTS origin_state text;
+-- ALTER TABLE public.search_criteria ADD COLUMN IF NOT EXISTS pickup_distance int default 50;
+-- ALTER TABLE public.search_criteria ADD COLUMN IF NOT EXISTS pickup_date date;
+-- ALTER TABLE public.search_criteria ADD COLUMN IF NOT EXISTS destination_state text;
+-- ALTER TABLE public.search_criteria ADD COLUMN IF NOT EXISTS booking_type text;
 
 -- Found Loads
 create table public.found_loads (

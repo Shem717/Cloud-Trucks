@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
             min_weight: parseNumeric(formData.get('min_weight'), 'int'),
             max_weight: parseNumeric(formData.get('max_weight'), 'int'),
             equipment_type: formData.get('equipment_type') === 'Any' ? null : (formData.get('equipment_type') as string || null),
+            booking_type: formData.get('booking_type') === 'Any' ? null : (formData.get('booking_type') as string || null),
             active: true,
         };
 

@@ -198,6 +198,34 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                     "grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 p-4 rounded-lg bg-slate-800/50 border border-slate-700/30 transition-all duration-200",
                     showFilters ? "opacity-100" : "hidden"
                 )}>
+                    {/* Trailer Type - matches CloudTrucks options */}
+                    <div>
+                        <label className="text-xs text-slate-400 mb-1 block">Trailer Type</label>
+                        <Select name="equipment_type">
+                            <SelectTrigger className="bg-slate-900/50 border-slate-600 h-9">
+                                <SelectValue placeholder="Any" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Any">Any</SelectItem>
+                                <SelectItem value="Dry Van">Dry Van</SelectItem>
+                                <SelectItem value="Power Only">Power Only</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    {/* Booking Type - matches CloudTrucks options */}
+                    <div>
+                        <label className="text-xs text-slate-400 mb-1 block">Booking Type</label>
+                        <Select name="booking_type">
+                            <SelectTrigger className="bg-slate-900/50 border-slate-600 h-9">
+                                <SelectValue placeholder="Any" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Any">Any</SelectItem>
+                                <SelectItem value="instant">Instant Book</SelectItem>
+                                <SelectItem value="standard">Standard Book</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                     <div>
                         <label className="text-xs text-slate-400 mb-1 block">Min Rate ($)</label>
                         <Input
@@ -209,36 +237,12 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                         />
                     </div>
                     <div>
-                        <label className="text-xs text-slate-400 mb-1 block">Equipment</label>
-                        <Select name="equipment_type">
-                            <SelectTrigger className="bg-slate-900/50 border-slate-600 h-9">
-                                <SelectValue placeholder="Any" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Any">Any</SelectItem>
-                                <SelectItem value="Van">Van</SelectItem>
-                                <SelectItem value="Reefer">Reefer</SelectItem>
-                                <SelectItem value="Flatbed">Flatbed</SelectItem>
-                                <SelectItem value="Dry Van">Dry Van</SelectItem>
-                                <SelectItem value="Power Only">Power Only</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div>
-                        <label className="text-xs text-slate-400 mb-1 block">Min Weight (lbs)</label>
-                        <Input
-                            name="min_weight"
-                            type="number"
-                            placeholder="Any"
-                            className="bg-slate-900/50 border-slate-600 h-9"
-                        />
-                    </div>
-                    <div>
                         <label className="text-xs text-slate-400 mb-1 block">Max Weight (lbs)</label>
                         <Input
                             name="max_weight"
                             type="number"
-                            placeholder="Any"
+                            placeholder="45000"
+                            defaultValue="45000"
                             className="bg-slate-900/50 border-slate-600 h-9"
                         />
                     </div>
