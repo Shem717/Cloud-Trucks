@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, MapPin, DollarSign, Truck, Clock, Loader2 } from 'lucide-react'
+import { Button } from "@/components/ui/button"
+import { Calendar, MapPin, DollarSign, Truck, Clock, Loader2, RefreshCw } from 'lucide-react'
 
 interface BookedLoad {
     id: string;
@@ -19,22 +20,39 @@ interface BookedLoad {
 export function BookedLoads() {
     const [loads, setLoads] = useState<BookedLoad[]>([])
     const [loading, setLoading] = useState(true)
+    const [syncing, setSyncing] = useState(false)
+
+    const fetchBookedLoads = async () => {
+        try {
+            const response = await fetch('/api/bookings')
+            const result = await response.json()
+            if (result.data) {
+                setLoads(result.data)
+            }
+        } catch (error) {
+            console.error('Failed to fetch booked loads:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const syncBookedLoads = async () => {
+        setSyncing(true)
+        try {
+            const response = await fetch('/api/bookings/sync', { method: 'POST' })
+            const result = await response.json()
+            if (result.success) {
+                // Refresh the list after sync
+                await fetchBookedLoads()
+            }
+        } catch (error) {
+            console.error('Failed to sync booked loads:', error)
+        } finally {
+            setSyncing(false)
+        }
+    }
 
     useEffect(() => {
-        const fetchBookedLoads = async () => {
-            try {
-                const response = await fetch('/api/bookings')
-                const result = await response.json()
-                if (result.data) {
-                    setLoads(result.data)
-                }
-            } catch (error) {
-                console.error('Failed to fetch booked loads:', error)
-            } finally {
-                setLoading(false)
-            }
-        }
-
         fetchBookedLoads()
     }, [])
 
@@ -53,13 +71,47 @@ export function BookedLoads() {
         return (
             <Card className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border-slate-700/30">
                 <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                        <Calendar className="h-5 w-5 text-amber-400" />
-                        Current Bookings
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                            <Calendar className="h-5 w-5 text-amber-400" />
+                            Current Bookings
+                        </CardTitle>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={syncBookedLoads}
+                            disabled={syncing}
+                            className="text-amber-400 hover:text-amber-300"
+                        >
+                            {syncing ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <RefreshCw className="h-4 w-4" />
+                            )}
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-slate-400 text-sm">No active bookings. Booked loads from CloudTrucks will appear here.</p>
+                    <p className="text-slate-400 text-sm mb-3">No active bookings found.</p>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={syncBookedLoads}
+                        disabled={syncing}
+                        className="w-full text-amber-400 border-amber-600/50 hover:bg-amber-900/20"
+                    >
+                        {syncing ? (
+                            <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Syncing from CloudTrucks...
+                            </>
+                        ) : (
+                            <>
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Sync from CloudTrucks
+                            </>
+                        )}
+                    </Button>
                 </CardContent>
             </Card>
         )
