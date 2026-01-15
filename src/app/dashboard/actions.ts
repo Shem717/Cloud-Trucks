@@ -14,15 +14,16 @@ export async function saveCredentials(prevState: any, formData: FormData) {
     }
 
     const email = formData.get('email') as string
-    const password = formData.get('password') as string
+    const cookie = formData.get('cookie') as string
 
-    if (!email || !password) {
-        return { error: 'Email and Password are required' }
+    if (!email || !cookie) {
+        return { error: 'Email and Session Cookie are required' }
     }
 
     try {
         // 2. Encrypt sensitive data using AES-256-GCM
-        const { encryptedEmail, encryptedPassword } = await encryptCredentials(email, password)
+        // We reuse the encryptCredentials function, passing cookie as the "password"/secret
+        const { encryptedEmail, encryptedPassword: encryptedCookie } = await encryptCredentials(email, cookie)
 
         // 3. Upsert into database
         const { error } = await supabase
@@ -30,7 +31,7 @@ export async function saveCredentials(prevState: any, formData: FormData) {
             .upsert({
                 user_id: user.id,
                 encrypted_email: encryptedEmail,
-                encrypted_password: encryptedPassword,
+                encrypted_session_cookie: encryptedCookie,
                 last_validated_at: new Date().toISOString(),
                 is_valid: true // Assume valid until worker proves otherwise
             })

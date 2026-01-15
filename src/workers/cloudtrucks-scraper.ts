@@ -165,19 +165,33 @@ async function searchLoads(
  */
 export async function scrapeCloudTrucksLoads(
     email: string,
-    password: string,
+    cookie: string,
     criteria: SearchCriteria
 ): Promise<CloudTrucksLoad[]> {
     let browser: Browser | null = null;
 
     try {
         browser = await chromium.launch({ headless: true });
-        const page = await browser.newPage();
 
-        // Login
-        const loginSuccess = await login(page, email, password);
-        if (!loginSuccess) {
-            throw new Error('Failed to login to CloudTrucks');
+        // Create a context with the session cookie injected
+        const context = await browser.newContext();
+        await context.addCookies([{
+            name: 'ct_session',
+            value: cookie,
+            domain: '.cloudtrucks.com',
+            path: '/',
+        }]);
+
+        const page = await context.newPage();
+
+        console.log(`Initialized session for ${email}`);
+
+        // Navigate directly to dashboard/search to verify session
+        await page.goto('https://app.cloudtrucks.com/search/', { waitUntil: 'networkidle' });
+
+        // if we are redirected to login, the cookie is invalid
+        if (page.url().includes('/login')) {
+            throw new Error('Session cookie invalid or expired');
         }
 
         // Search for loads

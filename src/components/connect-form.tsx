@@ -59,14 +59,29 @@ export function ConnectForm() {
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="ct-password">CloudTrucks Password</Label>
+                    <div className="flex items-center justify-between">
+                        <Label htmlFor="ct-cookie">Session Cookie (ct_session)</Label>
+                        <span className="text-xs text-blue-400 cursor-help" title="Instructions below">What is this?</span>
+                    </div>
                     <div className="relative">
-                        <Input id="ct-password" name="password" type="password" required className="pr-10" />
+                        <Input
+                            id="ct-cookie"
+                            name="cookie"
+                            type="password"
+                            placeholder="Paste your session cookie here..."
+                            required
+                            className="pr-10 font-mono text-xs"
+                        />
                         <Lock className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
                     </div>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Lock className="h-3 w-3" /> Credentials are encrypted (AES-256) before storage.
-                    </p>
+                    <div className="text-xs text-muted-foreground bg-muted p-3 rounded-md space-y-1">
+                        <p className="font-medium text-foreground">How to get this:</p>
+                        <ol className="list-decimal pl-4 space-y-1">
+                            <li>Log in to CloudTrucks on your browser.</li>
+                            <li>Open DevTools (F12) → Application → Cookies.</li>
+                            <li>Copy the value of the cookie named <code>ct_session</code> or similar.</li>
+                        </ol>
+                    </div>
                 </div>
             </CardContent>
             <CardFooter>

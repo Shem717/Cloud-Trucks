@@ -32,7 +32,7 @@ async function getUserCredentials(userId: string) {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
         .from('cloudtrucks_credentials')
-        .select('encrypted_email, encrypted_password')
+        .select('encrypted_email, encrypted_session_cookie')
         .eq('user_id', userId)
         .single();
 
@@ -40,17 +40,19 @@ async function getUserCredentials(userId: string) {
         throw new Error(`No credentials found for user ${userId}`);
     }
 
-    return await decryptCredentials(
+    const { email, password: cookie } = await decryptCredentials(
         (data as any).encrypted_email,
-        (data as any).encrypted_password
+        (data as any).encrypted_session_cookie
     );
+
+    return { email, cookie };
 }
 
 /**
  * Fetch loads from CloudTrucks using Playwright web scraping
  */
 async function fetchLoadsFromCloudTrucks(
-    credentials: { email: string; password: string },
+    credentials: { email: string; cookie: string },
     criteria: any
 ): Promise<any[]> {
     try {
@@ -59,7 +61,7 @@ async function fetchLoadsFromCloudTrucks(
 
         const loads = await scrapeCloudTrucksLoads(
             credentials.email,
-            credentials.password,
+            credentials.cookie,
             criteria
         );
 
