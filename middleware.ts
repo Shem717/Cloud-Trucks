@@ -48,8 +48,13 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/dashboard', request.url))
     }
 
-    if (request.nextUrl.pathname === '/' && user) {
-        return NextResponse.redirect(new URL('/dashboard', request.url))
+    // Redirect from home page based on auth status
+    if (request.nextUrl.pathname === '/') {
+        if (user) {
+            return NextResponse.redirect(new URL('/dashboard', request.url))
+        } else {
+            return NextResponse.redirect(new URL('/login', request.url))
+        }
     }
 
     return response
