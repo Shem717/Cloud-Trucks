@@ -127,7 +127,7 @@ export function CriteriaList({ refreshTrigger }: { refreshTrigger?: number }) {
                                     <MapPin className="h-4 w-4 text-green-400" />
                                     <span>
                                         From: {[c.origin_city, c.origin_state].filter(Boolean).join(', ')}
-                                        {c.pickup_distance ? ` • ${c.pickup_distance} mi` : ''}
+                                        {c.pickup_distance !== null && c.pickup_distance !== undefined && ` • ${c.pickup_distance} mi`}
                                     </span>
                                 </div>
                             )}
