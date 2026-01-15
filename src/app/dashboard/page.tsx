@@ -5,6 +5,7 @@ import { ConnectedStatus } from "@/components/connected-status"
 import { SearchCriteriaForm } from "@/components/search-criteria-form"
 import { CriteriaList } from "@/components/criteria-list"
 import { LoadsList } from "@/components/loads-list"
+import { BookedLoads } from "@/components/booked-loads"
 import { PlusCircle, Play, Truck, Activity, Search } from 'lucide-react'
 
 export default async function DashboardPage() {
@@ -87,26 +88,29 @@ export default async function DashboardPage() {
 
             {isConnected && (
                 <>
-                    {/* Connection Status */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>CloudTrucks Account</CardTitle>
-                            <CardDescription>
-                                Manage your integration settings.
-                            </CardDescription>
-                        </CardHeader>
-                        <ConnectedStatus lastValidated={credentials.last_validated_at} />
-                    </Card>
+                    {/* Search Bar (now horizontal, above everything) */}
+                    <SearchCriteriaForm />
 
-                    {/* Search Criteria Management */}
+                    {/* Bookings + Active Searches Row */}
                     <div className="grid gap-4 lg:grid-cols-3">
                         <div className="lg:col-span-1">
-                            <SearchCriteriaForm />
+                            <BookedLoads />
                         </div>
                         <div className="lg:col-span-2">
                             <CriteriaList />
                         </div>
                     </div>
+
+                    {/* Connection Status (collapsed) */}
+                    <Card className="bg-slate-800/30 border-slate-700/30">
+                        <CardHeader className="py-3">
+                            <CardTitle className="text-sm flex items-center gap-2">
+                                <Activity className="h-4 w-4 text-green-400" />
+                                CloudTrucks Connected
+                            </CardTitle>
+                        </CardHeader>
+                        <ConnectedStatus lastValidated={credentials.last_validated_at} />
+                    </Card>
 
                     {/* Loads List */}
                     <LoadsList />
