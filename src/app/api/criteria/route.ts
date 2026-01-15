@@ -21,18 +21,24 @@ export async function POST(request: NextRequest) {
         // Date input sends YYYY-MM-DD, but empty string should be null
         const pickupDate = rawDate && rawDate.trim() !== '' ? rawDate : null;
 
+        const parseNumeric = (val: any, type: 'int' | 'float') => {
+            if (!val || val.toString().trim() === '' || val === 'Any') return null;
+            const parsed = type === 'int' ? parseInt(val) : parseFloat(val);
+            return isNaN(parsed) ? null : parsed;
+        };
+
         const criteria = {
             user_id: user.id,
             origin_city: formData.get('origin_city') as string || null,
             origin_state: formData.get('origin_state') as string || null,
-            pickup_distance: formData.get('pickup_distance') ? parseInt(formData.get('pickup_distance') as string) : 50,
+            pickup_distance: parseNumeric(formData.get('pickup_distance'), 'int') || 50,
             pickup_date: pickupDate,
             dest_city: formData.get('dest_city') as string || null,
-            destination_state: formData.get('destination_state') as string || null,
-            min_rate: formData.get('min_rate') ? parseFloat(formData.get('min_rate') as string) : null,
-            min_weight: formData.get('min_weight') ? parseInt(formData.get('min_weight') as string) : null,
-            max_weight: formData.get('max_weight') ? parseInt(formData.get('max_weight') as string) : null,
-            equipment_type: formData.get('equipment_type') as string || null,
+            destination_state: formData.get('destination_state') === 'any' ? null : (formData.get('destination_state') as string || null),
+            min_rate: parseNumeric(formData.get('min_rate'), 'float'),
+            min_weight: parseNumeric(formData.get('min_weight'), 'int'),
+            max_weight: parseNumeric(formData.get('max_weight'), 'int'),
+            equipment_type: formData.get('equipment_type') === 'Any' ? null : (formData.get('equipment_type') as string || null),
             active: true,
         };
 
