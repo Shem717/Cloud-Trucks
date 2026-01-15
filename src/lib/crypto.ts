@@ -1,31 +1,109 @@
 import crypto from 'crypto';
 
-// Use a consistent IV length for AES-256-CBC
+const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
-// Check for key in env, otherwise warn (or fail in production)
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'default-insecure-dev-key-32chars!!';
+const AUTH_TAG_LENGTH = 16;
+const SALT_LENGTH = 32;
 
-// Ensure key is 32 bytes
-if (ENCRYPTION_KEY.length !== 32) {
-    console.warn('Warning: ENCRYPTION_KEY is not 32 characters! Encryption may fail or be insecure.');
+/**
+ * Derives a key from the encryption key using PBKDF2
+ */
+function deriveKey(password: string, salt: Buffer): Buffer {
+    return crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256');
 }
 
-export function encrypt(text: string) {
+/**
+ * Encrypts a string using AES-256-GCM
+ */
+function encrypt(text: string): string {
+    if (!process.env.ENCRYPTION_KEY) {
+        throw new Error('ENCRYPTION_KEY environment variable is not set');
+    }
+
+    const salt = crypto.randomBytes(SALT_LENGTH);
+    const key = deriveKey(process.env.ENCRYPTION_KEY, salt);
     const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
-    let encrypted = cipher.update(text);
-    encrypted = Buffer.concat([encrypted, cipher.final()]);
-    return iv.toString('hex') + ':' + encrypted.toString('hex');
+
+    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+
+    const authTag = cipher.getAuthTag();
+
+    // Format: salt:iv:authTag:encrypted
+    return `${salt.toString('hex')}:${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
 }
 
-export function decrypt(text: string) {
-    const textParts = text.split(':');
-    const ivPart = textParts.shift();
-    if (!ivPart) throw new Error('Invalid encryption format');
-    const iv = Buffer.from(ivPart, 'hex');
-    const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
-    let decrypted = decipher.update(encryptedText);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
+/**
+ * Decrypts a string encrypted with AES-256-GCM
+ * @internal Use decryptCredentials for credential decryption
+ */
+export function decrypt(encryptedData: string): string {
+    if (!process.env.ENCRYPTION_KEY) {
+        throw new Error('ENCRYPTION_KEY environment variable is not set');
+    }
+
+    const parts = encryptedData.split(':');
+    if (parts.length !== 4) {
+        throw new Error('Invalid encrypted data format');
+    }
+
+    const [saltHex, ivHex, authTagHex, encrypted] = parts;
+
+    const salt = Buffer.from(saltHex, 'hex');
+    const iv = Buffer.from(ivHex, 'hex');
+    const authTag = Buffer.from(authTagHex, 'hex');
+
+    const key = deriveKey(process.env.ENCRYPTION_KEY, salt);
+
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+    decipher.setAuthTag(authTag);
+
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+
+    return decrypted;
+}
+
+/**
+ * Encrypts CloudTrucks credentials
+ */
+export async function encryptCredentials(
+    email: string,
+    password: string
+): Promise<{
+    encryptedEmail: string;
+    encryptedPassword: string;
+}> {
+    try {
+        return {
+            encryptedEmail: encrypt(email),
+            encryptedPassword: encrypt(password),
+        };
+    } catch (error) {
+        console.error('Encryption error:', error);
+        throw new Error('Failed to encrypt credentials');
+    }
+}
+
+/**
+ * Decrypts CloudTrucks credentials
+ */
+export async function decryptCredentials(
+    encryptedEmail: string,
+    encryptedPassword: string
+): Promise<{
+    email: string;
+    password: string;
+}> {
+    try {
+        return {
+            email: decrypt(encryptedEmail),
+            password: decrypt(encryptedPassword),
+        };
+    } catch (error) {
+        console.error('Decryption error:', error);
+        throw new Error('Failed to decrypt credentials');
+    }
 }

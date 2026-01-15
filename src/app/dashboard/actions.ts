@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
-import { encrypt } from '@/lib/crypto'
+import { encryptCredentials } from '@/lib/crypto'
 import { revalidatePath } from 'next/cache'
 
 export async function saveCredentials(prevState: any, formData: FormData) {
@@ -21,9 +21,8 @@ export async function saveCredentials(prevState: any, formData: FormData) {
     }
 
     try {
-        // 2. Encrypt sensitive data
-        const encryptedEmail = encrypt(email)
-        const encryptedPassword = encrypt(password)
+        // 2. Encrypt sensitive data using AES-256-GCM
+        const { encryptedEmail, encryptedPassword } = await encryptCredentials(email, password)
 
         // 3. Upsert into database
         const { error } = await supabase

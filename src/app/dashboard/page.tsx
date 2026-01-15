@@ -2,7 +2,10 @@ import { createClient } from '@/utils/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { ConnectForm } from "@/components/connect-form"
 import { ConnectedStatus } from "@/components/connected-status"
-import { PlusCircle, Play, Truck, Activity } from 'lucide-react'
+import { SearchCriteriaForm } from "@/components/search-criteria-form"
+import { CriteriaList } from "@/components/criteria-list"
+import { LoadsList } from "@/components/loads-list"
+import { PlusCircle, Play, Truck, Activity, Search } from 'lucide-react'
 
 export default async function DashboardPage() {
     const supabase = await createClient()
@@ -16,6 +19,21 @@ export default async function DashboardPage() {
         .single()
 
     const isConnected = !!credentials
+
+    // Fetch stats
+    const { count: criteriaCount } = await supabase
+        .from('search_criteria')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user?.id)
+        .eq('active', true)
+
+    const { count: loadsCount } = await supabase
+        .from('found_loads')
+        .select(`
+            *,
+            search_criteria!inner(user_id)
+        `, { count: 'exact', head: true })
+        .eq('search_criteria.user_id', user?.id)
 
     return (
         <div className="space-y-8">
@@ -34,51 +52,66 @@ export default async function DashboardPage() {
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Active Searches</CardTitle>
+                        <Search className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{criteriaCount || 0}</div>
+                        <p className="text-xs text-muted-foreground">Automated scan criteria</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Loads Found</CardTitle>
                         <Truck className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">0</div>
-                        <p className="text-xs text-muted-foreground">Waiting for search criteria</p>
+                        <div className="text-2xl font-bold">{loadsCount || 0}</div>
+                        <p className="text-xs text-muted-foreground">Matching your criteria</p>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Main Content Areas */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-
-                {/* Connection Card */}
-                <Card className="col-span-1 h-fit">
+            {/* Connection Card */}
+            {!isConnected && (
+                <Card>
                     <CardHeader>
                         <CardTitle>CloudTrucks Account</CardTitle>
                         <CardDescription>
-                            Manage your integration settings.
+                            Connect your CloudTrucks account to begin automated load scanning.
                         </CardDescription>
                     </CardHeader>
-                    {isConnected ? (
-                        <ConnectedStatus lastValidated={credentials.last_validated_at} />
-                    ) : (
-                        <ConnectForm />
-                    )}
+                    <ConnectForm />
                 </Card>
+            )}
 
-                {/* Placeholder for Search Criteria or Activity */}
-                <Card className="col-span-2">
-                    <CardHeader>
-                        <CardTitle>Recent Activity</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex flex-col gap-4 text-sm text-muted-foreground h-[200px] items-center justify-center border-2 border-dashed rounded-md bg-muted/50">
-                            <p>No scans performed yet.</p>
-                            {isConnected && (
-                                <p className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
-                                    Add Search Criteria to begin
-                                </p>
-                            )}
+            {isConnected && (
+                <>
+                    {/* Connection Status */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>CloudTrucks Account</CardTitle>
+                            <CardDescription>
+                                Manage your integration settings.
+                            </CardDescription>
+                        </CardHeader>
+                        <ConnectedStatus lastValidated={credentials.last_validated_at} />
+                    </Card>
+
+                    {/* Search Criteria Management */}
+                    <div className="grid gap-4 lg:grid-cols-3">
+                        <div className="lg:col-span-1">
+                            <SearchCriteriaForm />
                         </div>
-                    </CardContent>
-                </Card>
-            </div>
+                        <div className="lg:col-span-2">
+                            <CriteriaList />
+                        </div>
+                    </div>
+
+                    {/* Loads List */}
+                    <LoadsList />
+                </>
+            )}
         </div>
     )
 }

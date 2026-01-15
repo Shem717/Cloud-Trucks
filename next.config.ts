@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // Add any other Next.js config here
+  turbopack: {}, // Silence Turbopack/webpack conflict warning
 };
 
 export default withPWA({

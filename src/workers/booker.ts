@@ -1,48 +1,166 @@
-import { chromium, Browser } from 'playwright';
-import { decrypt } from '@/lib/crypto';
+import { createClient } from '@supabase/supabase-js';
+import { decryptCredentials } from '@/lib/crypto';
 
-interface Credential {
-    encrypted_email: string;
-    encrypted_password: string;
+// Initialize Supabase client with service role
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
 }
 
-export class CloudTrucksBooker {
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    async bookLoad(loadId: string, creds: Credential, dryRun = true) {
-        const browser = await chromium.launch({ headless: true });
-        const page = await browser.newPage();
-        const scanner = new (await import('./scanner')).CloudTrucksScanner(); // Reuse login logic
+/**
+ * Attempt to book a load on CloudTrucks
+ * 
+ * This is a placeholder implementation. In production, this would:
+ * 1. Fetch the cached CloudTrucks session/auth
+ * 2. Make an authenticated request to book the load
+ * 3. Handle confirmation/rejection
+ * 4. Update load status in database
+ */
+export async function attemptBooking(loadId: string): Promise<{
+    success: boolean;
+    message: string;
+}> {
+    try {
+        // 1. Fetch load details
+        const { data: load, error: loadError } = await supabase
+            .from('found_loads')
+            .select(`
+        *,
+        search_criteria!inner(
+          user_id,
+          origin_city,
+          dest_city
+        )
+      `)
+            .eq('id', loadId)
+            .single();
 
-        try {
-            await scanner.login(page, creds);
+        if (loadError || !load) {
+            return {
+                success: false,
+                message: 'Load not found',
+            };
+        }
 
-            console.log(`Navigating to load ${loadId}...`);
-            await page.goto(`https://app.cloudtrucks.com/loads/${loadId}`);
+        // Check if load is still available for booking
+        if (load.status !== 'found') {
+            return {
+                success: false,
+                message: `Load already ${load.status}`,
+            };
+        }
 
-            // Wait for "Book Now" button
-            const bookButtonSelector = 'button:has-text("Book Load")'; // Placeholder
-            await page.waitForSelector(bookButtonSelector);
+        // 2. Get user credentials
+        const { data: creds, error: credsError } = await supabase
+            .from('cloudtrucks_credentials')
+            .select('encrypted_email, encrypted_password')
+            .eq('user_id', load.search_criteria.user_id)
+            .single();
 
-            if (dryRun) {
-                console.log('Dry run: Stopping before click.');
-                return { success: true, status: 'dry-run-completed' };
-            }
+        if (credsError || !creds) {
+            return {
+                success: false,
+                message: 'User credentials not found',
+            };
+        }
 
-            await page.click(bookButtonSelector);
+        const credentials = await decryptCredentials(
+            creds.encrypted_email,
+            creds.encrypted_password
+        );
 
-            // Confirm modal
-            const confirmSelector = 'button:has-text("Confirm Booking")';
-            await page.click(confirmSelector);
+        // 3. TODO: Implement actual booking logic
+        // This would involve:
+        // - Logging into CloudTrucks with credentials
+        // - Navigating to the specific load
+        // - Clicking "Book" button
+        // - Handling confirmation
+        // - Checking for success/failure response
 
-            await page.waitForSelector('.success-message'); // Wait for confirmation
-            console.log('Load booked successfully!');
-            return { success: true, status: 'booked' };
+        console.log('Booking load:', {
+            loadId: load.cloudtrucks_load_id,
+            origin: load.details.origin,
+            dest: load.details.destination,
+            rate: load.details.rate,
+        });
 
-        } catch (error) {
-            console.error('Booking failed:', error);
-            return { success: false, error };
-        } finally {
-            await browser.close();
+        // Mock success for now
+        const bookingSuccessful = false; // In reality, this would be the result of the booking attempt
+
+        if (bookingSuccessful) {
+            // Update load status
+            await supabase
+                .from('found_loads')
+                .update({ status: 'booked' })
+                .eq('id', loadId);
+
+            return {
+                success: true,
+                message: 'Load booked successfully',
+            };
+        } else {
+            // Mark as attempted but failed
+            await supabase
+                .from('found_loads')
+                .update({ status: 'expired' })
+                .eq('id', loadId);
+
+            return {
+                success: false,
+                message: 'Booking failed - load may no longer be available',
+            };
+        }
+
+    } catch (error: any) {
+        console.error('Booking error:', error);
+        return {
+            success: false,
+            message: error.message || 'Booking failed',
+        };
+    }
+}
+
+/**
+ * Auto-book loads that match specific criteria
+ * This could be triggered by a cron job or webhook
+ */
+export async function autoBookMatchingLoads(): Promise<{
+    attempted: number;
+    successful: number;
+    failed: number;
+}> {
+    const results = {
+        attempted: 0,
+        successful: 0,
+        failed: 0,
+    };
+
+    // Get all 'found' status loads
+    const { data: loads, error } = await supabase
+        .from('found_loads')
+        .select('id')
+        .eq('status', 'found')
+        .limit(10); // Process 10 at a time to avoid overwhelming the system
+
+    if (error || !loads) {
+        console.error('Error fetching loads:', error);
+        return results;
+    }
+
+    for (const load of loads) {
+        results.attempted++;
+        const result = await attemptBooking(load.id);
+
+        if (result.success) {
+            results.successful++;
+        } else {
+            results.failed++;
         }
     }
+
+    return results;
 }
