@@ -1,5 +1,8 @@
 import Image from "next/image";
 
+// Force dynamic rendering so middleware redirects work
+export const dynamic = 'force-dynamic';
+
 export default function Home() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
