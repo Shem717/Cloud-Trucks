@@ -14,13 +14,19 @@ export async function POST(request: NextRequest) {
         }
 
         const formData = await request.formData();
+        console.log('Received criteria form data:', Object.fromEntries(formData));
+
+        const rawDate = formData.get('pickup_date') as string;
+        // Postgres date format is YYYY-MM-DD
+        // Date input sends YYYY-MM-DD, but empty string should be null
+        const pickupDate = rawDate && rawDate.trim() !== '' ? rawDate : null;
 
         const criteria = {
             user_id: user.id,
             origin_city: formData.get('origin_city') as string || null,
             origin_state: formData.get('origin_state') as string || null,
             pickup_distance: formData.get('pickup_distance') ? parseInt(formData.get('pickup_distance') as string) : 50,
-            pickup_date: formData.get('pickup_date') as string || null,
+            pickup_date: pickupDate,
             dest_city: formData.get('dest_city') as string || null,
             destination_state: formData.get('destination_state') as string || null,
             min_rate: formData.get('min_rate') ? parseFloat(formData.get('min_rate') as string) : null,
@@ -30,6 +36,8 @@ export async function POST(request: NextRequest) {
             active: true,
         };
 
+        console.log('Inserting criteria:', criteria);
+
         const { data, error } = await supabase
             .from('search_criteria')
             .insert(criteria)
@@ -37,15 +45,22 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (error) {
-            console.error('Error creating criteria:', error);
-            return NextResponse.json({ error: error.message || 'Failed to create search criteria' }, { status: 500 });
+            console.error('Supabase DB Error on Insert:', error);
+            console.error('Error Details:', JSON.stringify(error, null, 2));
+            return NextResponse.json({
+                error: error.message || 'Failed to create search criteria',
+                details: error
+            }, { status: 500 });
         }
 
         return NextResponse.json({ success: true, data });
 
-    } catch (error) {
-        console.error('API error:', error);
-        return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    } catch (error: any) {
+        console.error('API Unexpected Error:', error);
+        return NextResponse.json({
+            error: 'Server error',
+            details: error.message
+        }, { status: 500 });
     }
 }
 
