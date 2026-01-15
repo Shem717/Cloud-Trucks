@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
             user_id: user.id,
             origin_city: formData.get('origin_city') as string || null,
             origin_state: formData.get('origin_state') as string || null,
+            pickup_distance: formData.get('pickup_distance') ? parseInt(formData.get('pickup_distance') as string) : 50,
             dest_city: formData.get('dest_city') as string || null,
             destination_state: formData.get('destination_state') as string || null,
             min_rate: formData.get('min_rate') ? parseFloat(formData.get('min_rate') as string) : null,

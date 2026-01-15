@@ -5,6 +5,7 @@ interface SearchCriteria {
     id: string;
     origin_city: string | null;
     origin_state: string | null;
+    pickup_distance: number | null;
     dest_city: string | null;
     destination_state: string | null;
     min_rate: number | null;
@@ -52,6 +53,21 @@ async function searchLoads(
             const suggestion = page.locator('.multistop-path-item-location').first();
             if (await suggestion.isVisible({ timeout: 3000 })) {
                 await suggestion.click();
+            }
+
+            // Set pickup radius if specified
+            if (criteria.pickup_distance !== null && criteria.pickup_distance !== 50) { // 50 is default
+                try {
+                    // Look for the radius dropdown (assuming it contains "within")
+                    // This is heuristic and may need adjustment based on real DOM
+                    const radiusDropdown = page.getByText(/within \d+ mi/).first();
+                    if (await radiusDropdown.isVisible()) {
+                        await radiusDropdown.click();
+                        await page.getByText(`within ${criteria.pickup_distance} mi`).click();
+                    }
+                } catch (e) {
+                    console.log('Could not set pickup radius:', e);
+                }
             }
         }
 

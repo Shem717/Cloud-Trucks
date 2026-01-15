@@ -41,13 +41,15 @@ export function CriteriaList({ refreshTrigger }: { refreshTrigger?: number }) {
     }, [refreshTrigger])
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Delete this search criteria?')) return
+        // Optimistically remove from UI
+        setCriteria(prev => prev.filter(c => c.id !== id))
 
         try {
             await fetch(`/api/criteria?id=${id}`, { method: 'DELETE' })
-            setCriteria(criteria.filter(c => c.id !== id))
         } catch (error) {
             console.error('Failed to delete:', error)
+            // Revert on failure (could add a toast here, but user asked for simple delete)
+            fetchCriteria()
         }
     }
 

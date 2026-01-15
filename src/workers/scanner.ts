@@ -59,6 +59,8 @@ async function fetchLoadsFromCloudTrucks(
         // Import the scraper (dynamic import to avoid loading Playwright at build time)
         const { scrapeCloudTrucksLoads } = await import('./cloudtrucks-scraper');
 
+        // Cast criteria to any to match the updated scraper interface
+        // In a real app we would share the interface
         const loads = await scrapeCloudTrucksLoads(
             credentials.email,
             credentials.cookie,
