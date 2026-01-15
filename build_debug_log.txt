@@ -1,0 +1,24 @@
+
+> temp-app@0.1.0 build
+> next build --webpack
+
+DEBUG: _build type: object
+DEBUG: _build keys: [ 'createStaticWorker', 'default' ]
+DEBUG: _build.default type: function
+DEBUG: _build.default keys: []
+DEBUG: _config type: object
+DEBUG: _config keys: [
+  'default',
+  'normalizeConfig',
+  'warnOptionHasBeenDeprecated',
+  'warnOptionHasBeenMovedOutOfExperimental'
+]
+DEBUG: _config.default type: function
+
+> Build error occurred
+TypeError: Cannot read properties of undefined (reading '0')
+    at loadConfig (/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/next/dist/server/config.js:1276:75)
+    at async Span.traceAsyncFn (/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/next/dist/trace/trace.js:157:20)
+    at async /Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/next/dist/build/index.js:393:28
+    at async Span.traceAsyncFn (/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/next/dist/trace/trace.js:157:20)
+    at async build (/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/next/dist/build/index.js:384:9)

@@ -1,0 +1,20 @@
+
+> temp-app@0.1.0 build
+> next build --webpack
+
+/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/next/dist/bin/next:85
+program.name('next').description('The Next.js CLI allows you to develop, build, start your application, and more.').configureHelp({
+                                                                                                                    ^
+
+TypeError: program.name(...).description(...).configureHelp is not a function
+    at Object.<anonymous> (/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/next/dist/bin/next:85:117)
+    at Module._compile (node:internal/modules/cjs/loader:1738:14)
+    at Object..js (node:internal/modules/cjs/loader:1871:10)
+    at Module.load (node:internal/modules/cjs/loader:1470:32)
+    at Module._load (node:internal/modules/cjs/loader:1290:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:238:24)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v24.5.0

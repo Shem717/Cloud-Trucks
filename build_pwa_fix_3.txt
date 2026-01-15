@@ -1,0 +1,24 @@
+
+> temp-app@0.1.0 build
+> next build --webpack
+
+DEBUG: CLI - importing next-build...
+DEBUG: CLI - calling nextBuild...
+DEBUG: _build type: object
+DEBUG: _build keys: [ 'createStaticWorker', 'default' ]
+DEBUG: _build.default type: function
+DEBUG: _build.default keys: []
+⨯ Failed to load next.config.ts, see more info here https://nextjs.org/docs/messages/next-config-error
+
+> Build error occurred
+TypeError: SemVer is not a constructor
+    at Comparator.parse (/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/@ducanh2912/next-pwa/node_modules/semver/classes/comparator.js:51:21)
+    at new Comparator (/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/@ducanh2912/next-pwa/node_modules/semver/classes/comparator.js:23:10)
+    at Object.<anonymous> (/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/@ducanh2912/next-pwa/node_modules/semver/ranges/subset.js:71:39)
+    at Module._compile (node:internal/modules/cjs/loader:1738:14)
+    at node:internal/modules/cjs/loader:1871:10
+    at require.extensions..js (/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/next/dist/build/next-config-ts/require-hook.js:49:20)
+    at Module.load (node:internal/modules/cjs/loader:1470:32)
+    at Module._load (node:internal/modules/cjs/loader:1290:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:238:24)

@@ -1,0 +1,15 @@
+
+> temp-app@0.1.0 build
+> next build --webpack
+
+unhandledRejection TypeError: (0 , _debug.default) is not a function
+    at Object.<anonymous> (/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/next/dist/build/collect-build-traces.js:82:34)
+    at Module._compile (node:internal/modules/cjs/loader:1738:14)
+    at Object..js (node:internal/modules/cjs/loader:1871:10)
+    at Module.load (node:internal/modules/cjs/loader:1470:32)
+    at Module._load (node:internal/modules/cjs/loader:1290:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:238:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1493:12)
+    at mod.require (/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:152:16)

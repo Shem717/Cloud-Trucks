@@ -1,0 +1,23 @@
+
+> temp-app@0.1.0 build
+> next build --webpack
+
+DEBUG: CLI - importing next-build...
+DEBUG: CLI - calling nextBuild...
+DEBUG: _build type: object
+DEBUG: _build keys: [ 'createStaticWorker', 'default' ]
+DEBUG: _build.default type: function
+DEBUG: _build.default keys: []
+
+> Build error occurred
+TypeError: (0 , _env.loadEnvConfig) is not a function
+    at /Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/next/dist/build/index.js:387:117
+    at Span.traceFn (/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/next/dist/trace/trace.js:150:20)
+    at /Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/next/dist/build/index.js:387:80
+    at Span.traceAsyncFn (/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/next/dist/trace/trace.js:157:26)
+    at build (/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/next/dist/build/index.js:384:29)
+    at Object.nextBuild (/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/next/dist/cli/next-build.js:103:12)
+    at Command.<anonymous> (/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/next/dist/bin/next:102:16)
+    at Command.listener [as _actionHandler] (/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/commander/lib/command.js:568:17)
+    at /Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/commander/lib/command.js:1604:14
+    at Command._chainOrCall (/Users/samuelclow/Library/Mobile Documents/com~apple~CloudDocs/Projects/Cloud Trucks/node_modules/commander/lib/command.js:1488:12)
