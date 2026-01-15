@@ -9,7 +9,10 @@ import { Trash2, MapPin, DollarSign, Scale, Truck } from 'lucide-react'
 interface Criteria {
     id: string;
     origin_city: string | null;
+    origin_state: string | null;
+    pickup_distance: number | null;
     dest_city: string | null;
+    destination_state: string | null;
     min_rate: number | null;
     min_weight: number | null;
     max_weight: number | null;
@@ -119,16 +122,19 @@ export function CriteriaList({ refreshTrigger }: { refreshTrigger?: number }) {
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 text-sm">
-                            {c.origin_city && (
+                            {(c.origin_city || c.origin_state) && (
                                 <div className="flex items-center gap-2 text-muted-foreground">
-                                    <MapPin className="h-4 w-4" />
-                                    <span>From: {c.origin_city}</span>
+                                    <MapPin className="h-4 w-4 text-green-400" />
+                                    <span>
+                                        From: {[c.origin_city, c.origin_state].filter(Boolean).join(', ')}
+                                        {c.pickup_distance ? ` • ${c.pickup_distance} mi` : ''}
+                                    </span>
                                 </div>
                             )}
-                            {c.dest_city && (
+                            {(c.dest_city || c.destination_state) && (
                                 <div className="flex items-center gap-2 text-muted-foreground">
-                                    <MapPin className="h-4 w-4" />
-                                    <span>To: {c.dest_city}</span>
+                                    <MapPin className="h-4 w-4 text-red-400" />
+                                    <span>To: {[c.dest_city, c.destination_state].filter(Boolean).join(', ') || 'Anywhere'}</span>
                                 </div>
                             )}
                             {c.min_rate && (
