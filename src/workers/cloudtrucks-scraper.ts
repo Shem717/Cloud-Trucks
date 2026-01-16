@@ -81,9 +81,9 @@ export async function scrapeCloudTrucksLoads(
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
             ] : [],
-            defaultViewport: chromium.defaultViewport as any,
+            defaultViewport: (chromium as any).defaultViewport,
             executablePath: executablePath,
-            headless: process.env.VERCEL ? (chromium.headless as any) : true,
+            headless: process.env.VERCEL ? ((chromium as any).headless) : true,
         });
 
         const page = await browser.newPage();
