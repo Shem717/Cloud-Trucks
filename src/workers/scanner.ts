@@ -68,10 +68,10 @@ async function fetchLoadsFromCloudTrucks(
         );
 
         return loads;
-    } catch (error) {
-        console.error('CloudTrucks scraping error:', error);
-        // Fallback to empty array if scraping fails
-        return [];
+    } catch (error: any) {
+        console.error('[SCANNER] CloudTrucks scraping error:', error.message);
+        // Throw the error so scanLoadsForUser can catch it and decide what to do
+        throw error;
     }
 }
 
@@ -130,7 +130,7 @@ export async function scanLoadsForUser(userId: string): Promise<{
     error?: string;
 }> {
     try {
-        console.log(`Starting scan for user ${userId}`);
+        console.log(`[SCANNER] Starting scan for user ${userId}`);
 
         // 1. Get user's credentials
         const credentials = await getUserCredentials(userId);
@@ -144,30 +144,51 @@ export async function scanLoadsForUser(userId: string): Promise<{
             .eq('active', true);
 
         if (criteriaError) {
+            console.error(`[SCANNER] Criteria fetch error for ${userId}:`, criteriaError);
             throw criteriaError;
         }
 
         if (!criteriaList || criteriaList.length === 0) {
-            console.log(`No active criteria for user ${userId}`);
+            console.log(`[SCANNER] No active criteria for user ${userId}`);
             return { success: true, loadsFound: 0 };
         }
 
+        console.log(`[SCANNER] Found ${criteriaList.length} active criteria for user ${userId}`);
+
         let totalLoadsFound = 0;
+        let scanErrors: string[] = [];
 
         // 3. For each criteria, fetch and filter loads
+        // For now, we still call scrapeCloudTrucksLoads which launches a browser
+        // but we ensure failure in one doesn't kill the whole thing and errors are reported.
         for (const criteria of criteriaList) {
             try {
+                console.log(`[SCANNER] Processing criteria: ${criteria.origin_city} -> ${criteria.dest_city || 'Any'}`);
                 const allLoads = await fetchLoadsFromCloudTrucks(credentials, criteria);
-                const savedCount = await saveNewLoads(criteria.id, allLoads);
-                totalLoadsFound += savedCount;
+                
+                if (allLoads && allLoads.length > 0) {
+                    const savedCount = await saveNewLoads(criteria.id, allLoads);
+                    totalLoadsFound += savedCount;
+                } else {
+                    console.log(`[SCANNER] No loads found for criteria ${criteria.id}`);
+                }
 
-            } catch (error) {
-                console.error(`Error processing criteria ${criteria.id}:`, error);
-                // Continue with next criteria even if one fails
+            } catch (error: any) {
+                console.error(`[SCANNER] Error processing criteria ${criteria.id}:`, error.message);
+                scanErrors.push(error.message);
             }
         }
 
-        console.log(`Scan complete for user ${userId}. Found ${totalLoadsFound} new loads.`);
+        if (scanErrors.length > 0 && totalLoadsFound === 0) {
+            // If everything failed, report the first error
+            return {
+                success: false,
+                loadsFound: 0,
+                error: `Scraper failed: ${scanErrors[0]}`,
+            };
+        }
+
+        console.log(`[SCANNER] Scan complete for user ${userId}. Found ${totalLoadsFound} new loads.`);
 
         return {
             success: true,
@@ -175,7 +196,7 @@ export async function scanLoadsForUser(userId: string): Promise<{
         };
 
     } catch (error: any) {
-        console.error(`Scan failed for user ${userId}:`, error);
+        console.error(`[SCANNER] Fatal scan failed for user ${userId}:`, error.message);
         return {
             success: false,
             loadsFound: 0,
