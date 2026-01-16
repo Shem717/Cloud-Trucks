@@ -41,10 +41,15 @@ export async function POST(req: NextRequest) {
         let csrfToken = '';
 
         try {
-            const { password } = await decryptCredentials(creds.email, creds.encrypted_password);
-            sessionCookie = password;
+            // Decrypt email and session cookie
+            const { password: cookie } = await decryptCredentials(
+                creds.encrypted_email,
+                creds.encrypted_session_cookie
+            );
+            sessionCookie = cookie;
 
             if (creds.encrypted_csrf_token) {
+                // For CSRF, we just need the second value decrypted
                 const { password: csrf } = await decryptCredentials('csrf', creds.encrypted_csrf_token);
                 csrfToken = csrf;
             } else {
