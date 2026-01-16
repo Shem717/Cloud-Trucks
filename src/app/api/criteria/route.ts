@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { fetchLoadsFromCloudTrucks } from '@/workers/scanner';
-import { decryptCredentials } from '@/lib/crypto';
 
 /**
  * POST /api/criteria - Create new search criteria
@@ -85,15 +83,16 @@ export async function POST(request: NextRequest) {
                     return;
                 }
 
-                const { password: cookie } = await decryptCredentials(
-                    creds.encrypted_email,
-                    creds.encrypted_session_cookie
-                );
+                // Use decrypt() directly - same fix as debugger route
+                const { decrypt } = await import('@/lib/crypto');
+
+                const cookie = decrypt(creds.encrypted_session_cookie);
+                console.log(`[API] Session cookie decrypted: ${cookie.substring(0, 10)}...`);
 
                 let csrfToken = '';
                 if (creds.encrypted_csrf_token) {
-                    const { password: csrf } = await decryptCredentials('csrf', creds.encrypted_csrf_token);
-                    csrfToken = csrf;
+                    csrfToken = decrypt(creds.encrypted_csrf_token);
+                    console.log(`[API] CSRF token decrypted: ${csrfToken.substring(0, 10)}...`);
                 }
 
                 // 2. Fetch Loads

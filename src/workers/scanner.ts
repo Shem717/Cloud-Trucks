@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { decryptCredentials } from '@/lib/crypto';
+import { decrypt } from '@/lib/crypto';
 
 //  @ts-nocheck - Disable type checking for Supabase client until types are generated
 
@@ -42,20 +42,17 @@ export async function getUserCredentials(userId: string) {
 
     const typedData = data as any;
 
-    // Decrypt session cookie
-    const { email, password: cookie } = await decryptCredentials(
-        typedData.encrypted_email,
-        typedData.encrypted_session_cookie
-    );
+    // Decrypt credentials using decrypt() directly
+    const email = decrypt(typedData.encrypted_email);
+    const cookie = decrypt(typedData.encrypted_session_cookie);
+
+    console.log(`[SCANNER] Decrypted session cookie: ${cookie.substring(0, 10)}...`);
 
     // Decrypt CSRF token if available
     let csrfToken = '';
     if (typedData.encrypted_csrf_token) {
-        const { password: csrf } = await decryptCredentials(
-            'csrf', // dummy value, we only care about the second one
-            typedData.encrypted_csrf_token
-        );
-        csrfToken = csrf;
+        csrfToken = decrypt(typedData.encrypted_csrf_token);
+        console.log(`[SCANNER] Decrypted CSRF token: ${csrfToken.substring(0, 10)}...`);
     }
 
     return { email, cookie, csrfToken };

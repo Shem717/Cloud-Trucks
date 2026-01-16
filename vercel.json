@@ -3,6 +3,10 @@
         "src/app/api/bookings/sync/route.ts": {
             "maxDuration": 60,
             "memory": 1024
+        },
+        "src/app/api/debugger/scan/route.ts": {
+            "maxDuration": 60,
+            "memory": 1024
         }
     },
     "crons": [

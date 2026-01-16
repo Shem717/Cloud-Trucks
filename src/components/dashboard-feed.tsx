@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, DollarSign, Weight, Calendar, Truck, Activity, Filter, RefreshCw, Trash2 } from 'lucide-react'
+import { MapPin, DollarSign, Weight, Calendar, Truck, Activity, Filter, RefreshCw, Trash2, Zap } from 'lucide-react'
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 interface Load {
@@ -42,6 +43,7 @@ interface Load {
 export function DashboardFeed() {
     const [loads, setLoads] = useState<Load[]>([])
     const [loading, setLoading] = useState(true)
+    const [scanning, setScanning] = useState(false)
     const [selectedCriteriaId, setSelectedCriteriaId] = useState<string | null>(null)
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
     const [criteriaList, setCriteriaList] = useState<any[]>([])
@@ -87,6 +89,26 @@ export function DashboardFeed() {
             }
         } catch (error) {
             console.error('Failed to delete criteria:', error);
+        }
+    }
+
+    const handleScan = async () => {
+        if (scanning) return;
+        setScanning(true);
+        try {
+            const res = await fetch('/api/scan', { method: 'POST' });
+            const result = await res.json();
+            if (result.success) {
+                console.log(`Scan complete: ${result.loadsFound} new loads found`);
+                // Refresh data after scan
+                await fetchData();
+            } else {
+                console.error('Scan failed:', result.error);
+            }
+        } catch (error) {
+            console.error('Scan error:', error);
+        } finally {
+            setScanning(false);
         }
     }
 
@@ -140,7 +162,23 @@ export function DashboardFeed() {
                         Live feed from CloudTrucks • Updated {lastUpdated ? lastUpdated.toLocaleTimeString() : 'Syncing...'}
                     </p>
                 </div>
-                {loading && <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />}
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleScan}
+                        disabled={scanning || criteriaList.length === 0}
+                        className="gap-2"
+                    >
+                        {scanning ? (
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <Zap className="h-4 w-4" />
+                        )}
+                        {scanning ? 'Scanning...' : 'Scan Now'}
+                    </Button>
+                    {loading && <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />}
+                </div>
             </div>
 
             {/* --- OPERATIONS DECK (Mission Cards) --- */}
