@@ -1,11 +1,15 @@
 /**
  * CloudTrucks API Client
- * 
+ *
  * Uses the internal CloudTrucks API + Pusher WebSocket to fetch loads.
  * This replaces the Puppeteer-based scraper for better reliability on Vercel.
  */
 
 import Pusher from 'pusher-js';
+import { request, Agent } from 'undici';
+
+// Create a custom agent that allows cookie headers
+const httpAgent = new Agent({ allowH2: false });
 
 const CLOUDTRUCKS_API_BASE = 'https://app.cloudtrucks.com';
 const PUSHER_APP_KEY = 'de4428b1e46e9db8fda0';
@@ -113,33 +117,38 @@ export async function fetchLoadsViaApi(
     const cleanSession = cleanCookieValue(sessionCookie, '__Secure-sessionid-v2');
     const cleanCsrf = cleanCookieValue(csrfToken, '__Secure-csrftoken-v2');
 
+    log(`[CT API] Session cookie (first 20): ${cleanSession.substring(0, 20)}...`);
+    log(`[CT API] CSRF token (first 20): ${cleanCsrf.substring(0, 20)}...`);
+
     // Step 1: Trigger async search
     const payload = buildApiPayload(criteria);
     log(`[CT API] Search payload: ${JSON.stringify(payload)}`);
 
-    const response = await fetch(`${CLOUDTRUCKS_API_BASE}/api/v2/query_loads_async`, {
+    // Use undici with custom agent to ensure Cookie header is sent properly
+    const { statusCode, body } = await request(`${CLOUDTRUCKS_API_BASE}/api/v2/query_loads_async`, {
         method: 'POST',
+        dispatcher: httpAgent,
         headers: {
             'accept': 'application/json, text/plain, */*',
             'content-type': 'application/json',
-            'cookie': `__Secure-sessionid-v2=${cleanSession}; __Secure-csrftoken-v2=${cleanCsrf}`,
+            'cookie': `__Secure-csrftoken-v2=${cleanCsrf}; __Secure-sessionid-v2=${cleanSession}`,
+            'origin': 'https://app.cloudtrucks.com',
+            'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
             'x-csrftoken': cleanCsrf,
-            'x-client': 'web',
-            'origin': CLOUDTRUCKS_API_BASE,
-            'referer': `${CLOUDTRUCKS_API_BASE}/search/`,
         },
         body: JSON.stringify(payload),
     });
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        const errorMsg = `HTTP Error ${response.status}: ${errorText}`;
+    const responseText = await body.text();
+
+    if (statusCode !== 200) {
+        const errorMsg = `HTTP Error ${statusCode}: ${responseText}`;
         console.error(`[CT API] ${errorMsg}`);
         log(errorMsg);
-        throw new Error(`CloudTrucks API error ${response.status}: ${errorText}`);
+        throw new Error(`CloudTrucks API error ${statusCode}: ${responseText}`);
     }
 
-    const { channel_name } = await response.json();
+    const { channel_name } = JSON.parse(responseText);
     log(`[CT API] Got channel: ${channel_name}`);
 
     if (!channel_name) {

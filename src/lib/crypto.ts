@@ -102,8 +102,9 @@ export async function decryptCredentials(
             email: decrypt(encryptedEmail),
             password: decrypt(encryptedPassword),
         };
-    } catch (error) {
+    } catch (error: any) {
         console.error('Decryption error:', error);
-        throw new Error('Failed to decrypt credentials');
+        // Expose the actual crypto error for debugging
+        throw new Error(`Failed to decrypt credentials: ${error.message}`);
     }
 }

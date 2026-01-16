@@ -36,22 +36,19 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: false, error: 'No credentials found', logs }, { status: 404 });
         }
 
-        // Decrypt
+        // Decrypt credentials
         let sessionCookie = '';
         let csrfToken = '';
 
         try {
-            // Decrypt email and session cookie
-            const { password: cookie } = await decryptCredentials(
-                creds.encrypted_email,
-                creds.encrypted_session_cookie
-            );
-            sessionCookie = cookie;
+            const { decrypt } = await import('@/lib/crypto');
+
+            sessionCookie = decrypt(creds.encrypted_session_cookie);
+            log(`Session cookie decrypted: ${sessionCookie.substring(0, 10)}...`);
 
             if (creds.encrypted_csrf_token) {
-                // For CSRF, we just need the second value decrypted
-                const { password: csrf } = await decryptCredentials('csrf', creds.encrypted_csrf_token);
-                csrfToken = csrf;
+                csrfToken = decrypt(creds.encrypted_csrf_token);
+                log(`CSRF token decrypted: ${csrfToken.substring(0, 10)}...`);
             } else {
                 log('WARNING: No CSRF token found in database.');
             }

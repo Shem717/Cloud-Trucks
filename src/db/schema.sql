@@ -14,7 +14,8 @@ create table public.users (
 create table public.cloudtrucks_credentials (
   user_id uuid references public.users(id) on delete cascade not null,
   encrypted_email text not null,
-  encrypted_password text not null,
+  encrypted_session_cookie text not null,
+  encrypted_csrf_token text,
   last_validated_at timestamp with time zone,
   is_valid boolean default true,
   primary key (user_id)
