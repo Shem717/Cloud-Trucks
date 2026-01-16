@@ -59,7 +59,7 @@ function buildApiPayload(criteria: SearchCriteria): object {
     };
 
     const origin = criteria.origin_city + (criteria.origin_state ? `, ${criteria.origin_state}` : '');
-    const dest = criteria.dest_city 
+    const dest = criteria.dest_city
         ? criteria.dest_city + (criteria.destination_state ? `, ${criteria.destination_state}` : '')
         : '';
 
@@ -68,7 +68,7 @@ function buildApiPayload(criteria: SearchCriteria): object {
         origin_range_mi__max: criteria.pickup_distance || 50,
         origin_pickup_date__min: criteria.pickup_date || new Date().toISOString(),
         dest_location: dest,
-        equipment: criteria.equipment_type 
+        equipment: criteria.equipment_type
             ? [equipmentMap[criteria.equipment_type] || 'DRY_VAN']
             : ['DRY_VAN'],
         sort_type: 'BEST_PRICE',
@@ -83,27 +83,47 @@ function buildApiPayload(criteria: SearchCriteria): object {
 }
 
 /**
+ * Helper to clean cookie values (remove name= prefix if user pasted it)
+ */
+function cleanCookieValue(value: string, name: string): string {
+    if (!value) return '';
+    if (value.startsWith(`${name}=`)) {
+        return value.substring(name.length + 1);
+    }
+    return value.trim();
+}
+
+/**
  * Fetch loads from CloudTrucks using API + Pusher
  */
 export async function fetchLoadsViaApi(
     sessionCookie: string,
     csrfToken: string,
     criteria: SearchCriteria,
-    timeoutMs: number = 30000
+    timeoutMs: number = 30000,
+    onLog?: (message: string) => void
 ): Promise<CloudTrucksLoad[]> {
-    console.log('[CT API] Starting API-based load fetch...');
-    
+    const log = (msg: string) => {
+        console.log(msg);
+        if (onLog) onLog(msg);
+    };
+
+    log('[CT API] Starting API-based load fetch...');
+
+    const cleanSession = cleanCookieValue(sessionCookie, '__Secure-sessionid-v2');
+    const cleanCsrf = cleanCookieValue(csrfToken, '__Secure-csrftoken-v2');
+
     // Step 1: Trigger async search
     const payload = buildApiPayload(criteria);
-    console.log('[CT API] Search payload:', JSON.stringify(payload));
+    log(`[CT API] Search payload: ${JSON.stringify(payload)}`);
 
     const response = await fetch(`${CLOUDTRUCKS_API_BASE}/api/v2/query_loads_async`, {
         method: 'POST',
         headers: {
             'accept': 'application/json, text/plain, */*',
             'content-type': 'application/json',
-            'cookie': `__Secure-sessionid-v2=${sessionCookie}; __Secure-csrftoken-v2=${csrfToken}`,
-            'x-csrftoken': csrfToken,
+            'cookie': `__Secure-sessionid-v2=${cleanSession}; __Secure-csrftoken-v2=${cleanCsrf}`,
+            'x-csrftoken': cleanCsrf,
             'x-client': 'web',
             'origin': CLOUDTRUCKS_API_BASE,
             'referer': `${CLOUDTRUCKS_API_BASE}/search/`,
@@ -113,19 +133,22 @@ export async function fetchLoadsViaApi(
 
     if (!response.ok) {
         const errorText = await response.text();
+        const errorMsg = `HTTP Error ${response.status}: ${errorText}`;
+        console.error(`[CT API] ${errorMsg}`);
+        log(errorMsg);
         throw new Error(`CloudTrucks API error ${response.status}: ${errorText}`);
     }
 
     const { channel_name } = await response.json();
-    console.log('[CT API] Got channel:', channel_name);
+    log(`[CT API] Got channel: ${channel_name}`);
 
     if (!channel_name) {
         throw new Error('No channel name returned from CloudTrucks API');
     }
 
     // Step 2: Subscribe to Pusher channel and collect loads
-    const loads = await collectLoadsFromPusher(channel_name, timeoutMs);
-    console.log(`[CT API] Collected ${loads.length} loads from Pusher`);
+    const loads = await collectLoadsFromPusher(channel_name, timeoutMs, log);
+    log(`[CT API] Collected ${loads.length} loads from Pusher`);
 
     return loads;
 }
@@ -133,25 +156,37 @@ export async function fetchLoadsViaApi(
 /**
  * Subscribe to Pusher channel and collect all pushing_loads events
  */
-function collectLoadsFromPusher(channelName: string, timeoutMs: number): Promise<CloudTrucksLoad[]> {
+function collectLoadsFromPusher(channelName: string, timeoutMs: number, log: (msg: string) => void): Promise<CloudTrucksLoad[]> {
     return new Promise((resolve, reject) => {
         const loads: CloudTrucksLoad[] = [];
         let resolved = false;
 
-        console.log('[CT API] Connecting to Pusher...');
-        
+        log('[CT API] Connecting to Pusher...');
+
         const pusher = new Pusher(PUSHER_APP_KEY, {
             cluster: PUSHER_CLUSTER,
-            // In Node.js environment, we don't need auth for public channels
         });
 
         const channel = pusher.subscribe(channelName);
+
+        // Debug: Log all events
+        channel.bind_global((eventName: string, data: any) => {
+            log(`[CT API DEBUG] Received event '${eventName}' on channel '${channelName}'`);
+            // Only log data if it's not too huge
+            if (eventName !== 'pushing_loads') {
+                try {
+                    log(`Event Data: ${JSON.stringify(data)}`);
+                } catch (e) {
+                    log('Event Data: [Circular/Unserializable]');
+                }
+            }
+        });
 
         // Set timeout to stop collecting
         const timeout = setTimeout(() => {
             if (!resolved) {
                 resolved = true;
-                console.log('[CT API] Timeout reached, closing Pusher connection');
+                log('[CT API] Timeout reached, closing Pusher connection');
                 pusher.disconnect();
                 resolve(loads);
             }
@@ -159,12 +194,12 @@ function collectLoadsFromPusher(channelName: string, timeoutMs: number): Promise
 
         // Handle subscription success
         channel.bind('pusher:subscription_succeeded', () => {
-            console.log('[CT API] Subscribed to channel:', channelName);
+            log(`[CT API] Subscribed to channel: ${channelName}`);
         });
 
         // Handle subscription error
         channel.bind('pusher:subscription_error', (error: any) => {
-            console.error('[CT API] Subscription error:', error);
+            log(`[CT API] Subscription error: ${JSON.stringify(error)}`);
             if (!resolved) {
                 resolved = true;
                 clearTimeout(timeout);
@@ -177,7 +212,7 @@ function collectLoadsFromPusher(channelName: string, timeoutMs: number): Promise
         channel.bind('pushing_loads', (data: any) => {
             try {
                 const loadData = typeof data === 'string' ? JSON.parse(data) : data;
-                
+
                 const load: CloudTrucksLoad = {
                     id: loadData.id,
                     origin_city: loadData.origin_city,
