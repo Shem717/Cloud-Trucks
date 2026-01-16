@@ -1,0 +1,258 @@
+/**
+ * CloudTrucks API Client
+ * 
+ * Uses the internal CloudTrucks API + Pusher WebSocket to fetch loads.
+ * This replaces the Puppeteer-based scraper for better reliability on Vercel.
+ */
+
+import Pusher from 'pusher-js';
+
+const CLOUDTRUCKS_API_BASE = 'https://app.cloudtrucks.com';
+const PUSHER_APP_KEY = 'de4428b1e46e9db8fda0';
+const PUSHER_CLUSTER = 'us3';
+
+export interface SearchCriteria {
+    origin_city: string;
+    origin_state?: string;
+    pickup_distance?: number; // origin_range_mi__max
+    pickup_date?: string; // origin_pickup_date__min
+    dest_city?: string;
+    destination_state?: string;
+    min_rate?: number;
+    max_weight?: number; // truck_weight_lb__max
+    equipment_type?: string; // 'Dry Van' -> 'DRY_VAN'
+    booking_type?: string; // 'ALL', 'INSTANT', 'STANDARD'
+}
+
+export interface CloudTrucksLoad {
+    id: string;
+    origin_city: string;
+    origin_state: string;
+    dest_city: string;
+    dest_state: string;
+    trip_rate: string;
+    trip_distance_mi: number;
+    equipment: string[];
+    broker_name: string;
+    origin_pickup_date: string;
+    dest_delivery_date: string;
+    instant_book: boolean;
+    estimated_rate: number;
+    estimated_rate_min: number;
+    estimated_rate_max: number;
+    truck_weight_lb: number;
+    total_deadhead_mi: number;
+    stops: any[];
+    // Raw data for storage
+    raw: any;
+}
+
+/**
+ * Convert our SearchCriteria to CloudTrucks API format
+ */
+function buildApiPayload(criteria: SearchCriteria): object {
+    const equipmentMap: Record<string, string> = {
+        'Dry Van': 'DRY_VAN',
+        'DRY_VAN': 'DRY_VAN',
+        'Power Only': 'POWER_ONLY',
+        'POWER_ONLY': 'POWER_ONLY',
+    };
+
+    const origin = criteria.origin_city + (criteria.origin_state ? `, ${criteria.origin_state}` : '');
+    const dest = criteria.dest_city 
+        ? criteria.dest_city + (criteria.destination_state ? `, ${criteria.destination_state}` : '')
+        : '';
+
+    return {
+        origin_location: origin,
+        origin_range_mi__max: criteria.pickup_distance || 50,
+        origin_pickup_date__min: criteria.pickup_date || new Date().toISOString(),
+        dest_location: dest,
+        equipment: criteria.equipment_type 
+            ? [equipmentMap[criteria.equipment_type] || 'DRY_VAN']
+            : ['DRY_VAN'],
+        sort_type: 'BEST_PRICE',
+        booking_type: criteria.booking_type || 'ALL',
+        trip_distances: ['Local', 'Short', 'Long'],
+        masked_data: true,
+        age_min__min: 30,
+        truck_weight_lb__max: criteria.max_weight || 45000,
+        requested_states: criteria.destination_state ? [criteria.destination_state] : [],
+        is_offline_book_compatible: true,
+    };
+}
+
+/**
+ * Fetch loads from CloudTrucks using API + Pusher
+ */
+export async function fetchLoadsViaApi(
+    sessionCookie: string,
+    csrfToken: string,
+    criteria: SearchCriteria,
+    timeoutMs: number = 30000
+): Promise<CloudTrucksLoad[]> {
+    console.log('[CT API] Starting API-based load fetch...');
+    
+    // Step 1: Trigger async search
+    const payload = buildApiPayload(criteria);
+    console.log('[CT API] Search payload:', JSON.stringify(payload));
+
+    const response = await fetch(`${CLOUDTRUCKS_API_BASE}/api/v2/query_loads_async`, {
+        method: 'POST',
+        headers: {
+            'accept': 'application/json, text/plain, */*',
+            'content-type': 'application/json',
+            'cookie': `__Secure-sessionid-v2=${sessionCookie}; __Secure-csrftoken-v2=${csrfToken}`,
+            'x-csrftoken': csrfToken,
+            'x-client': 'web',
+            'origin': CLOUDTRUCKS_API_BASE,
+            'referer': `${CLOUDTRUCKS_API_BASE}/search/`,
+        },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`CloudTrucks API error ${response.status}: ${errorText}`);
+    }
+
+    const { channel_name } = await response.json();
+    console.log('[CT API] Got channel:', channel_name);
+
+    if (!channel_name) {
+        throw new Error('No channel name returned from CloudTrucks API');
+    }
+
+    // Step 2: Subscribe to Pusher channel and collect loads
+    const loads = await collectLoadsFromPusher(channel_name, timeoutMs);
+    console.log(`[CT API] Collected ${loads.length} loads from Pusher`);
+
+    return loads;
+}
+
+/**
+ * Subscribe to Pusher channel and collect all pushing_loads events
+ */
+function collectLoadsFromPusher(channelName: string, timeoutMs: number): Promise<CloudTrucksLoad[]> {
+    return new Promise((resolve, reject) => {
+        const loads: CloudTrucksLoad[] = [];
+        let resolved = false;
+
+        console.log('[CT API] Connecting to Pusher...');
+        
+        const pusher = new Pusher(PUSHER_APP_KEY, {
+            cluster: PUSHER_CLUSTER,
+            // In Node.js environment, we don't need auth for public channels
+        });
+
+        const channel = pusher.subscribe(channelName);
+
+        // Set timeout to stop collecting
+        const timeout = setTimeout(() => {
+            if (!resolved) {
+                resolved = true;
+                console.log('[CT API] Timeout reached, closing Pusher connection');
+                pusher.disconnect();
+                resolve(loads);
+            }
+        }, timeoutMs);
+
+        // Handle subscription success
+        channel.bind('pusher:subscription_succeeded', () => {
+            console.log('[CT API] Subscribed to channel:', channelName);
+        });
+
+        // Handle subscription error
+        channel.bind('pusher:subscription_error', (error: any) => {
+            console.error('[CT API] Subscription error:', error);
+            if (!resolved) {
+                resolved = true;
+                clearTimeout(timeout);
+                pusher.disconnect();
+                reject(new Error(`Pusher subscription failed: ${JSON.stringify(error)}`));
+            }
+        });
+
+        // Handle incoming loads
+        channel.bind('pushing_loads', (data: any) => {
+            try {
+                const loadData = typeof data === 'string' ? JSON.parse(data) : data;
+                
+                const load: CloudTrucksLoad = {
+                    id: loadData.id,
+                    origin_city: loadData.origin_city,
+                    origin_state: loadData.origin_state,
+                    dest_city: loadData.dest_city,
+                    dest_state: loadData.dest_state,
+                    trip_rate: loadData.trip_rate,
+                    trip_distance_mi: loadData.trip_distance_mi,
+                    equipment: loadData.equipment,
+                    broker_name: loadData.broker_name,
+                    origin_pickup_date: loadData.origin_pickup_date,
+                    dest_delivery_date: loadData.dest_delivery_date,
+                    instant_book: loadData.instant_book,
+                    estimated_rate: loadData.estimated_rate,
+                    estimated_rate_min: loadData.estimated_rate_min,
+                    estimated_rate_max: loadData.estimated_rate_max,
+                    truck_weight_lb: loadData.truck_weight_lb,
+                    total_deadhead_mi: loadData.total_deadhead_mi,
+                    stops: loadData.stops,
+                    raw: loadData,
+                };
+
+                loads.push(load);
+                console.log(`[CT API] Received load: ${load.origin_city}, ${load.origin_state} → ${load.dest_city}, ${load.dest_state} | $${load.trip_rate}`);
+            } catch (e) {
+                console.error('[CT API] Error parsing load:', e);
+            }
+        });
+
+        // Handle channel completion signal (if any)
+        channel.bind('query_complete', () => {
+            console.log('[CT API] Query complete signal received');
+            if (!resolved) {
+                resolved = true;
+                clearTimeout(timeout);
+                pusher.disconnect();
+                resolve(loads);
+            }
+        });
+
+        // Also listen for any end signal variations
+        channel.bind('pushing_loads_complete', () => {
+            console.log('[CT API] Pushing loads complete signal received');
+            if (!resolved) {
+                resolved = true;
+                clearTimeout(timeout);
+                pusher.disconnect();
+                resolve(loads);
+            }
+        });
+    });
+}
+
+/**
+ * Test the API connection
+ */
+export async function testApiConnection(
+    sessionCookie: string,
+    csrfToken: string
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        const testResponse = await fetch(`${CLOUDTRUCKS_API_BASE}/api/v1/saved-searches/`, {
+            headers: {
+                'accept': 'application/json',
+                'cookie': `__Secure-sessionid-v2=${sessionCookie}; __Secure-csrftoken-v2=${csrfToken}`,
+                'x-csrftoken': csrfToken,
+            },
+        });
+
+        if (testResponse.ok) {
+            return { success: true };
+        } else {
+            return { success: false, error: `Status ${testResponse.status}` };
+        }
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}

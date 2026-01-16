@@ -60,7 +60,7 @@ export function ConnectForm() {
 
                 <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                        <Label htmlFor="ct-cookie">Session Cookie (ct_session)</Label>
+                        <Label htmlFor="ct-cookie">Session Cookie (__Secure-sessionid-v2)</Label>
                         <span className="text-xs text-blue-400 cursor-help" title="Instructions below">What is this?</span>
                     </div>
                     <div className="relative">
@@ -68,18 +68,34 @@ export function ConnectForm() {
                             id="ct-cookie"
                             name="cookie"
                             type="password"
-                            placeholder="Paste your session cookie here..."
+                            placeholder="gini0370hov5bpb6xioxkrrnv58ppcqw"
+                            required
+                            className="pr-10 font-mono text-xs"
+                        />
+                        <Lock className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="ct-csrf">CSRF Token (__Secure-csrftoken-v2)</Label>
+                    <div className="relative">
+                        <Input
+                            id="ct-csrf"
+                            name="csrf"
+                            type="password"
+                            placeholder="loNMSGdok4L7VkiqLLvuz9NY6v7VoCg7"
                             required
                             className="pr-10 font-mono text-xs"
                         />
                         <Lock className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="text-xs text-muted-foreground bg-muted p-3 rounded-md space-y-1">
-                        <p className="font-medium text-foreground">How to get this:</p>
+                        <p className="font-medium text-foreground">How to get these cookies:</p>
                         <ol className="list-decimal pl-4 space-y-1">
                             <li>Log in to CloudTrucks on your browser.</li>
                             <li>Open DevTools (F12) → Application → Cookies.</li>
-                            <li>Copy the value of the cookie named <code>ct_session</code> or similar.</li>
+                            <li>Copy the value of <code>__Secure-sessionid-v2</code> (session cookie).</li>
+                            <li>Copy the value of <code>__Secure-csrftoken-v2</code> (CSRF token).</li>
                         </ol>
                     </div>
                 </div>

@@ -32,7 +32,7 @@ async function getUserCredentials(userId: string) {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
         .from('cloudtrucks_credentials')
-        .select('encrypted_email, encrypted_session_cookie')
+        .select('encrypted_email, encrypted_session_cookie, encrypted_csrf_token')
         .eq('user_id', userId)
         .single();
 
@@ -40,37 +40,61 @@ async function getUserCredentials(userId: string) {
         throw new Error(`No credentials found for user ${userId}`);
     }
 
+    const typedData = data as any;
+    
+    // Decrypt session cookie
     const { email, password: cookie } = await decryptCredentials(
-        (data as any).encrypted_email,
-        (data as any).encrypted_session_cookie
+        typedData.encrypted_email,
+        typedData.encrypted_session_cookie
     );
 
-    return { email, cookie };
+    // Decrypt CSRF token if available
+    let csrfToken = '';
+    if (typedData.encrypted_csrf_token) {
+        const { password: csrf } = await decryptCredentials(
+            'csrf', // dummy value, we only care about the second one
+            typedData.encrypted_csrf_token
+        );
+        csrfToken = csrf;
+    }
+
+    return { email, cookie, csrfToken };
 }
 
 /**
- * Fetch loads from CloudTrucks using Playwright web scraping
+ * Fetch loads from CloudTrucks using the new API + Pusher approach
  */
 async function fetchLoadsFromCloudTrucks(
-    credentials: { email: string; cookie: string },
+    credentials: { email: string; cookie: string; csrfToken: string },
     criteria: any
 ): Promise<any[]> {
     try {
-        // Import the scraper (dynamic import to avoid loading Playwright at build time)
-        const { scrapeCloudTrucksLoads } = await import('./cloudtrucks-scraper');
+        // Use the new API client (dynamic import to avoid build issues)
+        const { fetchLoadsViaApi } = await import('./cloudtrucks-api-client');
 
-        // Cast criteria to any to match the updated scraper interface
-        // In a real app we would share the interface
-        const loads = await scrapeCloudTrucksLoads(
-            credentials.email,
+        console.log('[SCANNER] Using API client for load fetch');
+        
+        const loads = await fetchLoadsViaApi(
             credentials.cookie,
-            criteria
+            credentials.csrfToken,
+            {
+                origin_city: criteria.origin_city,
+                origin_state: criteria.origin_state,
+                pickup_distance: criteria.pickup_distance,
+                pickup_date: criteria.pickup_date,
+                dest_city: criteria.dest_city,
+                destination_state: criteria.destination_state,
+                min_rate: criteria.min_rate ? parseFloat(criteria.min_rate) : undefined,
+                max_weight: criteria.max_weight,
+                equipment_type: criteria.equipment_type,
+                booking_type: criteria.booking_type,
+            },
+            20000 // 20 second timeout for Pusher collection
         );
 
         return loads;
     } catch (error: any) {
-        console.error('[SCANNER] CloudTrucks scraping error:', error.message);
-        // Throw the error so scanLoadsForUser can catch it and decide what to do
+        console.error('[SCANNER] CloudTrucks API error:', error.message);
         throw error;
     }
 }

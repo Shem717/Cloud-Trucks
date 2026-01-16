@@ -15,15 +15,17 @@ export async function saveCredentials(prevState: any, formData: FormData) {
 
     const email = formData.get('email') as string
     const cookie = formData.get('cookie') as string
+    const csrf = formData.get('csrf') as string
 
-    if (!email || !cookie) {
-        return { error: 'Email and Session Cookie are required' }
+    if (!email || !cookie || !csrf) {
+        return { error: 'Email, Session Cookie, and CSRF Token are required' }
     }
 
     try {
         // 2. Encrypt sensitive data using AES-256-GCM
-        // We reuse the encryptCredentials function, passing cookie as the "password"/secret
         const { encryptedEmail, encryptedPassword: encryptedCookie } = await encryptCredentials(email, cookie)
+        // Encrypt CSRF token separately
+        const { encryptedPassword: encryptedCsrf } = await encryptCredentials('csrf', csrf)
 
         // 3. Upsert into database
         const { error } = await supabase
@@ -32,6 +34,7 @@ export async function saveCredentials(prevState: any, formData: FormData) {
                 user_id: user.id,
                 encrypted_email: encryptedEmail,
                 encrypted_session_cookie: encryptedCookie,
+                encrypted_csrf_token: encryptedCsrf,
                 last_validated_at: new Date().toISOString(),
                 is_valid: true // Assume valid until worker proves otherwise
             })
@@ -46,6 +49,7 @@ export async function saveCredentials(prevState: any, formData: FormData) {
         return { error: 'Failed to save credentials. Please try again.' }
     }
 }
+
 
 export async function disconnectAccount() {
     const supabase = await createClient()
