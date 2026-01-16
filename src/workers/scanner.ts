@@ -28,8 +28,8 @@ function getSupabaseClient() {
 /**
  * Fetch user's CloudTrucks credentials and decrypt them
  */
-export async function getUserCredentials(userId: string) {
-    const supabase = getSupabaseClient();
+export async function getUserCredentials(userId: string, supabaseClient?: any) {
+    const supabase = supabaseClient || getSupabaseClient();
     const { data, error } = await supabase
         .from('cloudtrucks_credentials')
         .select('encrypted_email, encrypted_session_cookie, encrypted_csrf_token')
@@ -104,10 +104,10 @@ export async function fetchLoadsFromCloudTrucks(
 /**
  * Save newly found loads to database (avoiding duplicates)
  */
-export async function saveNewLoads(criteriaId: string, loads: any[]) {
+export async function saveNewLoads(criteriaId: string, loads: any[], supabaseClient?: any) {
     if (loads.length === 0) return 0;
 
-    const supabase = getSupabaseClient();
+    const supabase = supabaseClient || getSupabaseClient();
 
     // Get existing load IDs for this criteria
     const { data: existingLoads } = await supabase
@@ -150,7 +150,7 @@ export async function saveNewLoads(criteriaId: string, loads: any[]) {
 /**
  * Main scan function - scans loads for a specific user
  */
-export async function scanLoadsForUser(userId: string): Promise<{
+export async function scanLoadsForUser(userId: string, supabaseClient?: any): Promise<{
     success: boolean;
     loadsFound: number;
     error?: string;
@@ -159,10 +159,10 @@ export async function scanLoadsForUser(userId: string): Promise<{
         console.log(`[SCANNER] Starting scan for user ${userId}`);
 
         // 1. Get user's credentials
-        const credentials = await getUserCredentials(userId);
+        const credentials = await getUserCredentials(userId, supabaseClient);
 
         // 2. Get user's active search criteria
-        const supabase = getSupabaseClient();
+        const supabase = supabaseClient || getSupabaseClient();
         const { data: criteriaList, error: criteriaError } = await supabase
             .from('search_criteria')
             .select('*')
@@ -193,7 +193,7 @@ export async function scanLoadsForUser(userId: string): Promise<{
                 const allLoads = await fetchLoadsFromCloudTrucks(credentials, criteria);
 
                 if (allLoads && allLoads.length > 0) {
-                    const savedCount = await saveNewLoads(criteria.id, allLoads);
+                    const savedCount = await saveNewLoads(criteria.id, allLoads, supabaseClient);
                     totalLoadsFound += savedCount;
                 } else {
                     console.log(`[SCANNER] No loads found for criteria ${criteria.id}`);

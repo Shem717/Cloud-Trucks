@@ -140,7 +140,8 @@ export function DashboardFeed() {
         }
 
         missionStats[cid].count++;
-        const loadRate = load.details.rate || load.details.trip_rate || 0;
+        const rawRate = load.details.rate || load.details.trip_rate || 0;
+        const loadRate = typeof rawRate === 'string' ? parseFloat(rawRate) : rawRate;
         if (loadRate > missionStats[cid].maxRate) missionStats[cid].maxRate = loadRate;
     });
 
@@ -287,8 +288,11 @@ export function DashboardFeed() {
                             ? `${load.details.dest_city}, ${load.details.dest_state}`
                             : load.details.destination;
 
-                        const rate = load.details.rate || load.details.trip_rate;
-                        const dist = load.details.distance || load.details.trip_distance_mi;
+                        const rawRate = load.details.rate || load.details.trip_rate;
+                        const rate = typeof rawRate === 'string' ? parseFloat(rawRate) : rawRate;
+
+                        const rawDist = load.details.distance || load.details.trip_distance_mi;
+                        const dist = typeof rawDist === 'string' ? parseFloat(rawDist) : rawDist;
                         const rpm = (rate && dist) ? (rate / dist).toFixed(2) : null;
 
                         return (

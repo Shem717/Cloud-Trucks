@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
         console.log(`[API] Manual scan triggered for user ${user.id}`);
 
         // Run the scan
-        const result = await scanLoadsForUser(user.id);
+        const result = await scanLoadsForUser(user.id, supabase);
 
         if (result.success) {
             return NextResponse.json({
