@@ -1,12 +1,10 @@
 {
     "functions": {
         "src/app/api/bookings/sync/route.ts": {
-            "maxDuration": 60,
-            "memory": 1024
+            "maxDuration": 60
         },
         "src/app/api/debugger/scan/route.ts": {
-            "maxDuration": 60,
-            "memory": 1024
+            "maxDuration": 60
         }
     },
     "crons": [
