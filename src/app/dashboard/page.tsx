@@ -5,7 +5,7 @@ import { ConnectedStatus } from "@/components/connected-status"
 import { SearchCriteriaForm } from "@/components/search-criteria-form"
 import { CriteriaList } from "@/components/criteria-list"
 import { LoadsList } from "@/components/loads-list"
-import { BookedLoads } from "@/components/booked-loads"
+
 import { PlusCircle, Play, Truck, Activity, Search } from 'lucide-react'
 
 export default async function DashboardPage() {
@@ -92,10 +92,8 @@ export default async function DashboardPage() {
                     <SearchCriteriaForm />
 
                     {/* Bookings + Active Searches Row */}
-                    <div className="grid gap-4 lg:grid-cols-3">
-                        <div className="lg:col-span-1">
-                            <BookedLoads />
-                        </div>
+                    <div className="grid gap-4 lg:grid-cols-2">
+                        {/* Removed BookedLoads */}
                         <div className="lg:col-span-2">
                             <CriteriaList />
                         </div>
