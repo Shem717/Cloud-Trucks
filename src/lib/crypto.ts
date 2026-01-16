@@ -45,8 +45,10 @@ export function decrypt(encryptedData: string): string {
     }
 
     const parts = encryptedData.split(':');
+
+    // Check if this is old format (just hex string, no colons) or invalid format
     if (parts.length !== 4) {
-        throw new Error('Invalid encrypted data format');
+        throw new Error(`Invalid encrypted data format. Expected 4 parts (salt:iv:authTag:encrypted), got ${parts.length} parts. Data may have been encrypted with a different key or method. Please re-save your credentials.`);
     }
 
     const [saltHex, ivHex, authTagHex, encrypted] = parts;

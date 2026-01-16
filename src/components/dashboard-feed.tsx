@@ -3,9 +3,17 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, DollarSign, Weight, Calendar, Truck, Activity, Filter, RefreshCw, Trash2, Zap } from 'lucide-react'
+import { MapPin, DollarSign, Weight, Calendar, Truck, Activity, Filter, RefreshCw, Trash2, Zap, Star, ArrowUpDown, AlertTriangle } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
+type SortOption = 'newest' | 'price_high' | 'price_low' | 'pickup_soonest' | 'distance_short' | 'deadhead_low';
 
 interface Load {
     id: string;
@@ -47,15 +55,35 @@ export function DashboardFeed() {
     const [selectedCriteriaId, setSelectedCriteriaId] = useState<string | null>(null)
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
     const [criteriaList, setCriteriaList] = useState<any[]>([])
+    const [sortBy, setSortBy] = useState<SortOption>('newest')
+    const [savingInterest, setSavingInterest] = useState<string | null>(null)
+    const [credentialWarning, setCredentialWarning] = useState<string | null>(null)
 
     useEffect(() => {
         // Set initial date on mount to avoid hydration mismatch
         setLastUpdated(new Date())
 
         fetchData()
+        checkCredentials()
         const interval = setInterval(fetchData, 15000)
         return () => clearInterval(interval)
     }, [])
+
+    const checkCredentials = async () => {
+        try {
+            const res = await fetch('/api/credentials/status');
+            const result = await res.json();
+            if (!result.hasCredentials) {
+                setCredentialWarning('No CloudTrucks credentials found. Please connect your account.');
+            } else if (!result.isValid) {
+                setCredentialWarning('Your CloudTrucks session has expired. Please reconnect.');
+            } else {
+                setCredentialWarning(null);
+            }
+        } catch (error) {
+            console.error('Failed to check credentials:', error);
+        }
+    };
 
     const fetchData = async () => {
         setLoading(true)
@@ -112,6 +140,69 @@ export function DashboardFeed() {
         }
     }
 
+    // --- Mark as Interested ---
+    const handleMarkInterested = async (load: Load) => {
+        if (savingInterest) return;
+        setSavingInterest(load.id);
+        try {
+            const res = await fetch('/api/interested', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cloudtrucks_load_id: load.cloudtrucks_load_id,
+                    details: load.details,
+                }),
+            });
+            const result = await res.json();
+            if (result.success) {
+                console.log('Load marked as interested');
+            } else {
+                console.error('Failed to mark interested:', result.error);
+            }
+        } catch (error) {
+            console.error('Mark interested error:', error);
+        } finally {
+            setSavingInterest(null);
+        }
+    };
+
+    // --- Sort Function ---
+    const sortLoads = (loadsToSort: Load[]): Load[] => {
+        return [...loadsToSort].sort((a, b) => {
+            const getRate = (l: Load) => {
+                const raw = l.details.rate || l.details.trip_rate || 0;
+                return typeof raw === 'string' ? parseFloat(raw) : raw;
+            };
+            const getPickupDate = (l: Load) => {
+                const date = l.details.pickup_date || l.details.origin_pickup_date;
+                return date ? new Date(date).getTime() : Infinity;
+            };
+            const getDistance = (l: Load) => {
+                const raw = l.details.distance || l.details.trip_distance_mi || Infinity;
+                return typeof raw === 'string' ? parseFloat(raw) : raw;
+            };
+            const getDeadhead = (l: Load) => {
+                return l.details.total_deadhead_mi || Infinity;
+            };
+
+            switch (sortBy) {
+                case 'price_high':
+                    return getRate(b) - getRate(a);
+                case 'price_low':
+                    return getRate(a) - getRate(b);
+                case 'pickup_soonest':
+                    return getPickupDate(a) - getPickupDate(b);
+                case 'distance_short':
+                    return getDistance(a) - getDistance(b);
+                case 'deadhead_low':
+                    return getDeadhead(a) - getDeadhead(b);
+                case 'newest':
+                default:
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            }
+        });
+    };
+
     // --- Derive Stats (Merge Active Criteria + Load Stats) ---
     const missionStats = criteriaList.reduce((acc, criteria) => {
         acc[criteria.id] = {
@@ -147,13 +238,25 @@ export function DashboardFeed() {
 
     const missions = Object.values(missionStats);
 
-    // --- Filter Feed ---
-    const filteredLoads = selectedCriteriaId
+    // --- Filter and Sort Feed ---
+    const baseFilteredLoads = selectedCriteriaId
         ? loads.filter(l => l.search_criteria.id === selectedCriteriaId)
         : loads;
+    const filteredLoads = sortLoads(baseFilteredLoads);
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
+
+            {/* Credential Warning Banner */}
+            {credentialWarning && (
+                <div className="flex items-center gap-3 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-yellow-500">
+                    <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                    <span className="text-sm">{credentialWarning}</span>
+                    <a href="/dashboard/settings" className="ml-auto text-sm underline hover:no-underline">
+                        Reconnect
+                    </a>
+                </div>
+            )}
 
             {/* Header / Connection Pulpit */}
             <div className="flex items-center justify-between">
@@ -178,6 +281,34 @@ export function DashboardFeed() {
                         )}
                         {scanning ? 'Scanning...' : 'Scan Now'}
                     </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="gap-2">
+                                <ArrowUpDown className="h-4 w-4" />
+                                Sort
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setSortBy('newest')} className={sortBy === 'newest' ? 'bg-muted' : ''}>
+                                Newest First
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('price_high')} className={sortBy === 'price_high' ? 'bg-muted' : ''}>
+                                Price: High to Low
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('price_low')} className={sortBy === 'price_low' ? 'bg-muted' : ''}>
+                                Price: Low to High
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('pickup_soonest')} className={sortBy === 'pickup_soonest' ? 'bg-muted' : ''}>
+                                Pickup: Soonest
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('distance_short')} className={sortBy === 'distance_short' ? 'bg-muted' : ''}>
+                                Distance: Shortest
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('deadhead_low')} className={sortBy === 'deadhead_low' ? 'bg-muted' : ''}>
+                                Deadhead: Lowest
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                     {loading && <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />}
                 </div>
             </div>
@@ -339,10 +470,10 @@ export function DashboardFeed() {
                                         </div>
 
                                         <div className="flex items-center gap-6 text-sm text-muted-foreground pt-1">
-                                            {load.details.pickup_date && (
+                                            {(load.details.pickup_date || load.details.origin_pickup_date) && (
                                                 <div className="flex items-center gap-1.5">
                                                     <Calendar className="h-4 w-4" />
-                                                    {new Date(load.details.pickup_date).toLocaleDateString()}
+                                                    {new Date(load.details.pickup_date || load.details.origin_pickup_date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                                                 </div>
                                             )}
                                             <div className="flex items-center gap-1.5">
@@ -370,7 +501,22 @@ export function DashboardFeed() {
                                                     ${rpm}/mi
                                                 </Badge>
                                             )}
+                                            {load.details.total_deadhead_mi && (
+                                                <div className="text-xs text-muted-foreground mt-1">
+                                                    {load.details.total_deadhead_mi} mi deadhead
+                                                </div>
+                                            )}
                                         </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleMarkInterested(load)}
+                                            disabled={savingInterest === load.id}
+                                            className="mt-3 gap-1 text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10"
+                                        >
+                                            <Star className={cn("h-4 w-4", savingInterest === load.id && "animate-pulse")} />
+                                            {savingInterest === load.id ? 'Saving...' : 'Interested'}
+                                        </Button>
                                     </div>
                                 </div>
                             </Card>

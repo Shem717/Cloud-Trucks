@@ -58,6 +58,19 @@ create table public.found_loads (
   unique(cloudtrucks_load_id, criteria_id) -- Prevent duplicates
 );
 
+-- Interested Loads (user-marked loads for tracking)
+create table public.interested_loads (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null,  -- references auth.users(id) on delete cascade
+  cloudtrucks_load_id text not null,
+  details jsonb not null, -- Store full load details
+  status text default 'interested', -- 'interested', 'available', 'expired'
+  last_checked_at timestamp with time zone,
+  created_at timestamp with time zone default now(),
+  unique(user_id, cloudtrucks_load_id) -- Prevent duplicates per user
+);
+
 -- Indexes for performance
 create index idx_criteria_active on public.search_criteria(active);
 create index idx_loads_status on public.found_loads(status);
+create index idx_interested_loads_user on public.interested_loads(user_id);

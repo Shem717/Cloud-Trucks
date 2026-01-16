@@ -43,6 +43,9 @@ export async function POST(req: NextRequest) {
         try {
             const { decrypt } = await import('@/lib/crypto');
 
+            log(`Encrypted session cookie format: ${creds.encrypted_session_cookie?.substring(0, 50)}...`);
+            log(`Encrypted CSRF token format: ${creds.encrypted_csrf_token?.substring(0, 50)}...`);
+
             sessionCookie = decrypt(creds.encrypted_session_cookie);
             log(`Session cookie decrypted: ${sessionCookie.substring(0, 10)}...`);
 
@@ -54,6 +57,7 @@ export async function POST(req: NextRequest) {
             }
         } catch (e: any) {
             log(`Decryption error: ${e.message}`);
+            log(`Stack: ${e.stack}`);
             return NextResponse.json({ success: false, error: 'Failed to decrypt credentials', logs }, { status: 500 });
         }
 
