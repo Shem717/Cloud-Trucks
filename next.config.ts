@@ -1,19 +1,8 @@
-import withPWA from "@ducanh2912/next-pwa";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Add any other Next.js config here
-  turbopack: {}, // Silence Turbopack/webpack conflict warning
+  // Simplify for debugging
 };
 
-export default withPWA({
-  dest: "public",
-  cacheOnFrontEndNav: true,
-  aggressiveFrontEndNavCaching: true,
-  reloadOnOnline: true,
+export default nextConfig;
 
-  disable: process.env.NODE_ENV === "development",
-  workboxOptions: {
-    disableDevLogs: true,
-  },
-})(nextConfig);
