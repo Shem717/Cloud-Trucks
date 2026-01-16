@@ -126,20 +126,22 @@ export function LoadsList() {
                                         <div className="flex items-center gap-2 text-sm">
                                             <MapPin className="h-3 w-3 text-muted-foreground" />
                                             <span className="font-medium">
-                                                {load.details.origin || 'Unknown'}
+                                                {load.details.origin || `${load.details.origin_city}, ${load.details.origin_state}` || 'Unknown'}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                             <MapPin className="h-3 w-3" />
-                                            <span>{load.details.destination || 'Unknown'}</span>
+                                            <span>
+                                                {load.details.destination || `${load.details.dest_city}, ${load.details.dest_state}` || 'Unknown'}
+                                            </span>
                                         </div>
                                     </div>
                                 </TableCell>
                                 <TableCell>
-                                    {load.details.rate ? (
+                                    {(load.details.rate || load.details.trip_rate) ? (
                                         <div className="flex items-center gap-1 font-semibold text-green-600">
                                             <DollarSign className="h-4 w-4" />
-                                            {load.details.rate.toFixed(2)}
+                                            {Number(load.details.rate || load.details.trip_rate).toFixed(2)}
                                         </div>
                                     ) : (
                                         <span className="text-muted-foreground">-</span>
@@ -147,19 +149,21 @@ export function LoadsList() {
                                 </TableCell>
                                 <TableCell className="text-sm text-muted-foreground">
                                     <div className="space-y-1">
-                                        {load.details.distance && (
-                                            <div>{load.details.distance} mi</div>
+                                        {(load.details.distance || load.details.trip_distance_mi) && (
+                                            <div>{load.details.distance || load.details.trip_distance_mi} mi</div>
                                         )}
-                                        {load.details.weight && (
+                                        {(load.details.weight || load.details.truck_weight_lb) && (
                                             <div className="flex items-center gap-1">
                                                 <Weight className="h-3 w-3" />
-                                                {load.details.weight} lbs
+                                                {load.details.weight || load.details.truck_weight_lb} lbs
                                             </div>
                                         )}
                                         {load.details.equipment && (
                                             <div className="flex items-center gap-1">
                                                 <Truck className="h-3 w-3" />
-                                                {load.details.equipment}
+                                                {Array.isArray(load.details.equipment)
+                                                    ? load.details.equipment.join(', ')
+                                                    : load.details.equipment}
                                             </div>
                                         )}
                                     </div>

@@ -28,7 +28,7 @@ function getSupabaseClient() {
 /**
  * Fetch user's CloudTrucks credentials and decrypt them
  */
-async function getUserCredentials(userId: string) {
+export async function getUserCredentials(userId: string) {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
         .from('cloudtrucks_credentials')
@@ -41,7 +41,7 @@ async function getUserCredentials(userId: string) {
     }
 
     const typedData = data as any;
-    
+
     // Decrypt session cookie
     const { email, password: cookie } = await decryptCredentials(
         typedData.encrypted_email,
@@ -64,7 +64,7 @@ async function getUserCredentials(userId: string) {
 /**
  * Fetch loads from CloudTrucks using the new API + Pusher approach
  */
-async function fetchLoadsFromCloudTrucks(
+export async function fetchLoadsFromCloudTrucks(
     credentials: { email: string; cookie: string; csrfToken: string },
     criteria: any
 ): Promise<any[]> {
@@ -73,7 +73,12 @@ async function fetchLoadsFromCloudTrucks(
         const { fetchLoadsViaApi } = await import('./cloudtrucks-api-client');
 
         console.log('[SCANNER] Using API client for load fetch');
-        
+        console.log('[SCANNER] Input Criteria Details:', {
+            origin: `${criteria.origin_city}, ${criteria.origin_state}`,
+            dist: criteria.pickup_distance,
+            date: criteria.pickup_date
+        });
+
         const loads = await fetchLoadsViaApi(
             credentials.cookie,
             credentials.csrfToken,
@@ -102,7 +107,7 @@ async function fetchLoadsFromCloudTrucks(
 /**
  * Save newly found loads to database (avoiding duplicates)
  */
-async function saveNewLoads(criteriaId: string, loads: any[]) {
+export async function saveNewLoads(criteriaId: string, loads: any[]) {
     if (loads.length === 0) return 0;
 
     const supabase = getSupabaseClient();
@@ -189,7 +194,7 @@ export async function scanLoadsForUser(userId: string): Promise<{
             try {
                 console.log(`[SCANNER] Processing criteria: ${criteria.origin_city} -> ${criteria.dest_city || 'Any'}`);
                 const allLoads = await fetchLoadsFromCloudTrucks(credentials, criteria);
-                
+
                 if (allLoads && allLoads.length > 0) {
                     const savedCount = await saveNewLoads(criteria.id, allLoads);
                     totalLoadsFound += savedCount;

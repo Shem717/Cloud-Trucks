@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertCircle, CheckCircle2, Loader2, Search, ChevronDown, ChevronUp } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { cn } from "@/lib/utils"
+import { CityAutocomplete } from "@/components/city-autocomplete"
 
 interface SearchCriteriaFormProps {
     onSuccess?: () => void;
@@ -39,9 +40,14 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
     const [outcome, setOutcome] = useState<{ error?: string; success?: string } | null>(null)
     const [showFilters, setShowFilters] = useState(false)
 
+    // Controlled state for State dropdowns to allow autocomplete to update them
+    const [originState, setOriginState] = useState<string>('')
+    const [destState, setDestState] = useState<string>('')
+
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
-        const formData = new FormData(event.currentTarget)
+        const form = event.currentTarget
+        const formData = new FormData(form)
 
         startTransition(async () => {
             try {
@@ -50,19 +56,32 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                     body: formData,
                 })
 
-                const result = await response.json()
+                let result;
+                try {
+                    result = await response.json()
+                } catch (jsonError) {
+                    console.error('Failed to parse JSON response:', jsonError)
+                    const text = await response.text().catch(() => '')
+                    console.error('Raw response:', text)
+                    throw new Error(`Server returned ${response.status} ${response.statusText}`)
+                }
 
                 if (result.error) {
                     setOutcome({ error: result.error })
                 } else {
-                    setOutcome({ success: 'Added!' })
-                    event.currentTarget.reset()
+                    setOutcome({ success: 'Added! Scanning started...' })
+                    form.reset()
+                    // Reset controlled states
+                    setOriginState('')
+                    setDestState('')
+
                     router.refresh()
                     onSuccess?.()
-                    setTimeout(() => setOutcome(null), 2000)
+                    setTimeout(() => setOutcome(null), 3000)
                 }
-            } catch (error) {
-                setOutcome({ error: 'Failed to save' })
+            } catch (error: any) {
+                console.error('Form submission error:', error)
+                setOutcome({ error: error.message || 'Failed to save' })
             }
         })
     }
@@ -90,13 +109,12 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                     <div className="flex-1 min-w-[200px]">
                         <label className="text-xs text-slate-400 mb-1 block">Pickup</label>
                         <div className="flex gap-1">
-                            <Input
+                            <CityAutocomplete
                                 name="origin_city"
-                                placeholder="City"
                                 required
-                                className="flex-1 bg-slate-900/50 border-slate-600 focus:border-blue-500 h-10"
+                                onStateChange={setOriginState}
                             />
-                            <Select name="origin_state">
+                            <Select name="origin_state" value={originState} onValueChange={setOriginState}>
                                 <SelectTrigger className="w-[70px] bg-slate-900/50 border-slate-600 h-10">
                                     <SelectValue placeholder="ST" />
                                 </SelectTrigger>
@@ -117,11 +135,12 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="0">Exact</SelectItem>
                                 <SelectItem value="50">50 mi</SelectItem>
                                 <SelectItem value="100">100 mi</SelectItem>
                                 <SelectItem value="150">150 mi</SelectItem>
                                 <SelectItem value="200">200 mi</SelectItem>
+                                <SelectItem value="300">300 mi</SelectItem>
+                                <SelectItem value="400">400 mi</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -145,12 +164,12 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                     <div className="flex-1 min-w-[200px]">
                         <label className="text-xs text-slate-400 mb-1 block">Dropoff <span className="text-slate-500">(optional)</span></label>
                         <div className="flex gap-1">
-                            <Input
+                            <CityAutocomplete
                                 name="dest_city"
                                 placeholder="Anywhere"
-                                className="flex-1 bg-slate-900/50 border-slate-600 focus:border-blue-500 h-10"
+                                onStateChange={setDestState}
                             />
-                            <Select name="destination_state">
+                            <Select name="destination_state" value={destState} onValueChange={setDestState}>
                                 <SelectTrigger className="w-[70px] bg-slate-900/50 border-slate-600 h-10">
                                     <SelectValue placeholder="ST" />
                                 </SelectTrigger>
@@ -251,3 +270,4 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
         </div>
     )
 }
+

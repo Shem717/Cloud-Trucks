@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { fetchLoadsFromCloudTrucks } from '@/workers/scanner';
+import { decryptCredentials } from '@/lib/crypto';
 
 /**
  * POST /api/criteria - Create new search criteria
@@ -23,7 +26,9 @@ export async function POST(request: NextRequest) {
 
         const parseNumeric = (val: any, type: 'int' | 'float') => {
             if (!val || val.toString().trim() === '' || val === 'Any') return null;
-            const parsed = type === 'int' ? parseInt(val) : parseFloat(val);
+            // Remove ' mi', ',' or other non-numeric characters except dot
+            const cleaned = val.toString().replace(/[^0-9.]/g, '');
+            const parsed = type === 'int' ? parseInt(cleaned) : parseFloat(cleaned);
             return isNaN(parsed) ? null : parsed;
         };
 
@@ -31,6 +36,7 @@ export async function POST(request: NextRequest) {
             user_id: user.id,
             origin_city: formData.get('origin_city') as string || null,
             origin_state: formData.get('origin_state') as string || null,
+            // Fallback to 50 if null, but ensure usage of parsed result
             pickup_distance: parseNumeric(formData.get('pickup_distance'), 'int') || 50,
             pickup_date: pickupDate,
             dest_city: formData.get('dest_city') as string || null,
@@ -59,6 +65,74 @@ export async function POST(request: NextRequest) {
                 details: error
             }, { status: 500 });
         }
+
+        // --- IMMEDIATE SCAN TRIGGER (Fire-and-forget for speed) ---
+        // We do NOT await this in the main thread to prevent timeouts,
+        // but we log heavily for debugging.
+        (async () => {
+            try {
+                console.log(`[API] Triggering synchronous scan for criteria ${data.id}`);
+
+                // 1. Get Credentials (inline to use user session)
+                const { data: creds, error: credError } = await supabase
+                    .from('cloudtrucks_credentials')
+                    .select('encrypted_email, encrypted_session_cookie, encrypted_csrf_token')
+                    .eq('user_id', user.id)
+                    .single();
+
+                if (credError || !creds) {
+                    console.error('[API] No credentials found for scan');
+                    return;
+                }
+
+                const { password: cookie } = await decryptCredentials(
+                    creds.encrypted_email,
+                    creds.encrypted_session_cookie
+                );
+
+                let csrfToken = '';
+                if (creds.encrypted_csrf_token) {
+                    const { password: csrf } = await decryptCredentials('csrf', creds.encrypted_csrf_token);
+                    csrfToken = csrf;
+                }
+
+                // 2. Fetch Loads
+                const loads = await fetchLoadsFromCloudTrucks({ email: '', cookie, csrfToken }, data);
+
+                console.log(`[API] fetchLoadsFromCloudTrucks returned ${loads?.length} loads`);
+
+                // 3. Save Loads
+                if (loads && loads.length > 0) {
+                    const { data: existing } = await supabase
+                        .from('found_loads')
+                        .select('cloudtrucks_load_id')
+                        .eq('criteria_id', data.id);
+
+                    const existingIds = new Set(existing?.map((x: any) => x.cloudtrucks_load_id));
+                    const newLoads = loads.filter(l => !existingIds.has(l.id));
+
+                    if (newLoads.length > 0) {
+                        const { error: saveError } = await supabase.from('found_loads').insert(
+                            newLoads.map(load => ({
+                                criteria_id: data.id,
+                                cloudtrucks_load_id: load.id,
+                                details: load,
+                                status: 'found'
+                            }))
+                        );
+
+                        if (saveError) console.error('[API] Error saving loads:', saveError);
+                        else console.log(`[API] Saved ${newLoads.length} new loads`);
+                    } else {
+                        console.log('[API] No new loads to save (duplicates)');
+                    }
+                } else {
+                    console.log('[API] Scan found 0 loads');
+                }
+            } catch (scanError: any) {
+                console.error('[API] Background Scan failed:', scanError.message);
+            }
+        })();
 
         return NextResponse.json({ success: true, data });
 

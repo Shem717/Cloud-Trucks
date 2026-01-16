@@ -17,12 +17,20 @@ export async function GET() {
         const { data, error } = await supabase
             .from('found_loads')
             .select(`
-        *,
-        search_criteria!inner(user_id)
-      `)
+                *,
+                search_criteria!inner (
+                    id,
+                    origin_city,
+                    origin_state,
+                    dest_city,
+                    destination_state,
+                    equipment_type,
+                    user_id
+                )
+            `)
             .eq('search_criteria.user_id', user.id)
             .order('created_at', { ascending: false })
-            .limit(50);
+            .limit(100);
 
         if (error) {
             console.error('Error fetching loads:', error);
