@@ -29,7 +29,7 @@ export default function TestPage() {
         setLoads([]);
 
         try {
-            const response = await fetch('/api/test/scan', {
+            const response = await fetch('/api/debugger/scan', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ criteria }),
