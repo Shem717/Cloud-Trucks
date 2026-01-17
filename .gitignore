@@ -46,3 +46,8 @@ next-env.d.ts
 
 # server logs
 server.log
+
+# build logs
+build_*.txt
+debug-*.js
+server.log
