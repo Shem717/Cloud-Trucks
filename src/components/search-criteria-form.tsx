@@ -1,6 +1,6 @@
 'use client'
 
-import { useTransition, useState } from 'react'
+import React, { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +14,72 @@ interface SearchCriteriaFormProps {
     onSuccess?: (criteria: any) => void; // Pass the newly created criteria
 }
 
+// Field groups that manage state synchronization between city and state selectors
+function OriginFieldGroup() {
+    const [stateValue, setStateValue] = React.useState("");
+
+    const handleCityStateChange = (state: string) => {
+        if (state) {
+            setStateValue(state);
+        }
+    };
+
+    return (
+        <div className="flex-1 min-w-[200px]">
+            <label className="text-xs text-slate-400 mb-1 block">Pickup <span className="text-slate-500">(city & state)</span></label>
+            <div className="flex gap-1.5">
+                <CityAutocomplete
+                    name="origin_city"
+                    required
+                    onStateChange={handleCityStateChange}
+                    className="flex-[2]"
+                />
+                <div className="flex-1 min-w-[60px] max-w-[80px]">
+                    <Input
+                        name="origin_state"
+                        value={stateValue}
+                        onChange={(e) => setStateValue(e.target.value.toUpperCase().slice(0, 2))}
+                        placeholder="ST"
+                        maxLength={2}
+                        required
+                        className="bg-slate-900/50 border-slate-600 h-10 text-center font-bold uppercase"
+                    />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function DestinationFieldGroup() {
+    const [selectedStates, setSelectedStates] = React.useState<string[]>([]);
+
+    const handleCityStateChange = (state: string) => {
+        if (state && !selectedStates.includes(state)) {
+            setSelectedStates([state]);
+        }
+    };
+
+    return (
+        <div className="flex-1 min-w-[240px]">
+            <label className="text-xs text-slate-400 mb-1 block">Dropoff <span className="text-slate-500">(city or states/region)</span></label>
+            <div className="flex gap-1.5">
+                <CityAutocomplete
+                    name="dest_city"
+                    placeholder="Any City"
+                    onStateChange={handleCityStateChange}
+                    className="flex-[1.5]"
+                />
+                <MultiStateSelect
+                    name="destination_states"
+                    placeholder="Region/States"
+                    className="flex-1 min-w-[120px]"
+                    value={selectedStates}
+                    onChange={setSelectedStates}
+                />
+            </div>
+        </div>
+    );
+}
 
 export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
     const router = useRouter()
@@ -84,25 +150,12 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                 {/* Main Search Bar - Horizontal */}
                 <div className="flex flex-wrap items-end gap-3 p-4 rounded-xl bg-gradient-to-r from-slate-800/80 to-slate-900/80 border border-slate-700/50 backdrop-blur-sm shadow-xl">
                     {/* Origin */}
-                    <div className="flex-1 min-w-[200px]">
-                        <label className="text-xs text-slate-400 mb-1 block">Pickup <span className="text-slate-500">(state/region)</span></label>
-                        <div className="flex gap-1">
-                            <CityAutocomplete
-                                name="origin_city"
-                                required
-                            />
-                            <MultiStateSelect
-                                name="origin_states"
-                                placeholder="States"
-                                className="w-[120px]"
-                            />
-                        </div>
-                    </div>
+                    <OriginFieldGroup />
 
                     {/* Radius */}
-                    <div className="w-[110px]">
-                        <label className="text-xs text-slate-400 mb-1 block">Radius</label>
-                        <select name="pickup_distance" defaultValue="50" className="flex h-10 w-full rounded-md border border-slate-600 bg-slate-900/50 px-3 py-1 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-400">
+                    <div className="w-[100px]">
+                        <label className="text-xs text-slate-400 mb-1.5 block font-medium">Radius</label>
+                        <select name="pickup_distance" defaultValue="50" className="flex h-10 w-full rounded-md border border-slate-600 bg-slate-900/50 px-3 py-1 text-sm text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all">
                             <option value="50">50 mi</option>
                             <option value="100">100 mi</option>
                             <option value="150">150 mi</option>
@@ -113,35 +166,22 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                     </div>
 
                     {/* Pickup Date */}
-                    <div className="w-[130px]">
-                        <label className="text-xs text-slate-400 mb-1 block">Date</label>
+                    <div className="w-[140px]">
+                        <label className="text-xs text-slate-400 mb-1.5 block font-medium">Date</label>
                         <Input
                             type="date"
                             name="pickup_date"
-                            className="bg-slate-900/50 border-slate-600 h-10 text-slate-300"
+                            className="bg-slate-900/50 border-slate-600 h-10 text-slate-300 focus:border-blue-500"
                         />
                     </div>
 
                     {/* Arrow Divider */}
-                    <div className="hidden sm:flex items-center justify-center text-blue-400 text-2xl font-light pb-1">
-                        →
+                    <div className="hidden xl:flex items-center justify-center text-slate-600 pb-1 px-1">
+                        <div className="w-4 h-[1px] bg-slate-700"></div>
                     </div>
 
                     {/* Destination */}
-                    <div className="flex-1 min-w-[200px]">
-                        <label className="text-xs text-slate-400 mb-1 block">Dropoff <span className="text-slate-500">(optional, state/region)</span></label>
-                        <div className="flex gap-1">
-                            <CityAutocomplete
-                                name="dest_city"
-                                placeholder="Anywhere"
-                            />
-                            <MultiStateSelect
-                                name="destination_states"
-                                placeholder="States"
-                                className="w-[120px]"
-                            />
-                        </div>
-                    </div>
+                    <DestinationFieldGroup />
 
                     {/* More Filters Toggle */}
                     <Button

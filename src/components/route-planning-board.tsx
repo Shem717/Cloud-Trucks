@@ -51,7 +51,7 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
         if (ids.length === 0) return;
 
         if (action === 'delete') {
-            if (!confirm(`Permanently delete ${ids.length} routes?`)) return;
+            // Confirmation removed as per user request
             try {
                 await fetch(`/api/interested?ids=${ids.join(',')}`, { method: 'DELETE' });
                 setDeletedIds(prev => {
@@ -85,6 +85,8 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
     const handleDeleteInterested = async (id: string) => {
         // Soft Delete (to Trash) by default now
         setDeletedIds(prev => new Set(prev).add(id));
+        if (selectedIds.has(id)) toggleSelection(id); // Unselect if it was selected, matching Interested page behavior
+
         try {
             await fetch('/api/interested', {
                 method: 'PATCH',
@@ -291,12 +293,13 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
                                         <Button
                                             type="button"
                                             variant="ghost"
-                                            size="icon"
-                                            className="text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                            size="sm"
+                                            className="h-9 gap-1 border text-yellow-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 border-yellow-500/20 px-3"
                                             onClick={() => handleDeleteInterested(savedLoad.id)}
-                                            title="Remove Leg"
+                                            title="Move to Trash"
                                         >
-                                            <Trash2 className="h-4 w-4 pointer-events-none" />
+                                            <Trash2 className="h-4 w-4" />
+                                            <span className="text-xs font-semibold">Remove</span>
                                         </Button>
                                     </div>
                                 </div>
@@ -368,12 +371,13 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
                                                             <Button
                                                                 type="button"
                                                                 variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                                                size="sm"
+                                                                className="h-8 gap-1 border text-yellow-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 border-yellow-500/20 px-2"
                                                                 onClick={() => handleDeleteCriteria(criteria.id)}
                                                                 title="Stop Scanning (Move to Trash)"
                                                             >
-                                                                <Trash2 className="h-4 w-4 pointer-events-none" />
+                                                                <Trash2 className="h-4 w-4" />
+                                                                <span className="text-[10px] font-semibold uppercase">Remove</span>
                                                             </Button>
                                                         </div>
                                                     </div>
