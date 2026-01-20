@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchLoadsViaApi, SearchCriteria } from '@/workers/cloudtrucks-api-client';
-import { decryptCredentials } from '@/lib/crypto';
 import { createClient } from '@/utils/supabase/server';
 
 export async function POST(req: NextRequest) {
@@ -43,15 +42,12 @@ export async function POST(req: NextRequest) {
         try {
             const { decrypt } = await import('@/lib/crypto');
 
-            log(`Encrypted session cookie format: ${creds.encrypted_session_cookie?.substring(0, 50)}...`);
-            log(`Encrypted CSRF token format: ${creds.encrypted_csrf_token?.substring(0, 50)}...`);
-
             sessionCookie = decrypt(creds.encrypted_session_cookie);
-            log(`Session cookie decrypted: ${sessionCookie.substring(0, 10)}...`);
+            log('Session cookie decrypted');
 
             if (creds.encrypted_csrf_token) {
                 csrfToken = decrypt(creds.encrypted_csrf_token);
-                log(`CSRF token decrypted: ${csrfToken.substring(0, 10)}...`);
+                log('CSRF token decrypted');
             } else {
                 log('WARNING: No CSRF token found in database.');
             }
@@ -65,8 +61,6 @@ export async function POST(req: NextRequest) {
         }
 
         log(`Starting test scan for ${criteria.origin_city} -> ${criteria.dest_city || 'Anywhere'}`);
-        log(`Using Session Cookie: ${sessionCookie.substring(0, 10)}...`);
-        log(`Using CSRF Token: ${csrfToken ? csrfToken.substring(0, 10) + '...' : 'NONE'}`);
 
         // Call API
         const loads = await fetchLoadsViaApi(sessionCookie, csrfToken, criteria, 15000, log);

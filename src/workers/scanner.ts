@@ -1,12 +1,18 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// @ts-nocheck
+
 import { createClient } from '@supabase/supabase-js';
 import { decrypt } from '@/lib/crypto';
-
-//  @ts-nocheck - Disable type checking for Supabase client until types are generated
 import { CloudTrucksLoad, SearchCriteria } from './cloudtrucks-api-client';
 
 // Lazy initialization to avoid build-time errors
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let supabase: any | null = null;
+
+const USER_CRITERIA_TABLE = 'search_criteria';
+const USER_FOUND_TABLE = 'found_loads';
+const GUEST_CRITERIA_TABLE = 'guest_search_criteria';
+const GUEST_FOUND_TABLE = 'guest_found_loads';
 
 function getSupabaseClient() {
     if (!supabase) {
@@ -39,8 +45,7 @@ interface UserCredentials {
 /**
  * Fetch user's CloudTrucks credentials and decrypt them
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function getUserCredentials(userId: string, supabaseClient?: any): Promise<UserCredentials> {
+export async function getUserCredentials(userId: string, supabaseClient?: SupabaseClient<Database>): Promise<UserCredentials> {
     const supabase = supabaseClient || getSupabaseClient();
     const { data, error } = await supabase
         .from('cloudtrucks_credentials')
@@ -48,8 +53,7 @@ export async function getUserCredentials(userId: string, supabaseClient?: any): 
         .eq('user_id', userId)
         .single();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const typedData = data as any;
+    const typedData = data as Database['public']['Tables']['cloudtrucks_credentials']['Row'] | null;
 
     if (error || !typedData) {
         throw new Error(`No credentials found for user ${userId}`);
@@ -59,13 +63,10 @@ export async function getUserCredentials(userId: string, supabaseClient?: any): 
     const email = decrypt(typedData.encrypted_email);
     const cookie = decrypt(typedData.encrypted_session_cookie);
 
-    console.log(`[SCANNER] Decrypted session cookie: ${cookie.substring(0, 10)}...`);
-
     // Decrypt CSRF token if available
     let csrfToken = '';
     if (data.encrypted_csrf_token) {
         csrfToken = decrypt(data.encrypted_csrf_token);
-        console.log(`[SCANNER] Decrypted CSRF token: ${csrfToken.substring(0, 10)}...`);
     }
 
     return { email, cookie, csrfToken };
@@ -162,7 +163,7 @@ export async function saveNewLoads(criteriaId: string, loads: CloudTrucksLoad[],
     // Get existing load IDs for this criteria
 
     const { data: existingLoads } = await supabase
-        .from('found_loads')
+        .from(USER_FOUND_TABLE)
         .select('cloudtrucks_load_id')
         .eq('criteria_id', criteriaId);
 
@@ -179,7 +180,7 @@ export async function saveNewLoads(criteriaId: string, loads: CloudTrucksLoad[],
 
     // Insert new loads
     const { error } = await supabase
-        .from('found_loads')
+        .from(USER_FOUND_TABLE)
         .insert(
             newLoads.map(load => ({
                 criteria_id: criteriaId,
@@ -218,7 +219,7 @@ export async function scanLoadsForUser(userId: string, supabaseClient?: any): Pr
         // 2. Get user's active search criteria
         const supabase = supabaseClient || getSupabaseClient();
         const { data: criteriaList, error: criteriaError } = await supabase
-            .from('search_criteria')
+            .from(USER_CRITERIA_TABLE)
             .select('*')
             .eq('user_id', userId)
             .eq('active', true);
@@ -284,6 +285,156 @@ export async function scanLoadsForUser(userId: string, supabaseClient?: any): Pr
             loadsFound: 0,
             error: message,
         };
+    }
+}
+
+type GuestAdminCredentials = {
+    cookie: string;
+    csrfToken: string;
+};
+
+async function getGuestAdminCredentials(supabase: any): Promise<GuestAdminCredentials> {
+    const { data, error } = await supabase
+        .from('cloudtrucks_credentials')
+        .select('encrypted_session_cookie, encrypted_csrf_token')
+        .eq('is_valid', true)
+        .order('last_validated_at', { ascending: false })
+        .limit(1)
+        .single();
+
+    if (error || !data) {
+        throw new Error('No valid CloudTrucks credentials available for guest sandbox scans');
+    }
+
+    const cookie = decrypt(data.encrypted_session_cookie);
+    const csrfToken = data.encrypted_csrf_token ? decrypt(data.encrypted_csrf_token) : '';
+
+    return { cookie, csrfToken };
+}
+
+// Save guest loads in guest_found_loads, avoiding duplicates.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function saveNewGuestLoads(criteriaId: string, loads: CloudTrucksLoad[], supabaseClient: any) {
+    if (loads.length === 0) return 0;
+
+    const { data: existingLoads } = await supabaseClient
+        .from(GUEST_FOUND_TABLE)
+        .select('cloudtrucks_load_id')
+        .eq('criteria_id', criteriaId);
+
+    const existingIds = new Set((existingLoads || []).map((l: any) => l.cloudtrucks_load_id));
+    const newLoads = loads.filter(load => !existingIds.has(load.id));
+
+    if (newLoads.length === 0) return 0;
+
+    // Cap guest storage per criteria to reduce abuse.
+    const capped = newLoads.slice(0, 200);
+
+    const { error } = await supabaseClient
+        .from(GUEST_FOUND_TABLE)
+        .insert(
+            capped.map(load => ({
+                criteria_id: criteriaId,
+                cloudtrucks_load_id: load.id,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                details: (load.raw || load) as any,
+                status: 'found',
+            }))
+        );
+
+    if (error) throw error;
+    return capped.length;
+}
+
+export async function scanLoadsForGuestSession(guestSession: string): Promise<{
+    success: boolean;
+    loadsFound: number;
+    error?: string;
+}> {
+    try {
+        const supabase = getSupabaseClient();
+
+        const fourDaysAgo = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString();
+
+        const { data: criteriaList, error: criteriaError } = await supabase
+            .from(GUEST_CRITERIA_TABLE)
+            .select('*')
+            .eq('guest_session', guestSession)
+            .eq('active', true)
+            .is('deleted_at', null)
+            // TTL safety: ignore very old guest criteria
+            .gte('created_at', fourDaysAgo)
+            .limit(10);
+
+        if (criteriaError) throw criteriaError;
+        if (!criteriaList || criteriaList.length === 0) {
+            return { success: true, loadsFound: 0 };
+        }
+
+        // Simple scan throttle: if any criteria was scanned in the last minute, block.
+        const mostRecentScan = (criteriaList || [])
+            .map((c) => c.last_scanned_at)
+            .filter(Boolean)
+            .map((d: string) => new Date(d).getTime())
+            .sort((a: number, b: number) => b - a)[0];
+
+        if (mostRecentScan && Date.now() - mostRecentScan < 60_000) {
+            return {
+                success: false,
+                loadsFound: 0,
+                error: 'Guest scans are rate-limited. Please wait a moment and try again.',
+            };
+        }
+
+        const adminCreds = await getGuestAdminCredentials(supabase);
+        const credentials = { email: 'guest', cookie: adminCreds.cookie, csrfToken: adminCreds.csrfToken };
+
+        let totalLoadsFound = 0;
+
+        for (const criteria of (criteriaList || [])) {
+            // Mark scanning
+            await supabase
+                .from(GUEST_CRITERIA_TABLE)
+                .update({
+                    last_scanned_at: new Date().toISOString(),
+                    scan_status: 'scanning',
+                    scan_error: null,
+                })
+                .eq('id', criteria.id)
+                .eq('guest_session', guestSession);
+
+            try {
+                const loads = await fetchLoadsFromCloudTrucks(credentials, criteria);
+                const saved = await saveNewGuestLoads(criteria.id, loads || [], supabase);
+                totalLoadsFound += saved;
+
+                await supabase
+                    .from(GUEST_CRITERIA_TABLE)
+                    .update({
+                        scan_status: 'success',
+                        last_scan_loads_found: saved,
+                        scan_error: null,
+                    })
+                    .eq('id', criteria.id)
+                    .eq('guest_session', guestSession);
+            } catch (e: unknown) {
+                const message = e instanceof Error ? e.message : String(e);
+                await supabase
+                    .from(GUEST_CRITERIA_TABLE)
+                    .update({
+                        scan_status: 'error',
+                        scan_error: message,
+                        last_scan_loads_found: 0,
+                    })
+                    .eq('id', criteria.id)
+                    .eq('guest_session', guestSession);
+            }
+        }
+
+        return { success: true, loadsFound: totalLoadsFound };
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { success: false, loadsFound: 0, error: message };
     }
 }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { scanLoadsForUser } from '@/workers/scanner';
+import { scanLoadsForGuestSession, scanLoadsForUser } from '@/workers/scanner';
+import { getRequestContext } from '@/lib/request-context';
 
 /**
  * POST /api/scan - Manually trigger a scan for the current user's active criteria
@@ -8,16 +9,17 @@ import { scanLoadsForUser } from '@/workers/scanner';
 export async function POST(request: NextRequest) {
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
 
-        if (!user) {
+        const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
+
+        if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        console.log(`[API] Manual scan triggered for user ${user.id}`);
-
         // Run the scan
-        const result = await scanLoadsForUser(user.id, supabase);
+        const result = isGuest
+            ? await scanLoadsForGuestSession(guestSession as string)
+            : await scanLoadsForUser(userId as string, supabase);
 
         if (result.success) {
             return NextResponse.json({

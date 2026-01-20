@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createClient as createServerClient } from '@/utils/supabase/server';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createSupabaseClient(supabaseUrl, supabaseKey);
 
 // Chain law level descriptions
 const chainLevelDescriptions: Record<string, string> = {
@@ -68,6 +69,18 @@ export async function GET(request: NextRequest) {
 // POST endpoint to update chain law status (for admin use)
 export async function POST(request: NextRequest) {
     try {
+        // Admin guard (API-enforced)
+        const serverSupabase = await createServerClient();
+        const { data: { user } } = await serverSupabase.auth.getUser();
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const adminEmail = process.env.ADMIN_EMAIL;
+        if (!adminEmail || user.email?.toLowerCase() !== adminEmail.toLowerCase()) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         const body = await request.json();
         const { id, status } = body;
 

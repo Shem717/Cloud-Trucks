@@ -18,7 +18,7 @@ interface SavedLoad {
     cloudtrucks_load_id: string;
     status: string;
     created_at: string;
-    details: CloudTrucksLoad & Record<string, any>;
+    details: CloudTrucksLoad & Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 interface RoutePlanningBoardProps {

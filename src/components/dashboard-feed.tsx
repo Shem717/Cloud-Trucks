@@ -25,7 +25,7 @@ interface SavedLoad {
     cloudtrucks_load_id?: string;
     created_at: string;
     status: string;
-    details: CloudTrucksLoad & Record<string, any>;
+    details: CloudTrucksLoad & Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
     search_criteria?: {
         id: string;
         origin_city: string;
@@ -62,6 +62,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
     const [selectedCriteriaId, setSelectedCriteriaId] = useState<string | null>(null)
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
     const [criteriaList, setCriteriaList] = useState<EnrichedCriteria[]>([])
+    const [activeCriteriaCount, setActiveCriteriaCount] = useState<number>(0)
     const [sortBy, setSortBy] = useState<SortOption>('newest')
     const [viewMode, setViewMode] = useState<'feed' | 'trash'>('feed');
     // const [visibleLoads, setVisibleLoads] = useState<SavedLoad[]>([]); // Removed unused
@@ -74,6 +75,75 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
     const [selectedScoutIds, setSelectedScoutIds] = useState<Set<string>>(new Set())
     const [selectedBackhaulIds, setSelectedBackhaulIds] = useState<Set<string>>(new Set())
 
+
+    const checkCredentials = useCallback(async () => {
+        try {
+            const res = await fetch('/api/credentials/status');
+            const result = await res.json();
+            if (!result.hasCredentials) {
+                setCredentialWarning('No CloudTrucks credentials found. Please connect your account.');
+            } else if (!result.isValid) {
+                setCredentialWarning('Your CloudTrucks session has expired. Please reconnect.');
+            } else {
+                setCredentialWarning(null);
+            }
+        } catch (error) {
+            console.error('Failed to check credentials:', error);
+        }
+    }, []);
+
+    const fetchData = useCallback(async () => {
+        setLoading(true)
+        try {
+            // Fetch criteria based on viewMode
+            const criteriaUrl = viewMode === 'trash' ? '/api/criteria?view=trash' : '/api/criteria';
+
+            const [loadsRes, criteriaRes, interestedRes] = await Promise.all([
+                fetch('/api/loads'),
+                fetch(criteriaUrl),
+                fetch('/api/interested')
+            ])
+
+            const loadsResult = await loadsRes.json()
+            const criteriaResult = await criteriaRes.json()
+            const interestedResult = await interestedRes.json()
+
+            const loadsData: SavedLoad[] = loadsResult.data || [];
+            const criteriaData: EnrichedCriteria[] = criteriaResult.data || [];
+
+            setLoads(loadsData);
+            setCriteriaList(criteriaData);
+
+            // Stats: in "trash" view, criteriaData is deleted criteria; fetch active criteria count once.
+            if (viewMode === 'trash') {
+                try {
+                    const activeCriteriaRes = await fetch('/api/criteria');
+                    const activeCriteriaJson = await activeCriteriaRes.json();
+                    const activeList: EnrichedCriteria[] = activeCriteriaJson.data || [];
+                    setActiveCriteriaCount(activeList.filter((c) => c.active).length);
+                } catch (e) {
+                    console.error('Failed to fetch active criteria:', e);
+                    setActiveCriteriaCount(0);
+                }
+            } else {
+                setActiveCriteriaCount(criteriaData.filter((c) => c.active).length);
+            }
+
+            if (interestedResult.loads) {
+                setInterestedCount(interestedResult.loads.length)
+                // Also populate savedLoadIds set for UI feedback
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const ids = new Set<string>(interestedResult.loads.map((l: any) => l.cloudtrucks_load_id));
+                setSavedLoadIds(ids);
+            }
+
+            setLastUpdated(new Date())
+        } catch (error) {
+            console.error('Failed to fetch dashboard data:', error)
+        } finally {
+            setLoading(false)
+        }
+    }, [viewMode]);
 
     useEffect(() => {
         // Set initial date on mount to avoid hydration mismatch
@@ -127,77 +197,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
         return () => {
             // supabase.removeChannel(channel) // Removed as per refactor
         }
-    }, [refreshTrigger]) // Re-run when refreshTrigger changes
-
-    const checkCredentials = async () => {
-        try {
-            const res = await fetch('/api/credentials/status');
-            const result = await res.json();
-            if (!result.hasCredentials) {
-                setCredentialWarning('No CloudTrucks credentials found. Please connect your account.');
-            } else if (!result.isValid) {
-                setCredentialWarning('Your CloudTrucks session has expired. Please reconnect.');
-            } else {
-                setCredentialWarning(null);
-            }
-        } catch (error) {
-            console.error('Failed to check credentials:', error);
-        }
-    };
-
-    const fetchData = useCallback(async () => {
-        setLoading(true)
-        try {
-            // Fetch criteria based on viewMode
-            const criteriaUrl = viewMode === 'trash' ? '/api/criteria?view=trash' : '/api/criteria';
-
-            const [loadsRes, criteriaRes, interestedRes] = await Promise.all([
-                fetch('/api/loads'),
-                fetch(criteriaUrl),
-                fetch('/api/interested')
-            ])
-
-            const loadsResult = await loadsRes.json()
-            const criteriaResult = await criteriaRes.json()
-            const interestedResult = await interestedRes.json()
-
-            const loadsData: SavedLoad[] = loadsResult.data || [];
-            const criteriaData: EnrichedCriteria[] = criteriaResult.data || [];
-
-            setLoads(loadsData);
-            setCriteriaList(criteriaData);
-
-            if (interestedResult.loads) {
-                setInterestedCount(interestedResult.loads.length)
-                // Also populate savedLoadIds set for UI feedback
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const ids = new Set<string>(interestedResult.loads.map((l: any) => l.cloudtrucks_load_id));
-                setSavedLoadIds(ids);
-            }
-
-            // Fetch GLOBAL counts for stats cards (regardless of viewMode)
-            const [globalCriteriaRes, globalLoadsRes] = await Promise.all([
-                fetch('/api/criteria'), // Always fetch active criteria
-                fetch('/api/loads')     // Always fetch all loads
-            ]);
-            const globalCriteria = await globalCriteriaRes.json();
-            const globalLoadsData = await globalLoadsRes.json();
-
-            if (globalCriteria.data) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                setGlobalActiveCount(globalCriteria.data.filter((c: any) => c.active).length);
-            }
-            if (globalLoadsData.data) {
-                setGlobalLoadsCount(globalLoadsData.data.length);
-            }
-
-            setLastUpdated(new Date())
-        } catch (error) {
-            console.error('Failed to fetch dashboard data:', error)
-        } finally {
-            setLoading(false)
-        }
-    }, [viewMode]); // Dependencies for useCallback
+    }, [refreshTrigger, fetchData, checkCredentials]) // Re-run when refreshTrigger changes
 
     // Effect to re-fetch when viewMode changes
     useEffect(() => {
@@ -407,6 +407,13 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
             const result = await res.json();
             if (res.ok) {
                 console.log('Backhaul criteria created:', result);
+                // Trigger scan explicitly so the new backhaul fills immediately.
+                try {
+                    await fetch('/api/scan', { method: 'POST' });
+                } catch {
+                    // Non-fatal; user can still click "Scan Now".
+                }
+
                 fetchData(); // Refresh to show new mission
             } else {
                 console.error('Failed to create backhaul:', result.error);
@@ -518,14 +525,10 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
         : loads;
     const filteredLoads = sortLoads(baseFilteredLoads);
 
-    // Calculate Stats - Always show GLOBAL counts, not filtered by viewMode
-    // Active scouts = criteria where active=true AND deleted_at is null
-    // Note: When in Trash view, criteriaList contains deleted items, so we need to track separately
-    const [globalActiveCount, setGlobalActiveCount] = useState<number>(0);
-    const [globalLoadsCount, setGlobalLoadsCount] = useState<number>(0);
+
 
     // activeScoutsCount for CURRENT view (used by mission cards below)
-    const activeScoutsCount = criteriaList.filter(c => c.active).length;
+    const activeScoutsCount = activeCriteriaCount;
     const totalLoadsCount = loads.length;
 
     return (
@@ -548,7 +551,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                         <Search className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{globalActiveCount}</div>
+                        <div className="text-2xl font-bold">{activeScoutsCount}</div>
                         <p className="text-xs text-muted-foreground">Automated scan criteria</p>
                     </CardContent>
                 </Card>
@@ -558,7 +561,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                         <Truck className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{globalLoadsCount}</div>
+                        <div className="text-2xl font-bold">{totalLoadsCount}</div>
                         <p className="text-xs text-muted-foreground">Matching your criteria</p>
                     </CardContent>
                 </Card>
@@ -586,7 +589,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
             )}
 
             {/* Header / Connection Pulpit */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight">
                         {viewMode === 'trash' ? 'Trash Bin' : 'Active Scouts'}
@@ -598,8 +601,8 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                         }
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="flex bg-muted/50 p-1 rounded-lg border mr-2">
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex bg-muted/50 p-1 rounded-lg border">
                         <button
                             onClick={() => setViewMode('feed')}
                             className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all", viewMode === 'feed' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
@@ -677,12 +680,12 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
 
             {/* --- SCOUTS DECK --- */}
             <div className="w-full pb-4">
-                <div className="flex flex-wrap gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* 'All' Card */}
                     <button
                         onClick={() => setSelectedCriteriaId(null)}
                         className={cn(
-                            "flex flex-col items-start justify-between rounded-xl border p-4 w-[180px] h-[120px] transition-all hover:scale-105 focus:outline-none focus:ring-2 ring-primary/20",
+                            "flex w-full flex-col items-start justify-between rounded-xl border p-4 min-h-[120px] transition-all hover:scale-105 focus:outline-none focus:ring-2 ring-primary/20",
                             !selectedCriteriaId
                                 ? "bg-primary text-primary-foreground shadow-lg scale-105 border-primary"
                                 : "bg-background hover:bg-muted/50"
@@ -700,7 +703,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
 
                     {/* Batch Action Bar for Scouts (Trash Mode Only) */}
                     {viewMode === 'trash' && scoutMissions.length > 0 && (
-                        <div className="flex items-center justify-between bg-muted/20 p-2 rounded-lg border w-full">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-muted/20 p-2 rounded-lg border w-full col-span-full">
                             <div className="flex items-center gap-2">
                                 <input
                                     type="checkbox"
@@ -713,7 +716,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                 </span>
                             </div>
                             {selectedScoutIds.size > 0 && (
-                                <div className="flex gap-2">
+                                <div className="flex flex-wrap gap-2">
                                     <Button
                                         size="sm"
                                         variant="outline"
@@ -740,7 +743,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                         <div
                             key={mission.criteria.id}
                             className={cn(
-                                "relative flex flex-col items-start justify-between rounded-xl border w-[240px] h-[120px] transition-all hover:scale-105 focus-within:ring-2 ring-primary/20 group",
+                                "relative flex w-full flex-col items-start justify-between rounded-xl border min-h-[120px] transition-all hover:scale-105 focus-within:ring-2 ring-primary/20 group",
                                 viewMode === 'trash' ? "p-4 pl-8" : "p-4",
                                 selectedCriteriaId === mission.criteria.id
                                     ? "bg-slate-800 text-white shadow-lg scale-105 border-slate-600 ring-2 ring-slate-400"
@@ -894,12 +897,12 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                         )}
 
                         <div className="w-full overflow-x-auto pb-4 scrollbar-hide">
-                            <div className="flex w-max space-x-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:flex lg:w-max lg:gap-0 lg:space-x-4">
                                 {backhaulMissions.map((mission) => (
                                     <div
                                         key={mission.criteria.id}
                                         className={cn(
-                                            "relative flex flex-col items-start justify-between rounded-xl border w-[240px] h-[100px] transition-all hover:scale-105 focus-within:ring-2 ring-indigo-500/20 group",
+                                            "relative flex w-full flex-col items-start justify-between rounded-xl border min-h-[100px] transition-all hover:scale-105 focus-within:ring-2 ring-indigo-500/20 group lg:w-[240px]",
                                             viewMode === 'trash' ? "p-4 pl-8" : "p-4",
                                             selectedCriteriaId === mission.criteria.id
                                                 ? "bg-indigo-950/40 text-white shadow-lg scale-105 border-indigo-500 ring-2 ring-indigo-500"
@@ -1043,16 +1046,16 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-4">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2 text-lg font-semibold">
-                                                    <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></span>
-                                                    {origin}
-                                                    {load.details.origin_address && (
-                                                        <span className="block text-xs font-normal text-muted-foreground truncate max-w-[150px]">
-                                                            {load.details.origin_address}
-                                                        </span>
-                                                    )}
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                            <div className="flex-1">
+                                <div className="flex flex-wrap items-center gap-2 text-lg font-semibold">
+                                    <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></span>
+                                    {origin}
+                                    {load.details.origin_address && (
+                                        <span className="block text-xs font-normal text-muted-foreground truncate max-w-[200px]">
+                                            {load.details.origin_address}
+                                        </span>
+                                    )}
                                                     <WeatherBadge
                                                         lat={load.details.origin_lat}
                                                         lon={load.details.origin_lon}
@@ -1062,42 +1065,42 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                                     />
                                                 </div>
                                             </div>
-                                            <div className="flex flex-col items-center px-4">
-                                                <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                                                    {dist ? `${dist.toFixed(0)} mi Loaded` : '---'}
-                                                </span>
-                                                <div className="w-24 h-[1px] bg-border my-1 relative">
-                                                    <div className="absolute right-0 -top-[3px] w-0 h-0 border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent border-l-[6px] border-l-border"></div>
-                                                </div>
-                                            </div>
-                                            <div className="flex-1 text-right">
-                                                <div className="flex items-center justify-end gap-2 text-lg font-semibold">
-                                                    <WeatherBadge
-                                                        lat={load.details.dest_lat}
-                                                        lon={load.details.dest_lon}
-                                                        city={load.details.dest_city}
-                                                        state={load.details.dest_state}
-                                                        size="sm"
-                                                    />
-                                                    <div>
-                                                        {dest}
-                                                        {load.details.dest_address && (
-                                                            <span className="block text-xs font-normal text-muted-foreground truncate max-w-[150px] text-right">
-                                                                {load.details.dest_address}
-                                                            </span>
-                                                        )}
-                                                    </div>
+                            <div className="flex flex-col items-center px-4 sm:px-2">
+                                <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                                    {dist ? `${dist.toFixed(0)} mi Loaded` : '---'}
+                                </span>
+                                <div className="w-24 h-[1px] bg-border my-1 relative">
+                                    <div className="absolute right-0 -top-[3px] w-0 h-0 border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent border-l-[6px] border-l-border"></div>
+                                </div>
+                            </div>
+                            <div className="flex-1 sm:text-right">
+                                <div className="flex flex-wrap items-center gap-2 text-lg font-semibold sm:justify-end">
+                                    <WeatherBadge
+                                        lat={load.details.dest_lat}
+                                        lon={load.details.dest_lon}
+                                        city={load.details.dest_city}
+                                        state={load.details.dest_state}
+                                        size="sm"
+                                    />
+                                    <div>
+                                        {dest}
+                                        {load.details.dest_address && (
+                                            <span className="block text-xs font-normal text-muted-foreground truncate max-w-[200px] sm:text-right">
+                                                {load.details.dest_address}
+                                            </span>
+                                        )}
+                                    </div>
 
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-6 text-sm text-muted-foreground pt-1">
-                                            {(load.details.pickup_date || load.details.origin_pickup_date) && (
-                                                <div className="flex items-center gap-1.5 text-green-700 font-medium">
-                                                    <Calendar className="h-4 w-4" />
-                                                    <span>Pick: {new Date(load.details.pickup_date || load.details.origin_pickup_date).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                                                </div>
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground pt-1 sm:gap-6">
+                            {(load.details.pickup_date || load.details.origin_pickup_date) && (
+                                <div className="flex items-center gap-1.5 text-green-700 font-medium">
+                                    <Calendar className="h-4 w-4" />
+                                    <span>Pick: {new Date(load.details.pickup_date || load.details.origin_pickup_date).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
                                             )}
                                             {deliveryDate ? (
                                                 <div className="flex items-center gap-1.5 text-blue-700 font-medium">
@@ -1124,10 +1127,10 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                     </div>
 
                                     {/* Right: Rate & Action */}
-                                    <div className="flex md:flex-col items-center justify-center p-5 bg-muted/30 border-t md:border-t-0 md:border-l min-w-[180px]">
-                                        <div className="text-center">
-                                            <div className="text-3xl font-bold text-green-600 flex items-center justify-center">
-                                                <span className="text-lg mr-0.5">$</span>
+                    <div className="flex flex-col items-stretch justify-center p-5 bg-muted/30 border-t md:border-t-0 md:border-l md:min-w-[180px]">
+                        <div className="text-center">
+                            <div className="text-3xl font-bold text-green-600 flex items-center justify-center">
+                                <span className="text-lg mr-0.5">$</span>
                                                 {rate?.toFixed(0) || '---'}
                                             </div>
                                             {rpm && (

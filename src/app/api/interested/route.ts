@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { getRequestContext } from '@/lib/request-context';
+
+const USER_INTERESTED_TABLE = 'interested_loads';
+const USER_FOUND_TABLE = 'found_loads';
+const GUEST_INTERESTED_TABLE = 'guest_interested_loads';
+const GUEST_FOUND_TABLE = 'guest_found_loads';
 
 /**
  * GET /api/interested - Fetch user's interested loads
@@ -7,20 +13,23 @@ import { createClient } from '@/utils/supabase/server';
 export async function GET(request: NextRequest) {
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        const guestSession = request.cookies.get('guest_session')?.value;
+        const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
 
-        if (!user && !guestSession) {
+        if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const userId = user?.id || guestSession;
+        const interestedTable = isGuest ? GUEST_INTERESTED_TABLE : USER_INTERESTED_TABLE;
+        const foundTable = isGuest ? GUEST_FOUND_TABLE : USER_FOUND_TABLE;
+        const ownerKey = isGuest ? 'guest_session' : 'user_id';
+        const ownerValue = isGuest ? guestSession : userId;
+        const criteriaJoin = isGuest ? 'guest_search_criteria' : 'search_criteria';
 
         // Fetch interested loads
         const { data: interestedLoads, error: interestedError } = await supabase
-            .from('interested_loads')
+            .from(interestedTable)
             .select('id, cloudtrucks_load_id, details, status, created_at')
-            .eq('user_id', userId)
+            .eq(ownerKey, ownerValue)
             .eq('status', 'interested')
             .order('created_at', { ascending: false });
 
@@ -36,9 +45,11 @@ export async function GET(request: NextRequest) {
         const foundLoadsMap: Record<string, unknown> = {};
         if (loadIds.length > 0) {
             const { data: foundLoads, error: foundError } = await supabase
-                .from('found_loads')
-                .select('cloudtrucks_load_id, details, created_at')
+                .from(foundTable)
+                // Filter to ONLY the current user/guest's loads to avoid cross-tenant leakage
+                .select(`cloudtrucks_load_id, details, created_at, ${criteriaJoin}!inner(${ownerKey})`)
                 .in('cloudtrucks_load_id', loadIds)
+                .eq(`${criteriaJoin}.${ownerKey}`, ownerValue)
                 .order('created_at', { ascending: false });
 
             if (foundError) {
@@ -109,14 +120,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        const guestSession = request.cookies.get('guest_session')?.value;
+        const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
 
-        if (!user && !guestSession) {
+        if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const userId = user?.id || guestSession;
+        const interestedTable = isGuest ? GUEST_INTERESTED_TABLE : USER_INTERESTED_TABLE;
+        const ownerKey = isGuest ? 'guest_session' : 'user_id';
+        const ownerValue = isGuest ? guestSession : userId;
 
         const body = await request.json();
         const { cloudtrucks_load_id, details } = body;
@@ -130,15 +142,15 @@ export async function POST(request: NextRequest) {
 
         // Upsert to handle duplicates gracefully
         const { data, error } = await supabase
-            .from('interested_loads')
+            .from(interestedTable)
             .upsert({
-                user_id: userId,
+                [ownerKey]: ownerValue,
                 cloudtrucks_load_id,
                 details,
                 status: 'interested',
                 created_at: new Date().toISOString(),
             }, {
-                onConflict: 'user_id,cloudtrucks_load_id',
+                onConflict: isGuest ? 'guest_session,cloudtrucks_load_id' : 'user_id,cloudtrucks_load_id',
             })
             .select()
             .single();
@@ -162,14 +174,15 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        const guestSession = request.cookies.get('guest_session')?.value;
+        const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
 
-        if (!user && !guestSession) {
+        if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const userId = user?.id || guestSession;
+        const interestedTable = isGuest ? GUEST_INTERESTED_TABLE : USER_INTERESTED_TABLE;
+        const ownerKey = isGuest ? 'guest_session' : 'user_id';
+        const ownerValue = isGuest ? guestSession : userId;
 
         const body = await request.json();
         const { ids, status } = body;
@@ -179,9 +192,9 @@ export async function PATCH(request: NextRequest) {
         }
 
         const { error } = await supabase
-            .from('interested_loads')
+            .from(interestedTable)
             .update({ status })
-            .eq('user_id', userId)
+            .eq(ownerKey, ownerValue)
             .in('id', ids);
 
         if (error) {
@@ -201,14 +214,15 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        const guestSession = request.cookies.get('guest_session')?.value;
+        const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
 
-        if (!user && !guestSession) {
+        if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const userId = user?.id || guestSession;
+        const interestedTable = isGuest ? GUEST_INTERESTED_TABLE : USER_INTERESTED_TABLE;
+        const ownerKey = isGuest ? 'guest_session' : 'user_id';
+        const ownerValue = isGuest ? guestSession : userId;
 
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
@@ -218,7 +232,7 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'Missing id param' }, { status: 400 });
         }
 
-        let query = supabase.from('interested_loads').delete().eq('user_id', userId);
+        let query = supabase.from(interestedTable).delete().eq(ownerKey, ownerValue);
 
         if (ids) {
             query = query.in('id', ids);

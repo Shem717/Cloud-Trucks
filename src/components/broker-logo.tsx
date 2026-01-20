@@ -160,13 +160,19 @@ export function BrokerLogo({ name, className, size = "md" }: BrokerLogoProps) {
         // Log unrecognized broker for future additions
         console.log(`[BrokerLogo] Unrecognized broker: "${name}"`);
 
-        // Return generic broker icon as fallback
+        // Return initials as fallback
+        const initials = name
+            .split(' ')
+            .map(n => n[0])
+            .join('')
+            .slice(0, 2)
+            .toUpperCase();
+
+        const textSize = size === "sm" ? "text-[10px]" : size === "md" ? "text-xs" : "text-sm";
+
         return (
-            <div className={cn("inline-flex items-center justify-center shrink-0 bg-gray-100 dark:bg-gray-800 rounded", className, sizeClasses[size])}>
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-3/4 h-3/4">
-                    <rect x="3" y="6" width="18" height="12" rx="2" stroke="currentColor" strokeWidth="2" fill="none" className="text-gray-400" />
-                    <path d="M8 10h8M8 14h5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-gray-400" />
-                </svg>
+            <div className={cn("inline-flex items-center justify-center shrink-0 bg-muted rounded font-bold text-muted-foreground", className, sizeClasses[size], textSize)}>
+                {initials}
             </div>
         );
     }

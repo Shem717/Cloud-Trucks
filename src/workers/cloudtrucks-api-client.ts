@@ -15,6 +15,8 @@ const CLOUDTRUCKS_API_BASE = 'https://app.cloudtrucks.com';
 const PUSHER_APP_KEY = 'de4428b1e46e9db8fda0';
 const PUSHER_CLUSTER = 'us3';
 
+const DEBUG = process.env.CLOUDTRUCKS_DEBUG === '1';
+
 export interface SearchCriteria {
     origin_city: string;
     origin_state?: string;
@@ -117,7 +119,7 @@ export async function fetchLoadsViaApi(
     onLog?: (message: string) => void
 ): Promise<CloudTrucksLoad[]> {
     const log = (msg: string) => {
-        console.log(msg);
+        if (DEBUG) console.log(msg);
         if (onLog) onLog(msg);
     };
 
@@ -126,12 +128,11 @@ export async function fetchLoadsViaApi(
     const cleanSession = cleanCookieValue(sessionCookie, '__Secure-sessionid-v2');
     const cleanCsrf = cleanCookieValue(csrfToken, '__Secure-csrftoken-v2');
 
-    log(`[CT API] Session cookie (first 20): ${cleanSession.substring(0, 20)}...`);
-    log(`[CT API] CSRF token (first 20): ${cleanCsrf.substring(0, 20)}...`);
+    // Never log tokens/cookies in production logs.
 
     // Step 1: Trigger async search
     const payload = buildApiPayload(criteria);
-    log(`[CT API] Search payload: ${JSON.stringify(payload)}`);
+    if (DEBUG) log(`[CT API] Search payload: ${JSON.stringify(payload)}`);
 
     // Use undici with custom agent to ensure Cookie header is sent properly
     const { statusCode, body } = await request(`${CLOUDTRUCKS_API_BASE}/api/v2/query_loads_async`, {
@@ -188,17 +189,18 @@ function collectLoadsFromPusher(channelName: string, timeoutMs: number, log: (ms
         const channel = pusher.subscribe(channelName);
 
         // Debug: Log all events
-        channel.bind_global((eventName: string, data: unknown) => {
-            log(`[CT API DEBUG] Received event '${eventName}' on channel '${channelName}'`);
-            // Only log data if it's not too huge
-            if (eventName !== 'pushing_loads') {
-                try {
-                    log(`Event Data: ${JSON.stringify(data)}`);
-                } catch (e) {
-                    log('Event Data: [Circular/Unserializable]');
+        if (DEBUG) {
+            channel.bind_global((eventName: string, data: unknown) => {
+                log(`[CT API DEBUG] Received event '${eventName}' on channel '${channelName}'`);
+                if (eventName !== 'pushing_loads') {
+                    try {
+                        log(`Event Data: ${JSON.stringify(data)}`);
+                    } catch {
+                        log('Event Data: [Circular/Unserializable]');
+                    }
                 }
-            }
-        });
+            });
+        }
 
         // Set timeout to stop collecting
         const timeout = setTimeout(() => {
@@ -255,15 +257,17 @@ function collectLoadsFromPusher(channelName: string, timeoutMs: number, log: (ms
                 };
 
                 loads.push(load);
-                console.log(`[CT API] Received load: ${load.origin_city}, ${load.origin_state} → ${load.dest_city}, ${load.dest_state} | $${load.trip_rate}`);
+                if (DEBUG) {
+                    console.log(`[CT API] Received load: ${load.origin_city}, ${load.origin_state} -> ${load.dest_city}, ${load.dest_state} | $${load.trip_rate}`);
+                }
             } catch (e) {
-                console.error('[CT API] Error parsing load:', e);
+                if (DEBUG) console.error('[CT API] Error parsing load:', e);
             }
         });
 
         // Handle channel completion signal (if any)
         channel.bind('query_complete', () => {
-            console.log('[CT API] Query complete signal received');
+            if (DEBUG) console.log('[CT API] Query complete signal received');
             if (!resolved) {
                 resolved = true;
                 clearTimeout(timeout);
@@ -274,7 +278,7 @@ function collectLoadsFromPusher(channelName: string, timeoutMs: number, log: (ms
 
         // Also listen for any end signal variations
         channel.bind('pushing_loads_complete', () => {
-            console.log('[CT API] Pushing loads complete signal received');
+            if (DEBUG) console.log('[CT API] Pushing loads complete signal received');
             if (!resolved) {
                 resolved = true;
                 clearTimeout(timeout);

@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
-import { X, Check, ChevronDown } from 'lucide-react'
+import React, { useState } from 'react'
+import { X, Check } from 'lucide-react'
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { US_REGIONS, Region } from "@/lib/us-regions"
 
 const US_STATES = [
@@ -78,23 +79,9 @@ export function MultiStateSelect({
 }: MultiStateSelectProps) {
     const [internalState, setInternalState] = useState<Set<string>>(new Set(defaultValue));
     const [open, setOpen] = useState(false);
-    const dropdownRef = useRef<HTMLDivElement>(null);
 
     // Derived state handles the controlled/uncontrolled switch automatically
-    // No need to sync internal state via effect which causes rerenders
-
     const selectedStates = value ? new Set(value) : internalState;
-
-    // Close dropdown when clicking outside
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setOpen(false);
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
 
     const toggleState = (state: string) => {
         const newSet = new Set(selectedStates);
@@ -136,148 +123,148 @@ export function MultiStateSelect({
     };
 
     return (
-        <div className={cn("relative", className)} ref={dropdownRef}>
-            {/* Hidden input for form submission */}
+        <Popover open={open} onOpenChange={setOpen}>
             <input type="hidden" name={name} value={Array.from(selectedStates).join(',')} />
-
-            <Button
-                type="button"
-                variant="outline"
-                className="w-full justify-between text-left font-normal h-10 bg-slate-900/50 border-slate-600 hover:border-slate-500 transition-colors"
-                onClick={() => setOpen(!open)}
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                        "w-full justify-between text-left font-normal bg-slate-900/50 border-slate-600 hover:border-slate-500 hover:bg-slate-800/50 transition-colors",
+                        className
+                    )}
+                >
+                    {selectedStates.size === 0 ? (
+                        <span className="text-muted-foreground">{placeholder}</span>
+                    ) : (
+                        <span className="font-semibold truncate">
+                            {selectedStates.size === 1
+                                ? Array.from(selectedStates)[0]
+                                : `${selectedStates.size} states`
+                            }
+                        </span>
+                    )}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent
+                className="w-[400px] p-0 border-slate-700/50 bg-slate-900/40 backdrop-blur-xl shadow-2xl"
+                align="start"
+                side="bottom"
+                sideOffset={4}
             >
-                {selectedStates.size === 0 ? (
-                    <span className="text-muted-foreground">{placeholder}</span>
-                ) : (
-                    <span className="font-semibold truncate">
-                        {selectedStates.size === 1
-                            ? Array.from(selectedStates)[0]
-                            : `${selectedStates.size} states`
-                        }
-                    </span>
-                )}
-                <ChevronDown className={cn("h-4 w-4 opacity-50 transition-transform", open && "rotate-180")} />
-            </Button>
-
-            {open && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-slate-700/50 rounded-xl shadow-2xl z-50 max-h-[480px] overflow-hidden backdrop-blur-sm">
-                    <div className="p-4 space-y-3">
-                        {/* Region Quick Select */}
-                        <div>
-                            <div className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-2">
-                                <span className="w-1 h-4 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full"></span>
-                                Quick Select
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                                {US_REGIONS.map(region => {
-                                    const selectedCount = region.states.filter(state => selectedStates.has(state)).length;
-                                    const allSelected = selectedCount === region.states.length;
-                                    const someSelected = selectedCount > 0 && selectedCount < region.states.length;
-
-                                    return (
-                                        <Button
-                                            key={region.id}
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            className={cn(
-                                                "h-8 text-xs font-semibold border transition-all duration-200 hover:scale-105",
-                                                allSelected && "bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-500 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/30",
-                                                someSelected && "bg-gradient-to-r from-blue-600/60 to-indigo-600/60 text-white border-blue-500/60 hover:from-blue-600/70 hover:to-indigo-600/70",
-                                                !allSelected && !someSelected && "bg-slate-800/50 border-slate-600 hover:bg-slate-700/50 hover:border-slate-500"
-                                            )}
-                                            onClick={() => toggleRegion(region)}
-                                            title={someSelected ? `${selectedCount}/${region.states.length} states selected` : undefined}
-                                        >
-                                            {region.name}
-                                            {someSelected && (
-                                                <span className="ml-1.5 text-[10px] opacity-90 font-bold">({selectedCount})</span>
-                                            )}
-                                        </Button>
-                                    );
-                                })}
-                            </div>
+                <div>
+                    {/* Region Quick Select */}
+                    <div className="p-4 border-b border-slate-700/50 bg-slate-900/20">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></span>
+                            Quick Regions
                         </div>
+                        <div className="flex flex-wrap gap-2">
+                            {US_REGIONS.map(region => {
+                                const selectedCount = region.states.filter(state => selectedStates.has(state)).length;
+                                const allSelected = selectedCount === region.states.length;
+                                const someSelected = selectedCount > 0 && selectedCount < region.states.length;
 
-                        {/* Selected States Display */}
-                        {selectedStates.size > 0 && (
-                            <div className="border-t border-slate-700/50 pt-3">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                                        <span className="w-1 h-4 bg-gradient-to-b from-green-500 to-emerald-500 rounded-full"></span>
-                                        Selected ({selectedStates.size})
-                                    </div>
+                                return (
                                     <button
+                                        key={region.id}
                                         type="button"
-                                        onClick={clearAll}
-                                        className="text-xs text-red-400 hover:text-red-300 font-semibold transition-colors px-2 py-1 rounded hover:bg-red-500/10"
+                                        className={cn(
+                                            "h-7 px-3 text-[10px] font-bold uppercase tracking-wider rounded border transition-all duration-200",
+                                            allSelected
+                                                ? "bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/20 hover:bg-blue-500"
+                                                : someSelected
+                                                    ? "bg-blue-500/10 text-blue-300 border-blue-500/30 hover:bg-blue-500/20"
+                                                    : "bg-slate-800/50 text-slate-400 border-slate-700 hover:border-slate-500 hover:text-slate-200"
+                                        )}
+                                        onClick={() => toggleRegion(region)}
                                     >
-                                        Clear All
+                                        {region.name}
+                                        {someSelected && (
+                                            <span className="ml-1 opacity-70">({selectedCount})</span>
+                                        )}
                                     </button>
-                                </div>
-                                <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900">
-                                    {Array.from(selectedStates).sort().map(state => (
-                                        <button
-                                            key={state}
-                                            type="button"
-                                            onClick={(e) => removeState(state, e)}
-                                            className="group flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-slate-700 to-slate-600 hover:from-red-600 hover:to-red-500 text-white rounded-md text-xs font-semibold transition-all duration-200 hover:scale-105 hover:shadow-lg"
-                                            title={`Remove ${state}`}
-                                        >
-                                            <span>{state}</span>
-                                            <X className="h-3 w-3 opacity-70 group-hover:opacity-100 transition-opacity" />
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                                );
+                            })}
+                        </div>
                     </div>
 
-                    {/* State List */}
-                    <div className="border-t border-slate-700/50 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900">
-                        <div className="p-3 space-y-0.5">
+                    {/* Selected States Display */}
+                    {selectedStates.size > 0 && (
+                        <div className="px-4 py-3 border-b border-slate-700/50 bg-slate-900/40">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+                                    Selected ({selectedStates.size})
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={clearAll}
+                                    className="text-[10px] font-bold uppercase tracking-wider text-red-400 hover:text-red-300 transition-colors"
+                                >
+                                    Clear All
+                                </button>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 max-h-[100px] overflow-y-auto pr-2 custom-scrollbar">
+                                {Array.from(selectedStates).sort().map(state => (
+                                    <button
+                                        key={state}
+                                        type="button"
+                                        onClick={(e) => removeState(state, e)}
+                                        className="group flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 bg-slate-800 hover:bg-red-900/30 border border-slate-700 hover:border-red-500/50 text-slate-200 hover:text-red-200 rounded text-[11px] font-medium transition-all"
+                                    >
+                                        <span>{state}</span>
+                                        <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Main State List */}
+                    <div className="h-[280px] overflow-y-auto p-2 bg-slate-950/30">
+                        <div className="grid grid-cols-2 gap-1">
                             {US_STATES.map(state => {
                                 const isSelected = selectedStates.has(state.value);
                                 return (
                                     <div
                                         key={state.value}
                                         className={cn(
-                                            "flex items-center gap-3 px-3 py-2 cursor-pointer rounded-lg transition-all duration-150",
+                                            "flex items-center gap-3 px-3 py-2 cursor-pointer rounded-md transition-all duration-150 group",
                                             isSelected
-                                                ? "bg-gradient-to-r from-blue-600/20 to-indigo-600/20 hover:from-blue-600/30 hover:to-indigo-600/30"
-                                                : "hover:bg-slate-800/50"
+                                                ? "bg-blue-600/10 border border-blue-500/20"
+                                                : "hover:bg-slate-800/50 border border-transparent hover:border-slate-700"
                                         )}
                                         onClick={() => toggleState(state.value)}
                                     >
                                         <div className={cn(
-                                            "h-5 w-5 border-2 rounded-md flex items-center justify-center transition-all duration-200",
+                                            "h-4 w-4 border rounded flex items-center justify-center transition-all duration-200",
                                             isSelected
-                                                ? "bg-gradient-to-br from-blue-600 to-indigo-600 border-blue-500 shadow-lg shadow-blue-500/30"
-                                                : "border-slate-600 hover:border-slate-500"
+                                                ? "bg-blue-600 border-blue-500 shadow-sm"
+                                                : "border-slate-600 group-hover:border-slate-500 bg-slate-900/50"
                                         )}>
                                             {isSelected && (
-                                                <Check className="h-3.5 w-3.5 text-white animate-in zoom-in duration-150" />
+                                                <Check className="h-3 w-3 text-white" />
                                             )}
                                         </div>
-                                        <span className={cn(
-                                            "text-sm font-medium transition-colors",
-                                            isSelected ? "text-white" : "text-slate-300"
-                                        )}>
-                                            {state.value}
-                                        </span>
-                                        <span className={cn(
-                                            "text-xs transition-colors flex-1",
-                                            isSelected ? "text-slate-300" : "text-slate-500"
-                                        )}>
-                                            {state.label}
-                                        </span>
+                                        <div className="flex flex-col">
+                                            <span className={cn(
+                                                "text-sm font-medium leading-none",
+                                                isSelected ? "text-blue-100" : "text-slate-300"
+                                            )}>
+                                                {state.value}
+                                            </span>
+                                            <span className="text-[10px] text-slate-500 group-hover:text-slate-400">
+                                                {state.label}
+                                            </span>
+                                        </div>
                                     </div>
                                 );
                             })}
                         </div>
                     </div>
                 </div>
-            )}
-        </div>
+            </PopoverContent>
+        </Popover>
     );
 }

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { fetchLoadsFromCloudTrucks } from '@/workers/scanner';
+import { getRequestContext } from '@/lib/request-context';
+
+const USER_CRITERIA_TABLE = 'search_criteria';
+const GUEST_CRITERIA_TABLE = 'guest_search_criteria';
 
 /**
  * POST /api/criteria - Create new search criteria
@@ -8,23 +11,22 @@ import { fetchLoadsFromCloudTrucks } from '@/workers/scanner';
 export async function POST(request: NextRequest) {
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        const guestSession = request.cookies.get('guest_session')?.value;
+        const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
 
-        if (!user && !guestSession) {
+        if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const userId = user?.id || guestSession; // Use guest ID if no user
+        const table = isGuest ? GUEST_CRITERIA_TABLE : USER_CRITERIA_TABLE;
 
         const formData = await request.formData();
-        console.log('Received criteria form data:', Object.fromEntries(formData));
 
         const rawDate = formData.get('pickup_date') as string;
         // Postgres date format is YYYY-MM-DD
         // Date input sends YYYY-MM-DD, but empty string should be null
         const pickupDate = rawDate && rawDate.trim() !== '' ? rawDate : null;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const parseNumeric = (val: any, type: 'int' | 'float', min?: number, max?: number) => {
             if (!val || val.toString().trim() === '' || val === 'Any') return null;
             // Remove ' mi', ',' or other non-numeric characters except dot
@@ -37,6 +39,7 @@ export async function POST(request: NextRequest) {
             return parsed;
         };
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const parseStates = (val: any): string[] | null => {
             if (!val || val.toString().trim() === '') return null;
             const states = val.toString().split(',').map((s: string) => s.trim()).filter(Boolean);
@@ -46,8 +49,7 @@ export async function POST(request: NextRequest) {
         const originStates = parseStates(formData.get('origin_states'));
         const destStates = parseStates(formData.get('destination_states'));
 
-        const criteria = {
-            user_id: userId,
+        const criteriaBase = {
             origin_city: formData.get('origin_city') as string || null,
             origin_state: formData.get('origin_state') as string || (originStates?.[0] ?? null),
             origin_states: originStates,
@@ -68,10 +70,27 @@ export async function POST(request: NextRequest) {
             is_backhaul: formData.get('is_backhaul') === 'true',
         };
 
-        console.log('Inserting criteria:', criteria);
+        // Enforce guest sandbox limits server-side.
+        if (isGuest && guestSession) {
+            const { count } = await supabase
+                .from(GUEST_CRITERIA_TABLE)
+                .select('id', { count: 'exact', head: true })
+                .eq('guest_session', guestSession)
+                .is('deleted_at', null);
+
+            if ((count ?? 0) >= 10) {
+                return NextResponse.json({
+                    error: 'Guest sandbox limit reached (10 active scouts). Please delete a scout or sign in.',
+                }, { status: 429 });
+            }
+        }
+
+        const criteria = isGuest
+            ? { guest_session: guestSession, ...criteriaBase }
+            : { user_id: userId, ...criteriaBase };
 
         const { data, error } = await supabase
-            .from('search_criteria')
+            .from(table)
             .insert(criteria)
             .select()
             .single();
@@ -84,123 +103,6 @@ export async function POST(request: NextRequest) {
                 details: error
             }, { status: 500 });
         }
-
-        // --- IMMEDIATE SCAN TRIGGER (Fire-and-forget for speed) ---
-        // We do NOT await this in the main thread to prevent timeouts,
-        // but we update the criteria record with scan status for visibility.
-        (async () => {
-            const updateScanStatus = async (status: 'scanning' | 'success' | 'error', errorMessage?: string, loadsFound?: number) => {
-                try {
-                    await supabase
-                        .from('search_criteria')
-                        .update({
-                            last_scanned_at: new Date().toISOString(),
-                            scan_status: status,
-                            scan_error: errorMessage || null,
-                            last_scan_loads_found: loadsFound ?? null,
-                        })
-                        .eq('id', data.id);
-                } catch (updateError) {
-                    console.error('[API] Failed to update scan status:', updateError);
-                }
-            };
-
-            try {
-                console.log(`[API] Triggering synchronous scan for criteria ${data.id}`);
-                await updateScanStatus('scanning');
-
-                // 1. Get Credentials (inline to use user session OR fallback to any valid credential for guests)
-                let creds;
-                if (user) {
-                    const { data, error } = await supabase
-                        .from('cloudtrucks_credentials')
-                        .select('encrypted_email, encrypted_session_cookie, encrypted_csrf_token')
-                        .eq('user_id', userId)
-                        .single();
-                    creds = data;
-                } else {
-                    // Guest: Fetch the most recent valid credential (Admin's)
-                    const { data, error } = await supabase
-                        .from('cloudtrucks_credentials')
-                        .select('encrypted_email, encrypted_session_cookie, encrypted_csrf_token')
-                        .order('last_validated_at', { ascending: false })
-                        .limit(1)
-                        .single();
-                    creds = data;
-                }
-
-                if (!creds) {
-                    console.error('[API] No credentials found for scan');
-                    await updateScanStatus('error', 'No credentials found. Please connect your CloudTrucks account.');
-                    return;
-                }
-
-                // Use decrypt() directly - same fix as debugger route
-                let cookie: string;
-                let csrfToken = '';
-                try {
-                    const { decrypt } = await import('@/lib/crypto');
-                    cookie = decrypt(creds.encrypted_session_cookie);
-                    console.log(`[API] Session cookie decrypted: ${cookie?.substring(0, 10)}...`);
-
-                    if (creds.encrypted_csrf_token) {
-                        csrfToken = decrypt(creds.encrypted_csrf_token);
-                        console.log(`[API] CSRF token decrypted: ${csrfToken?.substring(0, 10)}...`);
-                    }
-                } catch (decryptError: unknown) {
-                    const message = decryptError instanceof Error ? decryptError.message : String(decryptError);
-                    console.error('[API] Decryption failed:', message);
-                    await updateScanStatus('error', 'Failed to decrypt credentials. Please reconnect your account.');
-                    return;
-                }
-
-                // 2. Fetch Loads
-                const loads = await fetchLoadsFromCloudTrucks({ email: '', cookie, csrfToken }, data);
-
-                console.log(`[API] fetchLoadsFromCloudTrucks returned ${loads?.length} loads`);
-
-                // 3. Save Loads
-                let newLoadsCount = 0;
-                if (loads && loads.length > 0) {
-                    const { data: existing } = await supabase
-                        .from('found_loads')
-                        .select('cloudtrucks_load_id')
-                        .eq('criteria_id', data.id);
-
-                    const existingIds = new Set(existing?.map((x: { cloudtrucks_load_id: string }) => x.cloudtrucks_load_id));
-                    const newLoads = loads.filter(l => !existingIds.has(l.id));
-
-                    if (newLoads.length > 0) {
-                        const { error: saveError } = await supabase.from('found_loads').insert(
-                            newLoads.map(load => ({
-                                criteria_id: data.id,
-                                cloudtrucks_load_id: load.id,
-                                details: load,
-                                status: 'found'
-                            }))
-                        );
-
-                        if (saveError) {
-                            console.error('[API] Error saving loads:', saveError);
-                            await updateScanStatus('error', `Failed to save loads: ${saveError.message}`);
-                            return;
-                        }
-                        newLoadsCount = newLoads.length;
-                        console.log(`[API] Saved ${newLoadsCount} new loads`);
-                    } else {
-                        console.log('[API] No new loads to save (duplicates)');
-                    }
-                } else {
-                    console.log('[API] Scan found 0 loads');
-                }
-
-                await updateScanStatus('success', undefined, newLoadsCount);
-            } catch (scanError: unknown) {
-                const message = scanError instanceof Error ? scanError.message : String(scanError);
-                console.error('[API] Background Scan failed:', message);
-                await updateScanStatus('error', message || 'Unknown scan error');
-            }
-        })();
 
         return NextResponse.json({ success: true, criteria: data });
 
@@ -221,23 +123,25 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        const guestSession = request.cookies.get('guest_session')?.value;
+        const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
 
-        if (!user && !guestSession) {
+        if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const userId = user?.id || guestSession;
+        const table = isGuest ? GUEST_CRITERIA_TABLE : USER_CRITERIA_TABLE;
 
         const { searchParams } = new URL(request.url);
         const view = searchParams.get('view');
 
         let query = supabase
-            .from('search_criteria')
+            .from(table)
             .select('*')
-            .eq('user_id', userId)
             .order('created_at', { ascending: false });
+
+        query = isGuest
+            ? query.eq('guest_session', guestSession)
+            : query.eq('user_id', userId);
 
         if (view === 'trash') {
             query = query.not('deleted_at', 'is', null);
@@ -266,14 +170,13 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        const guestSession = request.cookies.get('guest_session')?.value;
+        const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
 
-        if (!user && !guestSession) {
+        if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const userId = user?.id || guestSession;
+        const table = isGuest ? GUEST_CRITERIA_TABLE : USER_CRITERIA_TABLE;
 
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
@@ -287,19 +190,29 @@ export async function DELETE(request: NextRequest) {
 
         if (permanent) {
             // Hard Delete
-            const res = await supabase
-                .from('search_criteria')
+            let query = supabase
+                .from(table)
                 .delete()
-                .eq('id', id)
-                .eq('user_id', userId);
+                .eq('id', id);
+
+            query = isGuest
+                ? query.eq('guest_session', guestSession as string)
+                : query.eq('user_id', userId as string);
+
+            const res = await query;
             error = res.error;
         } else {
             // Soft Delete
-            const res = await supabase
-                .from('search_criteria')
+            let query = supabase
+                .from(table)
                 .update({ deleted_at: new Date().toISOString() })
-                .eq('id', id)
-                .eq('user_id', userId);
+                .eq('id', id);
+
+            query = isGuest
+                ? query.eq('guest_session', guestSession as string)
+                : query.eq('user_id', userId as string);
+
+            const res = await query;
             error = res.error;
         }
 
@@ -322,14 +235,13 @@ export async function DELETE(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        const guestSession = request.cookies.get('guest_session')?.value;
+        const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
 
-        if (!user && !guestSession) {
+        if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const userId = user?.id || guestSession;
+        const table = isGuest ? GUEST_CRITERIA_TABLE : USER_CRITERIA_TABLE;
 
         const body = await request.json();
         const { id, action } = body;
@@ -337,13 +249,17 @@ export async function PATCH(request: NextRequest) {
         if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
 
         if (action === 'restore') {
-            const { error } = await supabase
-                .from('search_criteria')
+            let query = supabase
+                .from(table)
                 .update({ deleted_at: null })
-                .eq('id', id)
-                .eq('user_id', userId);
+                .eq('id', id);
 
-            if (error || !user) throw new Error('Unauthorized');
+            query = isGuest
+                ? query.eq('guest_session', guestSession as string)
+                : query.eq('user_id', userId as string);
+
+            const res = await query;
+            if (res.error) throw new Error('Failed to restore');
 
             return NextResponse.json({ success: true });
         }

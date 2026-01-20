@@ -49,7 +49,7 @@ export async function middleware(request: NextRequest) {
                 path: '/',
                 httpOnly: true,
                 sameSite: 'lax',
-                maxAge: 60 * 60 * 24 * 7 // 7 days
+                maxAge: 60 * 60 * 24 * 4 // 4 days
             })
         }
         return response

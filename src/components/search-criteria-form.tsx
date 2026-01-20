@@ -4,7 +4,7 @@ import React, { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { AlertCircle, CheckCircle2, Loader2, Search, ChevronDown, ChevronUp } from "lucide-react"
+import { AlertCircle, CheckCircle2, Loader2, Search, ChevronDown, ChevronUp, Calendar } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { cn } from "@/lib/utils"
 import { CityAutocomplete } from "@/components/city-autocomplete"
@@ -13,10 +13,17 @@ import { MultiStateSelect } from "@/components/multi-state-select"
 import { SearchCriteria } from "@/workers/cloudtrucks-api-client";
 
 interface SearchCriteriaFormProps {
-    onSuccess?: (criteria: SearchCriteria) => void; // Pass the newly created criteria
+    onSuccess?: (criteria: SearchCriteria) => void;
 }
 
-// Field groups that manage state synchronization between city and state selectors
+// Reusable label component for consistency
+const FieldLabel = ({ children }: { children: React.ReactNode }) => (
+    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">{children}</label>
+)
+
+// Consistent Input Style
+const inputStyles = "bg-slate-900/50 border-slate-600 h-10 text-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium text-sm rounded-md placeholder:text-slate-600"
+
 function OriginFieldGroup() {
     const [stateValue, setStateValue] = React.useState("");
 
@@ -28,8 +35,8 @@ function OriginFieldGroup() {
 
     return (
         <div className="flex-1 min-w-[200px]">
-            <label className="text-xs text-slate-400 mb-1 block">Pickup <span className="text-slate-500">(city & state)</span></label>
-            <div className="flex gap-1.5">
+            <FieldLabel>Pickup <span className="text-slate-500 font-normal normal-case">(city & state)</span></FieldLabel>
+            <div className="flex gap-2">
                 <CityAutocomplete
                     name="origin_city"
                     required
@@ -44,7 +51,7 @@ function OriginFieldGroup() {
                         placeholder="ST"
                         maxLength={2}
                         required
-                        className="bg-slate-900/50 border-slate-600 h-10 text-center font-bold uppercase"
+                        className={cn(inputStyles, "text-center font-bold uppercase")}
                     />
                 </div>
             </div>
@@ -63,8 +70,8 @@ function DestinationFieldGroup() {
 
     return (
         <div className="flex-1 min-w-[240px]">
-            <label className="text-xs text-slate-400 mb-1 block">Dropoff <span className="text-slate-500">(city or states/region)</span></label>
-            <div className="flex gap-1.5">
+            <FieldLabel>Dropoff <span className="text-slate-500 font-normal normal-case">(city or states)</span></FieldLabel>
+            <div className="flex gap-2">
                 <CityAutocomplete
                     name="dest_city"
                     placeholder="Any City"
@@ -74,7 +81,7 @@ function DestinationFieldGroup() {
                 <MultiStateSelect
                     name="destination_states"
                     placeholder="Region/States"
-                    className="flex-1 min-w-[120px]"
+                    className={cn(inputStyles, "flex-1 min-w-[120px] px-3")}
                     value={selectedStates}
                     onChange={setSelectedStates}
                 />
@@ -106,8 +113,6 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                     result = await response.json()
                 } catch (jsonError) {
                     console.error('Failed to parse JSON response:', jsonError)
-                    const text = await response.text().catch(() => '')
-                    console.error('Raw response:', text)
                     throw new Error(`Server returned ${response.status} ${response.statusText}`)
                 }
 
@@ -116,9 +121,15 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                 } else {
                     setOutcome({ success: 'Added! Scanning started...' })
 
-                    // Call onSuccess with the newly created criteria for optimistic UI update
                     if (result.criteria) {
                         onSuccess?.(result.criteria)
+                    }
+
+                    // Trigger a scan explicitly (more reliable on Vercel than background fire-and-forget).
+                    try {
+                        await fetch('/api/scan', { method: 'POST' })
+                    } catch {
+                        // Non-fatal; user can still click "Scan Now".
                     }
 
                     form.reset()
@@ -134,7 +145,7 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
     }
 
     return (
-        <div className="mb-6">
+        <div className="mb-8">
             {/* Alerts */}
             {outcome?.error && (
                 <Alert variant="destructive" className="mb-4">
@@ -150,117 +161,142 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
             )}
 
             <form onSubmit={handleSubmit}>
-                {/* Main Search Bar - Horizontal */}
-                <div className="flex flex-wrap items-end gap-3 p-4 rounded-xl bg-gradient-to-r from-slate-800/80 to-slate-900/80 border border-slate-700/50 backdrop-blur-sm shadow-xl">
-                    {/* Origin */}
-                    <OriginFieldGroup />
+                {/* Control Bar Container */}
+                <div className="relative p-1 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-700/50 shadow-2xl">
+                    <div className="relative z-10 bg-slate-900/60 backdrop-blur-md rounded-xl p-4 gap-4 flex flex-col xl:flex-row xl:items-end">
 
-                    {/* Radius */}
-                    <div className="w-[100px]">
-                        <label className="text-xs text-slate-400 mb-1.5 block font-medium">Radius</label>
-                        <select name="pickup_distance" defaultValue="50" className="flex h-10 w-full rounded-md border border-slate-600 bg-slate-900/50 px-3 py-1 text-sm text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all">
-                            <option value="50">50 mi</option>
-                            <option value="100">100 mi</option>
-                            <option value="150">150 mi</option>
-                            <option value="200">200 mi</option>
-                            <option value="300">300 mi</option>
-                            <option value="400">400 mi</option>
-                        </select>
+                        <div className="flex flex-1 flex-wrap gap-4 items-end">
+                            {/* Origin */}
+                            <OriginFieldGroup />
+
+                            {/* Radius */}
+                            <div className="w-[110px]">
+                                <FieldLabel>Radius</FieldLabel>
+                                <div className="relative">
+                                    <select name="pickup_distance" defaultValue="50" className={cn(inputStyles, "w-full appearance-none px-3 cursor-pointer")}>
+                                        <option value="50">50 mi</option>
+                                        <option value="100">100 mi</option>
+                                        <option value="150">150 mi</option>
+                                        <option value="200">200 mi</option>
+                                        <option value="300">300 mi</option>
+                                        <option value="400">400 mi</option>
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+                                </div>
+                            </div>
+
+                            {/* Pickup Date */}
+                            <div className="w-[150px]">
+                                <FieldLabel>Date</FieldLabel>
+                                <div className="relative">
+                                    <Input
+                                        type="date"
+                                        name="pickup_date"
+                                        className={cn(inputStyles, "pl-10 appearance-none")} // Add padding for icon
+                                        style={{ colorScheme: 'dark' }} // Force dark calendar icon
+                                    />
+                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+                                </div>
+                            </div>
+
+                            {/* Decorative Divider */}
+                            <div className="hidden xl:block h-8 w-px bg-slate-700 mx-2 mb-1"></div>
+
+                            {/* Destination */}
+                            <DestinationFieldGroup />
+                        </div>
+
+                        {/* Action Group */}
+                        <div className="flex items-center gap-2 mt-2 xl:mt-0 w-full xl:w-auto">
+                            {/* More Filters Toggle */}
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => setShowFilters(!showFilters)}
+                                className={cn(
+                                    "flex-1 xl:flex-none h-10 border border-transparent hover:border-slate-700 text-slate-400 hover:text-white transition-all",
+                                    showFilters && "bg-slate-800 text-white border-slate-700"
+                                )}
+                            >
+                                <span className="mr-2">Filters</span>
+                                {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </Button>
+
+                            {/* Submit */}
+                            <Button
+                                type="submit"
+                                disabled={isPending}
+                                className="flex-1 xl:flex-none h-10 px-8 bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)] transition-all duration-300 font-semibold"
+                            >
+                                {isPending ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <>
+                                        <Search className="h-4 w-4 mr-2" />
+                                        Add Criteria
+                                    </>
+                                )}
+                            </Button>
+                        </div>
                     </div>
 
-                    {/* Pickup Date */}
-                    <div className="w-[140px]">
-                        <label className="text-xs text-slate-400 mb-1.5 block font-medium">Date</label>
-                        <Input
-                            type="date"
-                            name="pickup_date"
-                            className="bg-slate-900/50 border-slate-600 h-10 text-slate-300 focus:border-blue-500"
-                        />
-                    </div>
+                    {/* Expandable Filters Panel */}
+                    <div className={cn(
+                        "overflow-hidden transition-all duration-300 ease-in-out border-t border-slate-800/50 bg-slate-900/30",
+                        showFilters ? "max-h-[200px] opacity-100 py-4 px-4" : "max-h-0 opacity-0 py-0"
+                    )}>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                            {/* Trailer Type */}
+                            <div>
+                                <FieldLabel>Trailer Type</FieldLabel>
+                                <div className="relative">
+                                    <select name="equipment_type" className={cn(inputStyles, "w-full appearance-none px-3 cursor-pointer")}>
+                                        <option value="Any">Any Equipment</option>
+                                        <option value="Dry Van">Dry Van</option>
+                                        <option value="Power Only">Power Only</option>
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+                                </div>
+                            </div>
 
-                    {/* Arrow Divider */}
-                    <div className="hidden xl:flex items-center justify-center text-slate-600 pb-1 px-1">
-                        <div className="w-4 h-[1px] bg-slate-700"></div>
-                    </div>
+                            {/* Booking Type */}
+                            <div>
+                                <FieldLabel>Booking Type</FieldLabel>
+                                <div className="relative">
+                                    <select name="booking_type" className={cn(inputStyles, "w-full appearance-none px-3 cursor-pointer")}>
+                                        <option value="Any">Any Method</option>
+                                        <option value="instant">Instant Book</option>
+                                        <option value="standard">Standard Book</option>
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+                                </div>
+                            </div>
 
-                    {/* Destination */}
-                    <DestinationFieldGroup />
+                            <div>
+                                <FieldLabel>Min Rate ($)</FieldLabel>
+                                <Input
+                                    name="min_rate"
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="Any"
+                                    className={inputStyles}
+                                />
+                            </div>
 
-                    {/* More Filters Toggle */}
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowFilters(!showFilters)}
-                        className="text-slate-400 hover:text-white h-10"
-                    >
-                        Filters
-                        {showFilters ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />}
-                    </Button>
-
-                    {/* Submit */}
-                    <Button
-                        type="submit"
-                        disabled={isPending}
-                        className="bg-blue-600 hover:bg-blue-500 h-10 px-6"
-                    >
-                        {isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                            <>
-                                <Search className="h-4 w-4 mr-2" />
-                                Add
-                            </>
-                        )}
-                    </Button>
-                </div>
-
-                {/* Expandable Filters */}
-                <div className={cn(
-                    "grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 p-4 rounded-lg bg-slate-800/50 border border-slate-700/30 transition-all duration-200",
-                    showFilters ? "opacity-100" : "hidden"
-                )}>
-                    {/* Trailer Type - matches CloudTrucks options */}
-                    <div>
-                        <label className="text-xs text-slate-400 mb-1 block">Trailer Type</label>
-                        <select name="equipment_type" className="flex h-9 w-full rounded-md border border-slate-600 bg-slate-900/50 px-3 py-1 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-400">
-                            <option value="Any">Any</option>
-                            <option value="Dry Van">Dry Van</option>
-                            <option value="Power Only">Power Only</option>
-                        </select>
-                    </div>
-                    {/* Booking Type - matches CloudTrucks options */}
-                    <div>
-                        <label className="text-xs text-slate-400 mb-1 block">Booking Type</label>
-                        <select name="booking_type" className="flex h-9 w-full rounded-md border border-slate-600 bg-slate-900/50 px-3 py-1 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-400">
-                            <option value="Any">Any</option>
-                            <option value="instant">Instant Book</option>
-                            <option value="standard">Standard Book</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="text-xs text-slate-400 mb-1 block">Min Rate ($)</label>
-                        <Input
-                            name="min_rate"
-                            type="number"
-                            step="0.01"
-                            placeholder="Any"
-                            className="bg-slate-900/50 border-slate-600 h-9"
-                        />
-                    </div>
-                    <div>
-                        <label className="text-xs text-slate-400 mb-1 block">Max Weight (lbs)</label>
-                        <Input
-                            name="max_weight"
-                            type="number"
-                            placeholder="45000"
-                            defaultValue="45000"
-                            className="bg-slate-900/50 border-slate-600 h-9"
-                        />
+                            <div>
+                                <FieldLabel>Max Weight (lbs)</FieldLabel>
+                                <Input
+                                    name="max_weight"
+                                    type="number"
+                                    placeholder="45000"
+                                    defaultValue="45000"
+                                    className={inputStyles}
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </form>
         </div>
     )
 }
-

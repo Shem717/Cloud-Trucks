@@ -1,5 +1,11 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { getRequestContext } from '@/lib/request-context';
+
+const USER_LOADS_TABLE = 'found_loads';
+const USER_CRITERIA_TABLE = 'search_criteria';
+const GUEST_LOADS_TABLE = 'guest_found_loads';
+const GUEST_CRITERIA_TABLE = 'guest_search_criteria';
 
 /**
  * GET /api/loads - Get user's found loads
@@ -7,31 +13,32 @@ import { createClient } from '@/utils/supabase/server';
 export async function GET(request: NextRequest) {
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        const guestSession = request.cookies.get('guest_session')?.value;
+        const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
 
-        if (!user && !guestSession) {
+        if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const userId = user?.id || guestSession;
+        const loadsTable = isGuest ? GUEST_LOADS_TABLE : USER_LOADS_TABLE;
+        const criteriaJoin = isGuest ? GUEST_CRITERIA_TABLE : USER_CRITERIA_TABLE;
 
-        // Fetch loads where the criteria belongs to the user (or guest)
+        // Fetch loads where the criteria belongs to the current user or guest session.
+        // For guest mode, we store loads in guest_found_loads and join guest_search_criteria.
         const { data, error } = await supabase
-            .from('found_loads')
+            .from(loadsTable)
             .select(`
                 *,
-                search_criteria!inner (
+                ${criteriaJoin}!inner (
                     id,
                     origin_city,
                     origin_state,
                     dest_city,
                     destination_state,
                     equipment_type,
-                    user_id
+                    ${isGuest ? 'guest_session' : 'user_id'}
                 )
             `)
-            .eq('search_criteria.user_id', userId)
+            .eq(`${criteriaJoin}.${isGuest ? 'guest_session' : 'user_id'}`, isGuest ? guestSession : userId)
             .order('created_at', { ascending: false });
 
         if (error) {

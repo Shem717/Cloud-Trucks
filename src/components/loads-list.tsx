@@ -21,7 +21,7 @@ interface Load {
         equipment?: string;
         pickup_date?: string;
         delivery_date?: string;
-        [key: string]: any;
+        [key: string]: any; // eslint-disable-line @typescript-eslint/no-explicit-any
     };
 }
 
