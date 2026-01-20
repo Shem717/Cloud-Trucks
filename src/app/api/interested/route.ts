@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 import { getRequestContext } from '@/lib/request-context';
 
 const USER_INTERESTED_TABLE = 'interested_loads';
@@ -15,6 +16,8 @@ export async function GET(request: NextRequest) {
         const supabase = await createClient();
         const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
 
+        const db = isGuest ? createAdminClient() : supabase;
+
         if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -26,7 +29,7 @@ export async function GET(request: NextRequest) {
         const criteriaJoin = isGuest ? 'guest_search_criteria' : 'search_criteria';
 
         // Fetch interested loads
-        const { data: interestedLoads, error: interestedError } = await supabase
+        const { data: interestedLoads, error: interestedError } = await db
             .from(interestedTable)
             .select('id, cloudtrucks_load_id, details, status, created_at')
             .eq(ownerKey, ownerValue)
@@ -44,7 +47,7 @@ export async function GET(request: NextRequest) {
         // Fetch all matching found_loads in one query
         const foundLoadsMap: Record<string, unknown> = {};
         if (loadIds.length > 0) {
-            const { data: foundLoads, error: foundError } = await supabase
+            const { data: foundLoads, error: foundError } = await db
                 .from(foundTable)
                 // Filter to ONLY the current user/guest's loads to avoid cross-tenant leakage
                 .select(`cloudtrucks_load_id, details, created_at, ${criteriaJoin}!inner(${ownerKey})`)
@@ -122,6 +125,8 @@ export async function POST(request: NextRequest) {
         const supabase = await createClient();
         const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
 
+        const db = isGuest ? createAdminClient() : supabase;
+
         if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -141,7 +146,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Upsert to handle duplicates gracefully
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from(interestedTable)
             .upsert({
                 [ownerKey]: ownerValue,
@@ -176,6 +181,8 @@ export async function PATCH(request: NextRequest) {
         const supabase = await createClient();
         const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
 
+        const db = isGuest ? createAdminClient() : supabase;
+
         if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -191,7 +198,7 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
         }
 
-        const { error } = await supabase
+        const { error } = await db
             .from(interestedTable)
             .update({ status })
             .eq(ownerKey, ownerValue)
@@ -216,6 +223,8 @@ export async function DELETE(request: NextRequest) {
         const supabase = await createClient();
         const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
 
+        const db = isGuest ? createAdminClient() : supabase;
+
         if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -232,7 +241,7 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'Missing id param' }, { status: 400 });
         }
 
-        let query = supabase.from(interestedTable).delete().eq(ownerKey, ownerValue);
+        let query = db.from(interestedTable).delete().eq(ownerKey, ownerValue);
 
         if (ids) {
             query = query.in('id', ids);

@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/utils/supabase/server';
 
-// Initialize Supabase client
+// Public read client (uses anon key; respects RLS and public policies)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createSupabaseClient(supabaseUrl, supabaseKey);
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const publicSupabase = createSupabaseClient(supabaseUrl, anonKey);
+
+// Admin write client (service role; bypasses RLS)
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const adminSupabase = serviceKey ? createSupabaseClient(supabaseUrl, serviceKey) : null;
 
 // Chain law level descriptions
 const chainLevelDescriptions: Record<string, string> = {
@@ -21,7 +25,7 @@ export async function GET(request: NextRequest) {
     const route = searchParams.get('route');
 
     try {
-        let query = supabase
+        let query = publicSupabase
             .from('chain_laws')
             .select('*')
             .order('route_name');
@@ -81,6 +85,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
+        if (!adminSupabase) {
+            return NextResponse.json({ error: 'Missing Supabase service role config' }, { status: 500 });
+        }
+
         const body = await request.json();
         const { id, status } = body;
 
@@ -98,7 +106,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const { data, error } = await supabase
+        const { data, error } = await adminSupabase
             .from('chain_laws')
             .update({ status, last_updated: new Date().toISOString() })
             .eq('id', id)

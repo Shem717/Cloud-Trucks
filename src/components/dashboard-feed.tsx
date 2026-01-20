@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, DollarSign, Weight, Calendar, Truck, Activity, Filter, RefreshCw, Trash2, Zap, Star, ArrowUpDown, AlertTriangle, ArrowLeftRight, Search } from 'lucide-react'
+import { MapPin, DollarSign, Weight, Calendar, Truck, Activity, Filter, RefreshCw, Trash2, Zap, Star, ArrowUpDown, AlertTriangle, ArrowLeftRight, Search, Map } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -17,6 +17,7 @@ import { SearchCriteria, CloudTrucksLoad, CloudTrucksLoadStop } from "@/workers/
 import { BrokerLogo } from "./broker-logo"
 import { WeatherBadge } from "./weather-badge"
 import { ChainLawBadge, useChainLaws } from "./chain-law-badge"
+import { MapboxIntelligenceModal } from "./mapbox-intelligence-modal"
 
 type SortOption = 'newest' | 'price_high' | 'price_low' | 'pickup_soonest' | 'pickup_latest' | 'delivery_soonest' | 'delivery_latest' | 'distance_short' | 'deadhead_low' | 'rpm_high' | 'rpm_low';
 
@@ -74,6 +75,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
     const [credentialWarning, setCredentialWarning] = useState<string | null>(null)
     const [selectedScoutIds, setSelectedScoutIds] = useState<Set<string>>(new Set())
     const [selectedBackhaulIds, setSelectedBackhaulIds] = useState<Set<string>>(new Set())
+    const [selectedLoadForMap, setSelectedLoadForMap] = useState<SavedLoad | null>(null) // Route Intelligence Modal
 
 
     const checkCredentials = useCallback(async () => {
@@ -1046,16 +1048,16 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                             </div>
                                         </div>
 
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-                            <div className="flex-1">
-                                <div className="flex flex-wrap items-center gap-2 text-lg font-semibold">
-                                    <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></span>
-                                    {origin}
-                                    {load.details.origin_address && (
-                                        <span className="block text-xs font-normal text-muted-foreground truncate max-w-[200px]">
-                                            {load.details.origin_address}
-                                        </span>
-                                    )}
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                                            <div className="flex-1">
+                                                <div className="flex flex-wrap items-center gap-2 text-lg font-semibold">
+                                                    <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></span>
+                                                    {origin}
+                                                    {load.details.origin_address && (
+                                                        <span className="block text-xs font-normal text-muted-foreground truncate max-w-[200px]">
+                                                            {load.details.origin_address}
+                                                        </span>
+                                                    )}
                                                     <WeatherBadge
                                                         lat={load.details.origin_lat}
                                                         lon={load.details.origin_lon}
@@ -1065,42 +1067,42 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                                     />
                                                 </div>
                                             </div>
-                            <div className="flex flex-col items-center px-4 sm:px-2">
-                                <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                                    {dist ? `${dist.toFixed(0)} mi Loaded` : '---'}
-                                </span>
-                                <div className="w-24 h-[1px] bg-border my-1 relative">
-                                    <div className="absolute right-0 -top-[3px] w-0 h-0 border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent border-l-[6px] border-l-border"></div>
-                                </div>
-                            </div>
-                            <div className="flex-1 sm:text-right">
-                                <div className="flex flex-wrap items-center gap-2 text-lg font-semibold sm:justify-end">
-                                    <WeatherBadge
-                                        lat={load.details.dest_lat}
-                                        lon={load.details.dest_lon}
-                                        city={load.details.dest_city}
-                                        state={load.details.dest_state}
-                                        size="sm"
-                                    />
-                                    <div>
-                                        {dest}
-                                        {load.details.dest_address && (
-                                            <span className="block text-xs font-normal text-muted-foreground truncate max-w-[200px] sm:text-right">
-                                                {load.details.dest_address}
-                                            </span>
-                                        )}
-                                    </div>
+                                            <div className="flex flex-col items-center px-4 sm:px-2">
+                                                <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                                                    {dist ? `${dist.toFixed(0)} mi Loaded` : '---'}
+                                                </span>
+                                                <div className="w-24 h-[1px] bg-border my-1 relative">
+                                                    <div className="absolute right-0 -top-[3px] w-0 h-0 border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent border-l-[6px] border-l-border"></div>
+                                                </div>
+                                            </div>
+                                            <div className="flex-1 sm:text-right">
+                                                <div className="flex flex-wrap items-center gap-2 text-lg font-semibold sm:justify-end">
+                                                    <WeatherBadge
+                                                        lat={load.details.dest_lat}
+                                                        lon={load.details.dest_lon}
+                                                        city={load.details.dest_city}
+                                                        state={load.details.dest_state}
+                                                        size="sm"
+                                                    />
+                                                    <div>
+                                                        {dest}
+                                                        {load.details.dest_address && (
+                                                            <span className="block text-xs font-normal text-muted-foreground truncate max-w-[200px] sm:text-right">
+                                                                {load.details.dest_address}
+                                                            </span>
+                                                        )}
+                                                    </div>
 
                                                 </div>
                                             </div>
                                         </div>
 
-                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground pt-1 sm:gap-6">
-                            {(load.details.pickup_date || load.details.origin_pickup_date) && (
-                                <div className="flex items-center gap-1.5 text-green-700 font-medium">
-                                    <Calendar className="h-4 w-4" />
-                                    <span>Pick: {new Date(load.details.pickup_date || load.details.origin_pickup_date).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                                </div>
+                                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground pt-1 sm:gap-6">
+                                            {(load.details.pickup_date || load.details.origin_pickup_date) && (
+                                                <div className="flex items-center gap-1.5 text-green-700 font-medium">
+                                                    <Calendar className="h-4 w-4" />
+                                                    <span>Pick: {new Date(load.details.pickup_date || load.details.origin_pickup_date).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                                </div>
                                             )}
                                             {deliveryDate ? (
                                                 <div className="flex items-center gap-1.5 text-blue-700 font-medium">
@@ -1127,10 +1129,10 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                     </div>
 
                                     {/* Right: Rate & Action */}
-                    <div className="flex flex-col items-stretch justify-center p-5 bg-muted/30 border-t md:border-t-0 md:border-l md:min-w-[180px]">
-                        <div className="text-center">
-                            <div className="text-3xl font-bold text-green-600 flex items-center justify-center">
-                                <span className="text-lg mr-0.5">$</span>
+                                    <div className="flex flex-col items-stretch justify-center p-5 bg-muted/30 border-t md:border-t-0 md:border-l md:min-w-[180px]">
+                                        <div className="text-center">
+                                            <div className="text-3xl font-bold text-green-600 flex items-center justify-center">
+                                                <span className="text-lg mr-0.5">$</span>
                                                 {rate?.toFixed(0) || '---'}
                                             </div>
                                             {rpm && (
@@ -1197,6 +1199,16 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                                 )} />
                                                 <span className="ml-1">{savedLoadIds.has(load.id) ? 'Saved' : 'Save'}</span>
                                             </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setSelectedLoadForMap(load)}
+                                                className="w-full gap-1 border border-blue-500/20 text-blue-500 hover:text-blue-400 hover:bg-blue-500/10"
+                                                title="View Route Intelligence"
+                                            >
+                                                <Map className="h-4 w-4" />
+                                                <span className="ml-1">Route Scan</span>
+                                            </Button>
                                         </div>
                                     </div>
                                 </div>
@@ -1205,6 +1217,15 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     })
                 )}
             </div>
+
+            {/* Route Intelligence Modal */}
+            {selectedLoadForMap && (
+                <MapboxIntelligenceModal
+                    isOpen={!!selectedLoadForMap}
+                    onClose={() => setSelectedLoadForMap(null)}
+                    load={selectedLoadForMap}
+                />
+            )}
         </div >
     )
 }

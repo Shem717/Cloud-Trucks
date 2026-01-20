@@ -160,45 +160,46 @@ export async function saveNewLoads(criteriaId: string, loads: CloudTrucksLoad[],
 
     const supabase = supabaseClient || getSupabaseClient();
 
-    // Get existing load IDs for this criteria
+    // Write-path optimization:
+    // - Avoid per-criteria "select existing IDs" round trips.
+    // - Rely on the UNIQUE(cloudtrucks_load_id, criteria_id) constraint.
+    const rows = loads.map((load) => ({
+        criteria_id: criteriaId,
+        cloudtrucks_load_id: load.id,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        details: (load.raw || load) as any,
+        status: 'found',
+    }));
 
-    const { data: existingLoads } = await supabase
-        .from(USER_FOUND_TABLE)
-        .select('cloudtrucks_load_id')
-        .eq('criteria_id', criteriaId);
+    const BATCH_SIZE = 500;
+    let inserted = 0;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const existingIds = new Set(existingLoads?.map((l: any) => l.cloudtrucks_load_id) || []);
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+        const batch = rows.slice(i, i + BATCH_SIZE);
 
-    // Filter out loads we've already saved
-    const newLoads = loads.filter(load => !existingIds.has(load.id));
+        const { data, error } = await supabase
+            .from(USER_FOUND_TABLE)
+            .upsert(batch, {
+                onConflict: 'cloudtrucks_load_id,criteria_id',
+                ignoreDuplicates: true,
+            })
+            .select('cloudtrucks_load_id');
 
-    if (newLoads.length === 0) {
+        if (error) {
+            console.error('Error saving loads:', error);
+            throw error;
+        }
+
+        inserted += data?.length ?? 0;
+    }
+
+    if (inserted === 0) {
         console.log(`No new loads for criteria ${criteriaId}`);
         return 0;
     }
 
-    // Insert new loads
-    const { error } = await supabase
-        .from(USER_FOUND_TABLE)
-        .insert(
-            newLoads.map(load => ({
-                criteria_id: criteriaId,
-                cloudtrucks_load_id: load.id,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                details: (load.raw || load) as any, // Store raw data or the load object itself
-                status: 'found',
-            }))
-        )
-        .select();
-
-    if (error) {
-        console.error('Error saving loads:', error);
-        throw error;
-    }
-
-    console.log(`Saved ${newLoads.length} new loads for criteria ${criteriaId}`);
-    return newLoads.length;
+    console.log(`Saved ${inserted} new loads for criteria ${criteriaId}`);
+    return inserted;
 }
 
 /**
@@ -317,33 +318,29 @@ async function getGuestAdminCredentials(supabase: any): Promise<GuestAdminCreden
 async function saveNewGuestLoads(criteriaId: string, loads: CloudTrucksLoad[], supabaseClient: any) {
     if (loads.length === 0) return 0;
 
-    const { data: existingLoads } = await supabaseClient
-        .from(GUEST_FOUND_TABLE)
-        .select('cloudtrucks_load_id')
-        .eq('criteria_id', criteriaId);
-
-    const existingIds = new Set((existingLoads || []).map((l: any) => l.cloudtrucks_load_id));
-    const newLoads = loads.filter(load => !existingIds.has(load.id));
-
-    if (newLoads.length === 0) return 0;
-
     // Cap guest storage per criteria to reduce abuse.
-    const capped = newLoads.slice(0, 200);
+    // Note: duplicates are ignored via the unique constraint.
+    const uniqueLoads = Array.from(new Map(loads.map((l) => [l.id, l])).values());
+    const capped = uniqueLoads.slice(0, 200);
 
-    const { error } = await supabaseClient
+    const rows = capped.map((load) => ({
+        criteria_id: criteriaId,
+        cloudtrucks_load_id: load.id,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        details: (load.raw || load) as any,
+        status: 'found',
+    }));
+
+    const { data, error } = await supabaseClient
         .from(GUEST_FOUND_TABLE)
-        .insert(
-            capped.map(load => ({
-                criteria_id: criteriaId,
-                cloudtrucks_load_id: load.id,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                details: (load.raw || load) as any,
-                status: 'found',
-            }))
-        );
+        .upsert(rows, {
+            onConflict: 'cloudtrucks_load_id,criteria_id',
+            ignoreDuplicates: true,
+        })
+        .select('cloudtrucks_load_id');
 
     if (error) throw error;
-    return capped.length;
+    return data?.length ?? 0;
 }
 
 export async function scanLoadsForGuestSession(guestSession: string): Promise<{

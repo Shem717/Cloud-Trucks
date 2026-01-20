@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 import { getRequestContext } from '@/lib/request-context';
 
 const USER_CRITERIA_TABLE = 'search_criteria';
@@ -12,6 +13,11 @@ export async function POST(request: NextRequest) {
     try {
         const supabase = await createClient();
         const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
+
+        // Guest sandbox tables are server-only (RLS enabled without policies).
+        // Use the admin client for guest DB operations while still using the
+        // request-scoped client for auth/session detection.
+        const db = isGuest ? createAdminClient() : supabase;
 
         if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -72,7 +78,7 @@ export async function POST(request: NextRequest) {
 
         // Enforce guest sandbox limits server-side.
         if (isGuest && guestSession) {
-            const { count } = await supabase
+            const { count } = await db
                 .from(GUEST_CRITERIA_TABLE)
                 .select('id', { count: 'exact', head: true })
                 .eq('guest_session', guestSession)
@@ -89,7 +95,7 @@ export async function POST(request: NextRequest) {
             ? { guest_session: guestSession, ...criteriaBase }
             : { user_id: userId, ...criteriaBase };
 
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from(table)
             .insert(criteria)
             .select()
@@ -125,6 +131,8 @@ export async function GET(request: NextRequest) {
         const supabase = await createClient();
         const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
 
+        const db = isGuest ? createAdminClient() : supabase;
+
         if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -134,7 +142,7 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const view = searchParams.get('view');
 
-        let query = supabase
+        let query = db
             .from(table)
             .select('*')
             .order('created_at', { ascending: false });
@@ -172,6 +180,8 @@ export async function DELETE(request: NextRequest) {
         const supabase = await createClient();
         const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
 
+        const db = isGuest ? createAdminClient() : supabase;
+
         if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -190,10 +200,7 @@ export async function DELETE(request: NextRequest) {
 
         if (permanent) {
             // Hard Delete
-            let query = supabase
-                .from(table)
-                .delete()
-                .eq('id', id);
+            let query = db.from(table).delete().eq('id', id);
 
             query = isGuest
                 ? query.eq('guest_session', guestSession as string)
@@ -203,7 +210,7 @@ export async function DELETE(request: NextRequest) {
             error = res.error;
         } else {
             // Soft Delete
-            let query = supabase
+            let query = db
                 .from(table)
                 .update({ deleted_at: new Date().toISOString() })
                 .eq('id', id);
@@ -237,6 +244,8 @@ export async function PATCH(request: NextRequest) {
         const supabase = await createClient();
         const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
 
+        const db = isGuest ? createAdminClient() : supabase;
+
         if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -249,7 +258,7 @@ export async function PATCH(request: NextRequest) {
         if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
 
         if (action === 'restore') {
-            let query = supabase
+            let query = db
                 .from(table)
                 .update({ deleted_at: null })
                 .eq('id', id);

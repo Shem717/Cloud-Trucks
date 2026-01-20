@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 import { getRequestContext } from '@/lib/request-context';
 
 const USER_LOADS_TABLE = 'found_loads';
@@ -15,6 +16,8 @@ export async function GET(request: NextRequest) {
         const supabase = await createClient();
         const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
 
+        const db = isGuest ? createAdminClient() : supabase;
+
         if (!userId && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -24,7 +27,7 @@ export async function GET(request: NextRequest) {
 
         // Fetch loads where the criteria belongs to the current user or guest session.
         // For guest mode, we store loads in guest_found_loads and join guest_search_criteria.
-        const { data, error } = await supabase
+        const { data, error } = await db
             .from(loadsTable)
             .select(`
                 *,
