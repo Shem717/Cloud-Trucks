@@ -11,8 +11,9 @@ import { cn } from "@/lib/utils"
 import { CityAutocomplete } from "@/components/city-autocomplete"
 
 interface SearchCriteriaFormProps {
-    onSuccess?: () => void;
+    onSuccess?: (criteria: any) => void; // Pass the newly created criteria
 }
+
 
 const US_STATES = [
     { value: 'AL', label: 'AL' }, { value: 'AK', label: 'AK' }, { value: 'AZ', label: 'AZ' },
@@ -70,13 +71,18 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                     setOutcome({ error: result.error })
                 } else {
                     setOutcome({ success: 'Added! Scanning started...' })
+
+                    // Call onSuccess with the newly created criteria for optimistic UI update
+                    if (result.criteria) {
+                        onSuccess?.(result.criteria)
+                    }
+
                     form.reset()
                     // Reset controlled states
                     setOriginState('')
                     setDestState('')
 
                     router.refresh()
-                    onSuccess?.()
                     setTimeout(() => setOutcome(null), 3000)
                 }
             } catch (error: any) {

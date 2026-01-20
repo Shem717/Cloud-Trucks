@@ -288,5 +288,13 @@ export const US_CITIES: City[] = [
     { value: "Hillsboro", label: "Hillsboro, OR", state: "OR" },
     { value: "Sparks", label: "Sparks, NV", state: "NV" },
     { value: "League City", label: "League City, TX", state: "TX" },
-    { value: "San Angelo", label: "San Angelo, TX", state: "TX" }
+    { value: "San Angelo", label: "San Angelo, TX", state: "TX" },
+    // Major NYC Boroughs & Hubs
+    { value: "Brooklyn", label: "Brooklyn, NY", state: "NY" },
+    { value: "Bronx", label: "Bronx, NY", state: "NY" },
+    { value: "Queens", label: "Queens, NY", state: "NY" },
+    { value: "Staten Island", label: "Staten Island, NY", state: "NY" },
+    { value: "Jersey City", label: "Jersey City, NJ", state: "NJ" },
+    { value: "Long Beach", label: "Long Beach, CA", state: "CA" },
+    { value: "Oakland", label: "Oakland, CA", state: "CA" }
 ];

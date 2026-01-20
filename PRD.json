@@ -1,0 +1,54 @@
+{
+    "id": "batch-4-polish",
+    "task_description": "Batch 4: Reliability, Math Accuracy & UI Polish",
+    "impacted_files": [
+        "src/app/dashboard/page.tsx",
+        "src/app/dashboard/layout.tsx",
+        "src/components/dashboard-feed.tsx",
+        "src/components/broker-logo.tsx"
+    ],
+    "project_meta": {
+        "name": "Cloud-Trucks Scout App",
+        "stack": "Next.js, Tailwind, Supabase"
+    },
+    "stories": [
+        {
+            "id": "ux-016",
+            "task_description": "Fix Toggle UI Contrast (Active state readability)",
+            "status": "TODO",
+            "impacted_files": [
+                "src/components/dashboard-feed.tsx"
+            ],
+            "verification_command": "Visual verification of class names"
+        },
+        {
+            "id": "ux-017",
+            "task_description": "Fix 'Loads Found' and 'Active Scouts' Math (Connect to real data)",
+            "status": "TODO",
+            "impacted_files": [
+                "src/app/dashboard/page.tsx",
+                "src/components/dashboard-feed.tsx"
+            ],
+            "verification_command": "Verify top cards match DB counts"
+        },
+        {
+            "id": "ux-019",
+            "task_description": "Improve Navigation Bar Design (Glassmorphism + Spacing)",
+            "status": "TODO",
+            "impacted_files": [
+                "src/app/dashboard/layout.tsx"
+            ],
+            "verification_command": "Visual inspection"
+        },
+        {
+            "id": "ux-020",
+            "task_description": "Audit & Apply Missing Broker Logos",
+            "status": "TODO",
+            "impacted_files": [
+                "src/components/load-card.tsx",
+                "src/components/dashboard-feed.tsx"
+            ],
+            "verification_command": "Grep for broker_name usage"
+        }
+    ]
+}

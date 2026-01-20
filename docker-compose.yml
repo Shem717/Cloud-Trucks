@@ -1,0 +1,34 @@
+services:
+  app:
+    container_name: cloud-trucks-worker
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    ports:
+      - "3000:3000"
+    networks:
+      - cloud-trucks-net
+
+  redis:
+    container_name: cloud-trucks-redis
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - redis_data:/data
+    networks:
+      - cloud-trucks-net
+
+networks:
+  cloud-trucks-net:
+    driver: bridge
+
+volumes:
+  redis_data:
