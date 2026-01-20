@@ -701,7 +701,7 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
                             {/* Delete Button (Z-Index above card click) */}
                             {/* Action Button (Delete or Restore) */}
                             {viewMode === 'trash' ? (
-                                <div className="absolute top-2 right-2 z-50 flex gap-1">
+                                <div className="absolute top-2 right-2 z-50 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                         type="button"
                                         onClick={(e) => {
@@ -735,8 +735,6 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
                                     onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
-                                        // Soft delete - no confirmation needed for trash flow
-                                        // or keep simple alert? User asked to "Remove immediate confirmation popup"
                                         handleDelete(mission.criteria.id);
                                     }}
                                     className="absolute top-2 right-2 z-50 p-1.5 rounded-full bg-black/20 hover:bg-red-500/20 text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
