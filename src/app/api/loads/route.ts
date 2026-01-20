@@ -29,8 +29,7 @@ export async function GET() {
                 )
             `)
             .eq('search_criteria.user_id', user.id)
-            .order('created_at', { ascending: false })
-            .limit(100);
+            .order('created_at', { ascending: false });
 
         if (error) {
             console.error('Error fetching loads:', error);
