@@ -34,15 +34,26 @@ export async function POST(request: NextRequest) {
             return parsed;
         };
 
+        const parseStates = (val: any): string[] | null => {
+            if (!val || val.toString().trim() === '') return null;
+            const states = val.toString().split(',').map((s: string) => s.trim()).filter(Boolean);
+            return states.length > 0 ? states : null;
+        };
+
+        const originStates = parseStates(formData.get('origin_states'));
+        const destStates = parseStates(formData.get('destination_states'));
+
         const criteria = {
             user_id: user.id,
             origin_city: formData.get('origin_city') as string || null,
-            origin_state: formData.get('origin_state') as string || null,
+            origin_state: formData.get('origin_state') as string || (originStates?.[0] ?? null),
+            origin_states: originStates,
             // Validate pickup_distance: min 1 mile, max 500 miles
             pickup_distance: parseNumeric(formData.get('pickup_distance'), 'int', 1, 500) || 50,
             pickup_date: pickupDate,
             dest_city: formData.get('dest_city') as string || null,
-            destination_state: formData.get('destination_state') === 'any' ? null : (formData.get('destination_state') as string || null),
+            destination_state: formData.get('destination_state') === 'any' ? null : (formData.get('destination_state') as string || (destStates?.[0] ?? null)),
+            destination_states: destStates,
             // Validate min_rate: min $0, max $50,000
             min_rate: parseNumeric(formData.get('min_rate'), 'float', 0, 50000),
             // Validate weights: min 0 lbs, max 100,000 lbs

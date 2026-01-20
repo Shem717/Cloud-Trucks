@@ -66,8 +66,10 @@ interface SearchCriteria {
     id: string;
     origin_city: string | null;
     origin_state: string | null;
+    origin_states: string[] | null;
     dest_city: string | null;
     destination_state: string | null;
+    destination_states: string[] | null;
     equipment_type: string | null;
     booking_type: string | null;
     min_rate: number | null;
@@ -99,6 +101,8 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
     const [savedLoadIds, setSavedLoadIds] = useState<Set<string>>(new Set()) // Track saved loads for UI feedback
     const [interestedCount, setInterestedCount] = useState<number>(0)
     const [credentialWarning, setCredentialWarning] = useState<string | null>(null)
+    const [selectedScoutIds, setSelectedScoutIds] = useState<Set<string>>(new Set())
+    const [selectedBackhaulIds, setSelectedBackhaulIds] = useState<Set<string>>(new Set())
 
 
     useEffect(() => {
@@ -222,6 +226,9 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
     // Effect to re-fetch when viewMode changes
     useEffect(() => {
         fetchData();
+        // Clear selections when switching views
+        setSelectedScoutIds(new Set());
+        setSelectedBackhaulIds(new Set());
     }, [viewMode]);
 
     const handleDelete = async (id: string, permanent: boolean = false) => {
@@ -258,6 +265,65 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
             console.error('Failed to restore criteria:', error);
         }
     }
+
+    // Batch selection handlers for scouts
+    const toggleScoutSelection = (id: string) => {
+        setSelectedScoutIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return newSet;
+        });
+    };
+
+    const toggleScoutSelectAll = () => {
+        if (selectedScoutIds.size === scoutMissions.length) {
+            setSelectedScoutIds(new Set());
+        } else {
+            setSelectedScoutIds(new Set(scoutMissions.map(m => m.criteria.id)));
+        }
+    };
+
+    // Batch selection handlers for backhauls
+    const toggleBackhaulSelection = (id: string) => {
+        setSelectedBackhaulIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return newSet;
+        });
+    };
+
+    const toggleBackhaulSelectAll = () => {
+        if (selectedBackhaulIds.size === backhaulMissions.length) {
+            setSelectedBackhaulIds(new Set());
+        } else {
+            setSelectedBackhaulIds(new Set(backhaulMissions.map(m => m.criteria.id)));
+        }
+    };
+
+    // Batch action handlers
+    const handleBatchScoutAction = async (action: 'restore' | 'delete') => {
+        const ids = Array.from(selectedScoutIds);
+        const results = await Promise.all(
+            ids.map(id => action === 'restore' ? handleRestore(id) : handleDelete(id, true))
+        );
+        setSelectedScoutIds(new Set());
+    };
+
+    const handleBatchBackhaulAction = async (action: 'restore' | 'delete') => {
+        const ids = Array.from(selectedBackhaulIds);
+        const results = await Promise.all(
+            ids.map(id => action === 'restore' ? handleRestore(id) : handleDelete(id, true))
+        );
+        setSelectedBackhaulIds(new Set());
+    };
 
     const handleCriteriaAdded = async (tempCriteria: SearchCriteria) => {
         // Optimistically add to UI
@@ -653,17 +719,67 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
                         </div>
                     </button>
 
+                    {/* Batch Action Bar for Scouts (Trash Mode Only) */}
+                    {viewMode === 'trash' && scoutMissions.length > 0 && (
+                        <div className="flex items-center justify-between bg-muted/20 p-2 rounded-lg border w-full">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedScoutIds.size === scoutMissions.length && scoutMissions.length > 0}
+                                    onChange={toggleScoutSelectAll}
+                                    className="h-4 w-4 rounded border-gray-300"
+                                />
+                                <span className="text-sm text-muted-foreground">
+                                    {selectedScoutIds.size > 0 ? `${selectedScoutIds.size} selected` : 'Select all'}
+                                </span>
+                            </div>
+                            {selectedScoutIds.size > 0 && (
+                                <div className="flex gap-2">
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleBatchScoutAction('restore')}
+                                        className="h-8"
+                                    >
+                                        Restore Selected
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={() => handleBatchScoutAction('delete')}
+                                        className="h-8"
+                                    >
+                                        Delete Forever
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Scouts Cards */}
                     {scoutMissions.map((mission: any) => (
                         <div
                             key={mission.criteria.id}
                             className={cn(
-                                "relative flex flex-col items-start justify-between rounded-xl border p-4 w-[240px] h-[120px] transition-all hover:scale-105 focus-within:ring-2 ring-primary/20 group",
+                                "relative flex flex-col items-start justify-between rounded-xl border w-[240px] h-[120px] transition-all hover:scale-105 focus-within:ring-2 ring-primary/20 group",
+                                viewMode === 'trash' ? "p-4 pl-8" : "p-4",
                                 selectedCriteriaId === mission.criteria.id
                                     ? "bg-slate-800 text-white shadow-lg scale-105 border-slate-600 ring-2 ring-slate-400"
-                                    : "bg-background hover:bg-muted/50"
+                                    : "bg-background hover:bg-muted/50",
+                                viewMode === 'trash' && selectedScoutIds.has(mission.criteria.id) && "border-blue-500 bg-blue-50/10 ring-1 ring-blue-500"
                             )}
                         >
+                            {/* Checkbox for trash mode */}
+                            {viewMode === 'trash' && (
+                                <input
+                                    type="checkbox"
+                                    checked={selectedScoutIds.has(mission.criteria.id)}
+                                    onChange={() => toggleScoutSelection(mission.criteria.id)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 rounded border-gray-300 z-10"
+                                />
+                            )}
+
                             {/* Make the whole card clickable EXCEPT the delete button */}
                             <button
                                 onClick={() => setSelectedCriteriaId(mission.criteria.id)}
@@ -693,7 +809,13 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
                                         <div className="text-xs text-muted-foreground">Found</div>
                                     </div>
                                     <div className="text-xs text-muted-foreground">
-                                        {mission.criteria.origin_state} to {mission.criteria.destination_state || 'Any'}
+                                        {mission.criteria.origin_states && mission.criteria.origin_states.length > 0
+                                            ? mission.criteria.origin_states.join(', ')
+                                            : mission.criteria.origin_state} to {
+                                            mission.criteria.destination_states && mission.criteria.destination_states.length > 0
+                                                ? mission.criteria.destination_states.join(', ')
+                                                : (mission.criteria.destination_state || 'Any')
+                                        }
                                     </div>
                                 </div>
                             </button>
@@ -754,18 +876,69 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
                             <ArrowLeftRight className="h-4 w-4" />
                             Backhauls
                         </h3>
+
+                        {/* Batch Action Bar for Backhauls (Trash Mode Only) */}
+                        {viewMode === 'trash' && (
+                            <div className="flex items-center justify-between bg-muted/20 p-2 rounded-lg border w-full">
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedBackhaulIds.size === backhaulMissions.length && backhaulMissions.length > 0}
+                                        onChange={toggleBackhaulSelectAll}
+                                        className="h-4 w-4 rounded border-gray-300"
+                                    />
+                                    <span className="text-sm text-muted-foreground">
+                                        {selectedBackhaulIds.size > 0 ? `${selectedBackhaulIds.size} selected` : 'Select all'}
+                                    </span>
+                                </div>
+                                {selectedBackhaulIds.size > 0 && (
+                                    <div className="flex gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleBatchBackhaulAction('restore')}
+                                            className="h-8"
+                                        >
+                                            Restore Selected
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="destructive"
+                                            onClick={() => handleBatchBackhaulAction('delete')}
+                                            className="h-8"
+                                        >
+                                            Delete Forever
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <div className="w-full overflow-x-auto pb-4 scrollbar-hide">
                             <div className="flex w-max space-x-4">
                                 {backhaulMissions.map((mission: any) => (
                                     <div
                                         key={mission.criteria.id}
                                         className={cn(
-                                            "relative flex flex-col items-start justify-between rounded-xl border p-4 w-[240px] h-[100px] transition-all hover:scale-105 focus-within:ring-2 ring-indigo-500/20 group",
+                                            "relative flex flex-col items-start justify-between rounded-xl border w-[240px] h-[100px] transition-all hover:scale-105 focus-within:ring-2 ring-indigo-500/20 group",
+                                            viewMode === 'trash' ? "p-4 pl-8" : "p-4",
                                             selectedCriteriaId === mission.criteria.id
                                                 ? "bg-indigo-950/40 text-white shadow-lg scale-105 border-indigo-500 ring-2 ring-indigo-500"
-                                                : "bg-background hover:bg-muted/50 border-indigo-500/20"
+                                                : "bg-background hover:bg-muted/50 border-indigo-500/20",
+                                            viewMode === 'trash' && selectedBackhaulIds.has(mission.criteria.id) && "border-blue-500 bg-blue-50/10 ring-1 ring-blue-500"
                                         )}
                                     >
+                                        {/* Checkbox for trash mode */}
+                                        {viewMode === 'trash' && (
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedBackhaulIds.has(mission.criteria.id)}
+                                                onChange={() => toggleBackhaulSelection(mission.criteria.id)}
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 rounded border-gray-300 z-10"
+                                            />
+                                        )}
+
                                         <button
                                             onClick={() => setSelectedCriteriaId(mission.criteria.id)}
                                             className="absolute inset-0 w-full h-full z-0 text-left p-4 flex flex-col justify-between"

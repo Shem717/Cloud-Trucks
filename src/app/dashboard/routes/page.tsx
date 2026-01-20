@@ -26,6 +26,7 @@ export default async function RoutePlanningPage() {
                 broker_name: d.broker_name || d.broker,
                 origin_address: d.origin_address || d.location_address1,
                 dest_address: d.dest_address || d.location_address2,
+                equipment: d.equipment,
             }
         };
     });

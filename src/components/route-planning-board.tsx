@@ -262,6 +262,10 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
                                                 <Calendar className="h-4 w-4" />
                                                 {load.pickup_date ? new Date(load.pickup_date).toLocaleDateString() : 'ASAP'}
                                             </div>
+                                            <div className="flex items-center gap-1">
+                                                <Truck className="h-4 w-4" />
+                                                {getEquipment(load)}
+                                            </div>
                                             <div className="flex items-center gap-1 font-medium text-foreground">
                                                 <DollarSign className="h-4 w-4" />
                                                 {load.rate ? load.rate : '---'}

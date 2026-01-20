@@ -4,46 +4,22 @@ import { useTransition, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertCircle, CheckCircle2, Loader2, Search, ChevronDown, ChevronUp } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { cn } from "@/lib/utils"
 import { CityAutocomplete } from "@/components/city-autocomplete"
+import { MultiStateSelect } from "@/components/multi-state-select"
 
 interface SearchCriteriaFormProps {
     onSuccess?: (criteria: any) => void; // Pass the newly created criteria
 }
 
 
-const US_STATES = [
-    { value: 'AL', label: 'AL' }, { value: 'AK', label: 'AK' }, { value: 'AZ', label: 'AZ' },
-    { value: 'AR', label: 'AR' }, { value: 'CA', label: 'CA' }, { value: 'CO', label: 'CO' },
-    { value: 'CT', label: 'CT' }, { value: 'DE', label: 'DE' }, { value: 'FL', label: 'FL' },
-    { value: 'GA', label: 'GA' }, { value: 'HI', label: 'HI' }, { value: 'ID', label: 'ID' },
-    { value: 'IL', label: 'IL' }, { value: 'IN', label: 'IN' }, { value: 'IA', label: 'IA' },
-    { value: 'KS', label: 'KS' }, { value: 'KY', label: 'KY' }, { value: 'LA', label: 'LA' },
-    { value: 'ME', label: 'ME' }, { value: 'MD', label: 'MD' }, { value: 'MA', label: 'MA' },
-    { value: 'MI', label: 'MI' }, { value: 'MN', label: 'MN' }, { value: 'MS', label: 'MS' },
-    { value: 'MO', label: 'MO' }, { value: 'MT', label: 'MT' }, { value: 'NE', label: 'NE' },
-    { value: 'NV', label: 'NV' }, { value: 'NH', label: 'NH' }, { value: 'NJ', label: 'NJ' },
-    { value: 'NM', label: 'NM' }, { value: 'NY', label: 'NY' }, { value: 'NC', label: 'NC' },
-    { value: 'ND', label: 'ND' }, { value: 'OH', label: 'OH' }, { value: 'OK', label: 'OK' },
-    { value: 'OR', label: 'OR' }, { value: 'PA', label: 'PA' }, { value: 'RI', label: 'RI' },
-    { value: 'SC', label: 'SC' }, { value: 'SD', label: 'SD' }, { value: 'TN', label: 'TN' },
-    { value: 'TX', label: 'TX' }, { value: 'UT', label: 'UT' }, { value: 'VT', label: 'VT' },
-    { value: 'VA', label: 'VA' }, { value: 'WA', label: 'WA' }, { value: 'WV', label: 'WV' },
-    { value: 'WI', label: 'WI' }, { value: 'WY', label: 'WY' }
-];
-
 export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
     const router = useRouter()
     const [isPending, startTransition] = useTransition()
     const [outcome, setOutcome] = useState<{ error?: string; success?: string } | null>(null)
     const [showFilters, setShowFilters] = useState(false)
-
-    // Controlled state for State dropdowns to allow autocomplete to update them
-    const [originState, setOriginState] = useState<string>('')
-    const [destState, setDestState] = useState<string>('')
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
@@ -78,10 +54,6 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                     }
 
                     form.reset()
-                    // Reset controlled states
-                    setOriginState('')
-                    setDestState('')
-
                     router.refresh()
                     setTimeout(() => setOutcome(null), 3000)
                 }
@@ -113,42 +85,31 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                 <div className="flex flex-wrap items-end gap-3 p-4 rounded-xl bg-gradient-to-r from-slate-800/80 to-slate-900/80 border border-slate-700/50 backdrop-blur-sm shadow-xl">
                     {/* Origin */}
                     <div className="flex-1 min-w-[200px]">
-                        <label className="text-xs text-slate-400 mb-1 block">Pickup</label>
+                        <label className="text-xs text-slate-400 mb-1 block">Pickup <span className="text-slate-500">(state/region)</span></label>
                         <div className="flex gap-1">
                             <CityAutocomplete
                                 name="origin_city"
                                 required
-                                onStateChange={setOriginState}
                             />
-                            <Select name="origin_state" value={originState} onValueChange={setOriginState}>
-                                <SelectTrigger className="w-[70px] bg-slate-900/50 border-slate-600 h-10">
-                                    <SelectValue placeholder="ST" />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-[200px]">
-                                    {US_STATES.map((s) => (
-                                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <MultiStateSelect
+                                name="origin_states"
+                                placeholder="States"
+                                className="w-[120px]"
+                            />
                         </div>
                     </div>
 
                     {/* Radius */}
                     <div className="w-[110px]">
                         <label className="text-xs text-slate-400 mb-1 block">Radius</label>
-                        <Select name="pickup_distance" defaultValue="50">
-                            <SelectTrigger className="bg-slate-900/50 border-slate-600 h-10">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="50">50 mi</SelectItem>
-                                <SelectItem value="100">100 mi</SelectItem>
-                                <SelectItem value="150">150 mi</SelectItem>
-                                <SelectItem value="200">200 mi</SelectItem>
-                                <SelectItem value="300">300 mi</SelectItem>
-                                <SelectItem value="400">400 mi</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <select name="pickup_distance" defaultValue="50" className="flex h-10 w-full rounded-md border border-slate-600 bg-slate-900/50 px-3 py-1 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-400">
+                            <option value="50">50 mi</option>
+                            <option value="100">100 mi</option>
+                            <option value="150">150 mi</option>
+                            <option value="200">200 mi</option>
+                            <option value="300">300 mi</option>
+                            <option value="400">400 mi</option>
+                        </select>
                     </div>
 
                     {/* Pickup Date */}
@@ -168,24 +129,17 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
 
                     {/* Destination */}
                     <div className="flex-1 min-w-[200px]">
-                        <label className="text-xs text-slate-400 mb-1 block">Dropoff <span className="text-slate-500">(optional)</span></label>
+                        <label className="text-xs text-slate-400 mb-1 block">Dropoff <span className="text-slate-500">(optional, state/region)</span></label>
                         <div className="flex gap-1">
                             <CityAutocomplete
                                 name="dest_city"
                                 placeholder="Anywhere"
-                                onStateChange={setDestState}
                             />
-                            <Select name="destination_state" value={destState} onValueChange={setDestState}>
-                                <SelectTrigger className="w-[70px] bg-slate-900/50 border-slate-600 h-10">
-                                    <SelectValue placeholder="ST" />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-[200px]">
-                                    <SelectItem value="any">Any</SelectItem>
-                                    {US_STATES.map((s) => (
-                                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <MultiStateSelect
+                                name="destination_states"
+                                placeholder="States"
+                                className="w-[120px]"
+                            />
                         </div>
                     </div>
 
@@ -226,30 +180,20 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                     {/* Trailer Type - matches CloudTrucks options */}
                     <div>
                         <label className="text-xs text-slate-400 mb-1 block">Trailer Type</label>
-                        <Select name="equipment_type">
-                            <SelectTrigger className="bg-slate-900/50 border-slate-600 h-9">
-                                <SelectValue placeholder="Any" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Any">Any</SelectItem>
-                                <SelectItem value="Dry Van">Dry Van</SelectItem>
-                                <SelectItem value="Power Only">Power Only</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <select name="equipment_type" className="flex h-9 w-full rounded-md border border-slate-600 bg-slate-900/50 px-3 py-1 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-400">
+                            <option value="Any">Any</option>
+                            <option value="Dry Van">Dry Van</option>
+                            <option value="Power Only">Power Only</option>
+                        </select>
                     </div>
                     {/* Booking Type - matches CloudTrucks options */}
                     <div>
                         <label className="text-xs text-slate-400 mb-1 block">Booking Type</label>
-                        <Select name="booking_type">
-                            <SelectTrigger className="bg-slate-900/50 border-slate-600 h-9">
-                                <SelectValue placeholder="Any" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Any">Any</SelectItem>
-                                <SelectItem value="instant">Instant Book</SelectItem>
-                                <SelectItem value="standard">Standard Book</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <select name="booking_type" className="flex h-9 w-full rounded-md border border-slate-600 bg-slate-900/50 px-3 py-1 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-400">
+                            <option value="Any">Any</option>
+                            <option value="instant">Instant Book</option>
+                            <option value="standard">Standard Book</option>
+                        </select>
                     </div>
                     <div>
                         <label className="text-xs text-slate-400 mb-1 block">Min Rate ($)</label>

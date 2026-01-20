@@ -70,31 +70,61 @@ export async function fetchLoadsFromCloudTrucks(
         const { fetchLoadsViaApi } = await import('./cloudtrucks-api-client');
 
         console.log('[SCANNER] Using API client for load fetch');
+
+        // Handle multi-state selection
+        const originStates = criteria.origin_states && criteria.origin_states.length > 0
+            ? criteria.origin_states
+            : [criteria.origin_state].filter(Boolean);
+
+        const destStates = criteria.destination_states && criteria.destination_states.length > 0
+            ? criteria.destination_states
+            : criteria.destination_state ? [criteria.destination_state] : [null];
+
         console.log('[SCANNER] Input Criteria Details:', {
-            origin: `${criteria.origin_city}, ${criteria.origin_state}`,
+            origin_city: criteria.origin_city,
+            origin_states: originStates,
+            dest_city: criteria.dest_city,
+            destination_states: destStates,
             dist: criteria.pickup_distance,
             date: criteria.pickup_date
         });
 
-        const loads = await fetchLoadsViaApi(
-            credentials.cookie,
-            credentials.csrfToken,
-            {
-                origin_city: criteria.origin_city,
-                origin_state: criteria.origin_state,
-                pickup_distance: criteria.pickup_distance,
-                pickup_date: criteria.pickup_date,
-                dest_city: criteria.dest_city,
-                destination_state: criteria.destination_state,
-                min_rate: criteria.min_rate ? parseFloat(criteria.min_rate) : undefined,
-                max_weight: criteria.max_weight,
-                equipment_type: criteria.equipment_type,
-                booking_type: criteria.booking_type,
-            },
-            20000 // 20 second timeout for Pusher collection
-        );
+        // Fetch loads for each state combination
+        const allLoadsMap = new Map(); // Dedupe by load ID
 
-        return loads;
+        for (const originState of originStates) {
+            for (const destState of destStates) {
+                console.log(`[SCANNER] Querying: ${criteria.origin_city}, ${originState} -> ${criteria.dest_city || 'Any'}, ${destState || 'Any'}`);
+
+                const loads = await fetchLoadsViaApi(
+                    credentials.cookie,
+                    credentials.csrfToken,
+                    {
+                        origin_city: criteria.origin_city,
+                        origin_state: originState,
+                        pickup_distance: criteria.pickup_distance,
+                        pickup_date: criteria.pickup_date,
+                        dest_city: criteria.dest_city,
+                        destination_state: destState,
+                        min_rate: criteria.min_rate ? parseFloat(criteria.min_rate) : undefined,
+                        max_weight: criteria.max_weight,
+                        equipment_type: criteria.equipment_type,
+                        booking_type: criteria.booking_type,
+                    },
+                    20000 // 20 second timeout for Pusher collection
+                );
+
+                // Add to map for deduplication
+                if (loads && loads.length > 0) {
+                    loads.forEach(load => allLoadsMap.set(load.id, load));
+                }
+            }
+        }
+
+        const uniqueLoads = Array.from(allLoadsMap.values());
+        console.log(`[SCANNER] Found ${uniqueLoads.length} unique loads across ${originStates.length * destStates.length} state combinations`);
+
+        return uniqueLoads;
     } catch (error: any) {
         console.error('[SCANNER] CloudTrucks API error:', error.message);
         throw error;
