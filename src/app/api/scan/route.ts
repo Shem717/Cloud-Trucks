@@ -32,11 +32,12 @@ export async function POST(request: NextRequest) {
             }, { status: 500 });
         }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[API] Manual scan error:', error);
+        const message = error instanceof Error ? error.message : String(error);
         return NextResponse.json({
             success: false,
-            error: error.message || 'Server error'
+            error: message || 'Server error'
         }, { status: 500 });
     }
 }

@@ -4,7 +4,11 @@ import { useState } from 'react'
 import { SearchCriteriaForm } from "@/components/search-criteria-form"
 import { DashboardFeed } from "@/components/dashboard-feed"
 
-export function DashboardWrapper() {
+interface DashboardWrapperProps {
+    isPublic?: boolean;
+}
+
+export function DashboardWrapper({ isPublic = false }: DashboardWrapperProps) {
     const [refreshTrigger, setRefreshTrigger] = useState(0)
 
     const handleCriteriaAdded = () => {
@@ -18,7 +22,7 @@ export function DashboardWrapper() {
             <SearchCriteriaForm onSuccess={handleCriteriaAdded} />
 
             {/* Application Feed */}
-            <DashboardFeed refreshTrigger={refreshTrigger} />
+            <DashboardFeed refreshTrigger={refreshTrigger} isPublic={isPublic} />
         </>
     )
 }

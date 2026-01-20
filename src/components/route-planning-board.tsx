@@ -10,10 +10,21 @@ import Link from 'next/link';
 import { BrokerLogo } from "./broker-logo";
 import { RouteConditionsPanel } from "./route-conditions-panel";
 
+import { SearchCriteria, CloudTrucksLoad, CloudTrucksLoadStop } from "@/workers/cloudtrucks-api-client";
+
+interface SavedLoad {
+    id: string;
+    criteria_id: string;
+    cloudtrucks_load_id: string;
+    status: string;
+    created_at: string;
+    details: CloudTrucksLoad & Record<string, any>;
+}
+
 interface RoutePlanningBoardProps {
-    interestedLoads: any[];
-    backhaulCriteria: any[];
-    backhaulLoads: any[];
+    interestedLoads: SavedLoad[];
+    backhaulCriteria: (SearchCriteria & { id: string })[]; // Criteria with ID
+    backhaulLoads: SavedLoad[];
 }
 
 export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaulLoads }: RoutePlanningBoardProps) {
@@ -120,13 +131,14 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
     };
 
     // Helper to find matches (Client side logic now)
-    const findMatches = (load: any) => {
+    const findMatches = (savedLoad: SavedLoad) => {
         if (!backhaulCriteria) return [];
-        return backhaulCriteria.filter(criteria => {
+        const load = savedLoad.details;
+        return backhaulCriteria.filter((criteria) => {
             if (isDeleted(criteria.id)) return false;
 
-            const loadDestCity = (load.details.dest_city || load.details.destination || '').toLowerCase();
-            const loadDestState = (load.details.dest_state || '').toLowerCase();
+            const loadDestCity = String(load.dest_city || load.destination || '').toLowerCase();
+            const loadDestState = String(load.dest_state || '').toLowerCase();
             const critOriginCity = (criteria.origin_city || '').toLowerCase();
             const critOriginState = (criteria.origin_state || '').toLowerCase();
 
@@ -137,7 +149,7 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
     };
 
     // Helper: Safely access equipment
-    const getEquipment = (details: any) => {
+    const getEquipment = (details: CloudTrucksLoad & Record<string, unknown>) => {
         if (Array.isArray(details.equipment)) return details.equipment[0];
         return details.equipment || 'Unknown';
     };
@@ -404,9 +416,9 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
                                                         // Delivery Date Logic
                                                         let deliveryDate = lDetails.dest_delivery_date;
                                                         if (!deliveryDate && Array.isArray(lDetails.stops)) {
-                                                            const destStop = lDetails.stops.find((s: any) => s.type === 'DESTINATION');
+                                                            const destStop = (lDetails.stops as CloudTrucksLoadStop[]).find((s) => s.type === 'DESTINATION');
                                                             if (destStop) {
-                                                                deliveryDate = destStop.date_start || destStop.date_end;
+                                                                deliveryDate = destStop.date_start || destStop.date_end || '';
                                                             }
                                                         }
 

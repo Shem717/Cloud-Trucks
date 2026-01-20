@@ -41,7 +41,7 @@ export default async function RoutePlanningPage() {
     // 3. Fetch Loads matching backhaul criteria (to show availability)
     const { data: backhaulLoads } = await supabase
         .from('found_loads')
-        .select('cloudtrucks_load_id, criteria_id, details')
+        .select('*')
         .in('criteria_id', backhaulCriteria?.map(c => c.id) || []);
 
     return (

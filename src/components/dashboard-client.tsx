@@ -3,9 +3,10 @@
 import type { ReactNode } from 'react'
 import { SearchCriteriaForm } from './search-criteria-form'
 import { DashboardFeed } from './dashboard-feed'
+import { SearchCriteria } from '@/workers/cloudtrucks-api-client'
 
 interface DashboardClientProps {
-    onCriteriaAdded?: (criteria: any) => void
+    onCriteriaAdded?: (criteria: SearchCriteria) => void
 }
 
 export function DashboardClient() {

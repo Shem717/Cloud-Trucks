@@ -11,7 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export function ConnectForm() {
     const [isPending, startTransition] = useTransition()
-    const [outcome, setOutcome] = useState<{ error?: string; success?: string } | null>(null)
+    const [outcome, setOutcome] = useState<{ error?: string; success?: boolean | string } | null>(null)
 
     const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()

@@ -8,17 +8,20 @@ export async function GET(request: NextRequest) {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
+        const guestSession = request.cookies.get('guest_session')?.value;
 
-        if (!user) {
+        if (!user && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        const userId = user?.id || guestSession;
 
         // Fetch interested loads
         const { data: interestedLoads, error: interestedError } = await supabase
             .from('interested_loads')
             .select('id, cloudtrucks_load_id, details, status, created_at')
-            .eq('user_id', user.id)
-            .eq('status', 'interested') // Only fetch active interested loads
+            .eq('user_id', userId)
+            .eq('status', 'interested')
             .order('created_at', { ascending: false });
 
         if (interestedError) {
@@ -30,7 +33,7 @@ export async function GET(request: NextRequest) {
         const loadIds = (interestedLoads || []).map(l => l.cloudtrucks_load_id);
 
         // Fetch all matching found_loads in one query
-        let foundLoadsMap: Record<string, any> = {};
+        const foundLoadsMap: Record<string, unknown> = {};
         if (loadIds.length > 0) {
             const { data: foundLoads, error: foundError } = await supabase
                 .from('found_loads')
@@ -52,19 +55,22 @@ export async function GET(request: NextRequest) {
         }
 
         // Helper to normalize details with proper error handling
-        const normalizeDetails = (rawDetails: any) => {
+        const normalizeDetails = (rawDetails: unknown): Record<string, unknown> | { error: string } => {
             if (!rawDetails || typeof rawDetails !== 'object') {
                 return { error: 'Invalid load details' };
             }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const d = rawDetails as any; // Safe cast for normalization logic
+
             return {
-                ...rawDetails,
-                pickup_date: rawDetails.pickup_date || rawDetails.origin_pickup_date || rawDetails.date_start,
-                rate: rawDetails.rate || rawDetails.trip_rate || rawDetails.estimated_rate,
-                distance: rawDetails.distance || rawDetails.trip_distance_mi, // CRITICAL: UI reads 'distance'
-                broker_name: rawDetails.broker_name || rawDetails.broker,
-                origin_address: rawDetails.origin_address || rawDetails.location_address1,
-                dest_address: rawDetails.dest_address || rawDetails.location_address2,
-                is_estimated_rate: !rawDetails.rate && !rawDetails.trip_rate && !!rawDetails.estimated_rate
+                ...d,
+                pickup_date: d.pickup_date || d.origin_pickup_date || d.date_start,
+                rate: d.rate || d.trip_rate || d.estimated_rate,
+                distance: d.distance || d.trip_distance_mi, // CRITICAL: UI reads 'distance'
+                broker_name: d.broker_name || d.broker,
+                origin_address: d.origin_address || d.location_address1,
+                dest_address: d.dest_address || d.location_address2,
+                is_estimated_rate: !d.rate && !d.trip_rate && !!d.estimated_rate
             };
         };
 
@@ -79,8 +85,9 @@ export async function GET(request: NextRequest) {
                     ...intLoad,
                     details: normalizedDetails
                 };
-            } catch (enrichError: any) {
-                console.error(`[API] Error enriching load ${intLoad.cloudtrucks_load_id}:`, enrichError.message);
+            } catch (enrichError: unknown) {
+                const message = enrichError instanceof Error ? enrichError.message : String(enrichError);
+                console.error(`[API] Error enriching load ${intLoad.cloudtrucks_load_id}:`, message);
                 // Return load with original details as fallback
                 return {
                     ...intLoad,
@@ -90,9 +97,9 @@ export async function GET(request: NextRequest) {
         });
 
         return NextResponse.json({ loads: enrichedLoads });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[API] Interested loads GET error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }
 
@@ -103,10 +110,13 @@ export async function POST(request: NextRequest) {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
+        const guestSession = request.cookies.get('guest_session')?.value;
 
-        if (!user) {
+        if (!user && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        const userId = user?.id || guestSession;
 
         const body = await request.json();
         const { cloudtrucks_load_id, details } = body;
@@ -122,7 +132,7 @@ export async function POST(request: NextRequest) {
         const { data, error } = await supabase
             .from('interested_loads')
             .upsert({
-                user_id: user.id,
+                user_id: userId,
                 cloudtrucks_load_id,
                 details,
                 status: 'interested',
@@ -139,9 +149,10 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json({ success: true, load: data });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[API] Interested loads POST error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const message = error instanceof Error ? error.message : String(error);
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
 
@@ -152,10 +163,13 @@ export async function PATCH(request: NextRequest) {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
+        const guestSession = request.cookies.get('guest_session')?.value;
 
-        if (!user) {
+        if (!user && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        const userId = user?.id || guestSession;
 
         const body = await request.json();
         const { ids, status } = body;
@@ -167,7 +181,7 @@ export async function PATCH(request: NextRequest) {
         const { error } = await supabase
             .from('interested_loads')
             .update({ status })
-            .eq('user_id', user.id)
+            .eq('user_id', userId)
             .in('id', ids);
 
         if (error) {
@@ -176,8 +190,8 @@ export async function PATCH(request: NextRequest) {
         }
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }
 
@@ -188,10 +202,13 @@ export async function DELETE(request: NextRequest) {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
+        const guestSession = request.cookies.get('guest_session')?.value;
 
-        if (!user) {
+        if (!user && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        const userId = user?.id || guestSession;
 
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
@@ -201,7 +218,7 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'Missing id param' }, { status: 400 });
         }
 
-        let query = supabase.from('interested_loads').delete().eq('user_id', user.id);
+        let query = supabase.from('interested_loads').delete().eq('user_id', userId);
 
         if (ids) {
             query = query.in('id', ids);
@@ -217,8 +234,8 @@ export async function DELETE(request: NextRequest) {
         }
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[API] Interested loads DELETE error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }

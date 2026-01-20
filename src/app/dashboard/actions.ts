@@ -4,7 +4,8 @@ import { createClient } from '@/utils/supabase/server'
 import { encryptCredentials } from '@/lib/crypto'
 import { revalidatePath } from 'next/cache'
 
-export async function saveCredentials(prevState: any, formData: FormData) {
+
+export async function saveCredentials(prevState: unknown, formData: FormData) {
     const supabase = await createClient()
 
     // 1. Get current user
@@ -42,11 +43,11 @@ export async function saveCredentials(prevState: any, formData: FormData) {
         if (error) throw error
 
         revalidatePath('/dashboard')
-        return { success: 'Credentials saved securely.' }
-
-    } catch (error: any) {
-        console.error('Credential Save Error:', error)
-        return { error: 'Failed to save credentials. Please try again.' }
+        return { success: true, message: 'Connected successfully to CloudTrucks' }
+    } catch (error: unknown) {
+        console.error('Failed to save credentials:', error)
+        const message = error instanceof Error ? error.message : String(error);
+        return { success: false, message: `Connection failed: ${message}` }
     }
 }
 

@@ -67,6 +67,7 @@ async function geocodeCity(city: string, state: string): Promise<{ lat: number; 
         if (!res.ok) return null;
         const data = await res.json();
         if (!data.results || data.results.length === 0) return null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const match = data.results.find((r: any) => r.admin1?.toLowerCase().includes(state.toLowerCase()) || r.country_code === 'US') || data.results[0];
         const coords = { lat: match.latitude, lon: match.longitude };
         geocodeCache.set(cacheKey, coords);

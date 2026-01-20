@@ -155,7 +155,7 @@ export function LoadsList() {
                                         {(load.details.weight || load.details.truck_weight_lb) && (
                                             <div className="flex items-center gap-1">
                                                 <Weight className="h-3 w-3" />
-                                                {load.details.weight || load.details.truck_weight_lb} lbs
+                                                {(load.details.weight || load.details.truck_weight_lb) as React.ReactNode} lbs
                                             </div>
                                         )}
                                         {load.details.equipment && (

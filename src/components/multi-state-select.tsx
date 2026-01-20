@@ -80,12 +80,8 @@ export function MultiStateSelect({
     const [open, setOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // Sync with controlled value prop
-    useEffect(() => {
-        if (value) {
-            setInternalState(new Set(value));
-        }
-    }, [value]);
+    // Derived state handles the controlled/uncontrolled switch automatically
+    // No need to sync internal state via effect which causes rerenders
 
     const selectedStates = value ? new Set(value) : internalState;
 
