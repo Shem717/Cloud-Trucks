@@ -101,9 +101,19 @@ export function MultiStateSelect({
         onChange?.(Array.from(newSet));
     };
 
-    const selectRegion = (region: Region) => {
+    const toggleRegion = (region: Region) => {
         const newSet = new Set(selectedStates);
-        region.states.forEach(state => newSet.add(state));
+        // Check if all states in region are already selected
+        const allSelected = region.states.every(state => selectedStates.has(state));
+
+        if (allSelected) {
+            // Remove all states in region
+            region.states.forEach(state => newSet.delete(state));
+        } else {
+            // Add all states in region
+            region.states.forEach(state => newSet.add(state));
+        }
+
         setSelectedStates(newSet);
         onChange?.(Array.from(newSet));
     };
@@ -138,18 +148,26 @@ export function MultiStateSelect({
                         {/* Region Quick Select */}
                         <div className="text-xs font-semibold text-slate-400 uppercase">Quick Select</div>
                         <div className="flex flex-wrap gap-1">
-                            {US_REGIONS.map(region => (
-                                <Button
-                                    key={region.id}
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-6 text-xs bg-slate-800 border-slate-600 hover:bg-slate-700"
-                                    onClick={() => selectRegion(region)}
-                                >
-                                    {region.name}
-                                </Button>
-                            ))}
+                            {US_REGIONS.map(region => {
+                                const allSelected = region.states.every(state => selectedStates.has(state));
+                                return (
+                                    <Button
+                                        key={region.id}
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className={cn(
+                                            "h-6 text-xs border-slate-600 hover:bg-slate-700",
+                                            allSelected
+                                                ? "bg-blue-600 text-white border-blue-500 hover:bg-blue-700"
+                                                : "bg-slate-800"
+                                        )}
+                                        onClick={() => toggleRegion(region)}
+                                    >
+                                        {region.name}
+                                    </Button>
+                                );
+                            })}
                         </div>
 
                         {/* Selected States Display */}
