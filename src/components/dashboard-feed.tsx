@@ -719,9 +719,7 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
                                         onClick={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
-                                            if (confirm('Delete permanently? This cannot be undone.')) {
-                                                handleDelete(mission.criteria.id, true);
-                                            }
+                                            handleDelete(mission.criteria.id, true);
                                         }}
                                         className="p-1.5 rounded-full bg-red-500/20 hover:bg-red-500 hover:text-white text-red-600 transition-colors"
                                         title="Delete Permanently"
