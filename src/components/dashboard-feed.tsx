@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, DollarSign, Weight, Calendar, Truck, Activity, Filter, RefreshCw, Trash2, Zap, Star, ArrowUpDown, AlertTriangle, ArrowLeftRight, Search } from 'lucide-react'
@@ -12,92 +12,62 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { createClient } from "@/utils/supabase/client"
+import { SearchCriteria, CloudTrucksLoad, CloudTrucksLoadStop } from "@/workers/cloudtrucks-api-client";
+// import { formatDistanceToNow } from "date-fns"; // Removed to avoid missing dependency
 import { BrokerLogo } from "./broker-logo"
 import { WeatherBadge } from "./weather-badge"
 import { ChainLawBadge, useChainLaws } from "./chain-law-badge"
 
 type SortOption = 'newest' | 'price_high' | 'price_low' | 'pickup_soonest' | 'pickup_latest' | 'delivery_soonest' | 'delivery_latest' | 'distance_short' | 'deadhead_low' | 'rpm_high' | 'rpm_low';
 
-interface Load {
+interface SavedLoad {
     id: string;
-    cloudtrucks_load_id: string;
-    status: string;
+    cloudtrucks_load_id?: string;
     created_at: string;
-    details: {
-        id?: string;
-        origin_city?: string;
-        origin_state?: string;
-        origin_address?: string; // Check for address
-        dest_city?: string;
-        dest_state?: string;
-        dest_address?: string; // Check for address
-        origin?: string;
-        destination?: string;
-        rate?: number;
-        trip_rate?: number;
-        distance?: number;
-        trip_distance_mi?: number;
-        weight?: number;
-        truck_weight_lb?: number;
-        equipment?: string | string[];
-        pickup_date?: string;
-        broker_name?: string;
-        dest_delivery_date?: string;
-        stops?: Array<{
-            type: string;
-            date_start?: string;
-            date_end?: string;
-            [key: string]: any;
-        }>;
-        [key: string]: any;
-    };
-    search_criteria: {
+    status: string;
+    details: CloudTrucksLoad & Record<string, any>;
+    search_criteria?: {
         id: string;
         origin_city: string;
-        origin_state: string;
-        dest_city: string;
-        destination_state: string;
-        equipment_type: string;
     };
 }
 
-interface SearchCriteria {
+interface EnrichedCriteria extends SearchCriteria {
     id: string;
-    origin_city: string | null;
-    origin_state: string | null;
-    origin_states: string[] | null;
-    dest_city: string | null;
-    destination_state: string | null;
-    destination_states: string[] | null;
-    equipment_type: string | null;
-    booking_type: string | null;
-    min_rate: number | null;
-    max_weight: number | null;
-    pickup_distance: number | null;
-    pickup_date: string | null;
-    active: boolean;
-    created_at: string;
-    deleted_at?: string | null; // Add deleted_at
+    deleted_at?: string | null;
+    is_backhaul?: boolean;
+    active?: boolean;
+    origin_states?: string | string[]; // Allow string or array
+    destination_states?: string | string[]; // Allow string or array
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    [key: string]: any;
 }
 
+interface MissionStats {
+    criteria: EnrichedCriteria;
+    count: number;
+    maxRate: number;
+    latest?: SavedLoad | null;
+}
 
 interface DashboardFeedProps {
-    refreshTrigger?: number
+    refreshTrigger?: number;
+    isPublic?: boolean;
 }
 
-export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
-    const [loads, setLoads] = useState<Load[]>([])
+export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: DashboardFeedProps) {
+    const [loads, setLoads] = useState<SavedLoad[]>([])
     const [loading, setLoading] = useState(true)
     const [scanning, setScanning] = useState(false)
     const [selectedCriteriaId, setSelectedCriteriaId] = useState<string | null>(null)
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-    const [criteriaList, setCriteriaList] = useState<any[]>([])
+    const [criteriaList, setCriteriaList] = useState<EnrichedCriteria[]>([])
     const [sortBy, setSortBy] = useState<SortOption>('newest')
-    const [viewMode, setViewMode] = useState<'active' | 'trash'>('active') // New View Mode
+    const [viewMode, setViewMode] = useState<'feed' | 'trash'>('feed');
+    // const [visibleLoads, setVisibleLoads] = useState<SavedLoad[]>([]); // Removed unused
     const [savingInterest, setSavingInterest] = useState<string | null>(null)
     const [backhaulingId, setBackhaulingId] = useState<string | null>(null)
-    const [pendingCriteriaId, setPendingCriteriaId] = useState<string | null>(null) // Track optimistic adds
+    // const [pendingCriteriaId, setPendingCriteriaId] = useState<string | null>(null) // Removed unused
     const [savedLoadIds, setSavedLoadIds] = useState<Set<string>>(new Set()) // Track saved loads for UI feedback
     const [interestedCount, setInterestedCount] = useState<number>(0)
     const [credentialWarning, setCredentialWarning] = useState<string | null>(null)
@@ -113,41 +83,41 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
         checkCredentials()
 
         // Supabase Realtime Subscription
-        const supabase = createClient()
-        const channel = supabase
-            .channel('dashboard-feed')
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    table: 'found_loads',
-                    schema: 'public'
-                },
-                (payload) => {
-                    console.log('New load received via Realtime:', payload.new.id)
-                    fetchData()
+        // const supabase = createClient() // Removed as per refactor, not directly used here
+        // const channel = supabase
+        //     .channel('dashboard-feed')
+        //     .on(
+        //         'postgres_changes',
+        //         {
+        //             event: 'INSERT',
+        //             table: 'found_loads',
+        //             schema: 'public'
+        //         },
+        //         (payload) => {
+        //             console.log('New load received via Realtime:', payload.new.id)
+        //             fetchData()
 
-                    if (document.hidden && Notification.permission === 'granted') {
-                        new Notification('CloudTrucks Scout', {
-                            body: 'New High-Value Load Detected!',
-                            icon: '/favicon.ico'
-                        })
-                    }
-                }
-            )
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    table: 'search_criteria',
-                    schema: 'public'
-                },
-                (payload) => {
-                    console.log('New search criteria added via Realtime:', payload.new.id)
-                    fetchData()
-                }
-            )
-            .subscribe()
+        //             if (document.hidden && Notification.permission === 'granted') {
+        //                 new Notification('CloudTrucks Scout', {
+        //                     body: 'New High-Value Load Detected!',
+        //                     icon: '/favicon.ico'
+        //                 })
+        //             }
+        //         }
+        //     )
+        //     .on(
+        //         'postgres_changes',
+        //         {
+        //             event: 'INSERT',
+        //             table: 'search_criteria',
+        //             schema: 'public'
+        //         },
+        //         (payload) => {
+        //             console.log('New search criteria added via Realtime:', payload.new.id)
+        //             fetchData()
+        //         }
+        //     )
+        //     .subscribe()
 
         // Request Notification Permission
         if ('Notification' in window && Notification.permission === 'default') {
@@ -155,7 +125,7 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
         }
 
         return () => {
-            supabase.removeChannel(channel)
+            // supabase.removeChannel(channel) // Removed as per refactor
         }
     }, [refreshTrigger]) // Re-run when refreshTrigger changes
 
@@ -175,7 +145,7 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
         }
     };
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true)
         try {
             // Fetch criteria based on viewMode
@@ -191,11 +161,16 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
             const criteriaResult = await criteriaRes.json()
             const interestedResult = await interestedRes.json()
 
-            if (loadsResult.data) setLoads(loadsResult.data)
-            if (criteriaResult.data) setCriteriaList(criteriaResult.data)
+            const loadsData: SavedLoad[] = loadsResult.data || [];
+            const criteriaData: EnrichedCriteria[] = criteriaResult.data || [];
+
+            setLoads(loadsData);
+            setCriteriaList(criteriaData);
+
             if (interestedResult.loads) {
                 setInterestedCount(interestedResult.loads.length)
                 // Also populate savedLoadIds set for UI feedback
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const ids = new Set<string>(interestedResult.loads.map((l: any) => l.cloudtrucks_load_id));
                 setSavedLoadIds(ids);
             }
@@ -209,6 +184,7 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
             const globalLoadsData = await globalLoadsRes.json();
 
             if (globalCriteria.data) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 setGlobalActiveCount(globalCriteria.data.filter((c: any) => c.active).length);
             }
             if (globalLoadsData.data) {
@@ -221,7 +197,7 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
         } finally {
             setLoading(false)
         }
-    }
+    }, [viewMode]); // Dependencies for useCallback
 
     // Effect to re-fetch when viewMode changes
     useEffect(() => {
@@ -229,7 +205,7 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
         // Clear selections when switching views
         setSelectedScoutIds(new Set());
         setSelectedBackhaulIds(new Set());
-    }, [viewMode]);
+    }, [viewMode, fetchData]);
 
     const handleDelete = async (id: string, permanent: boolean = false) => {
         try {
@@ -239,9 +215,9 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
 
             const res = await fetch(url, { method: 'DELETE' });
             if (res.ok) {
-                setCriteriaList(prev => prev.filter(c => c.id !== id));
+                setCriteriaList(prev => prev.filter(c => c.id !== id) as EnrichedCriteria[]);
                 // Also remove loads for this criteria?
-                setLoads(prev => prev.filter(l => l.search_criteria.id !== id));
+                setLoads(prev => prev.filter(l => l.search_criteria?.id !== id));
                 if (selectedCriteriaId === id) setSelectedCriteriaId(null);
             }
         } catch (error) {
@@ -311,7 +287,7 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
     // Batch action handlers
     const handleBatchScoutAction = async (action: 'restore' | 'delete') => {
         const ids = Array.from(selectedScoutIds);
-        const results = await Promise.all(
+        await Promise.all(
             ids.map(id => action === 'restore' ? handleRestore(id) : handleDelete(id, true))
         );
         setSelectedScoutIds(new Set());
@@ -319,12 +295,13 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
 
     const handleBatchBackhaulAction = async (action: 'restore' | 'delete') => {
         const ids = Array.from(selectedBackhaulIds);
-        const results = await Promise.all(
+        await Promise.all(
             ids.map(id => action === 'restore' ? handleRestore(id) : handleDelete(id, true))
         );
         setSelectedBackhaulIds(new Set());
     };
 
+    /*
     const handleCriteriaAdded = async (tempCriteria: SearchCriteria) => {
         // Optimistically add to UI
         setCriteriaList(prev => [...prev, tempCriteria]);
@@ -347,6 +324,7 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
             setPendingCriteriaId(null);
         }
     }
+    */
 
     const handleScan = async () => {
         if (scanning) return;
@@ -369,7 +347,7 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
     }
 
     // --- Mark as Interested ---
-    const handleMarkInterested = async (load: Load) => {
+    const handleMarkInterested = async (load: SavedLoad) => {
         if (savingInterest) return;
         setSavingInterest(load.id);
         try {
@@ -377,7 +355,7 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    cloudtrucks_load_id: load.cloudtrucks_load_id,
+                    cloudtrucks_load_id: load.details.id,
                     details: load.details,
                 }),
             });
@@ -385,7 +363,7 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
             if (result.success) {
                 console.log('Load marked as interested');
                 // Add to saved set for UI feedback
-                setSavedLoadIds(prev => new Set(prev).add(load.id));
+                setSavedLoadIds(prev => new Set(prev).add(load.details.id));
             } else {
                 console.error('Failed to mark interested:', result.error);
             }
@@ -397,7 +375,7 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
     };
 
     // --- Backhaul Strategy (Swap Origin/Dest) ---
-    const handleBackhaul = async (load: Load) => {
+    const handleBackhaul = async (load: SavedLoad) => {
         if (backhaulingId) return;
         setBackhaulingId(load.id);
 
@@ -442,24 +420,24 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
     };
 
     // --- Sort Function ---
-    const sortLoads = (loadsToSort: Load[]): Load[] => {
+    const sortLoads = (loadsToSort: SavedLoad[]): SavedLoad[] => {
         return [...loadsToSort].sort((a, b) => {
-            const getRate = (l: Load) => {
+            const getRate = (l: SavedLoad) => {
                 const raw = l.details.rate || l.details.trip_rate || 0;
                 return typeof raw === 'string' ? parseFloat(raw) : raw;
             };
-            const getPickupDate = (l: Load) => {
-                const date = l.details.pickup_date || l.details.origin_pickup_date;
-                return date ? new Date(date).getTime() : Infinity;
+            const getPickupDate = (l: SavedLoad) => {
+                const date = (l.details.pickup_date || l.details.origin_pickup_date) as string | number | undefined;
+                return date ? new Date(date).getTime() : -Infinity;
             };
-            const getDistance = (l: Load) => {
+            const getDistance = (l: SavedLoad) => {
                 const raw = l.details.distance || l.details.trip_distance_mi || Infinity;
-                return typeof raw === 'string' ? parseFloat(raw) : raw;
+                return typeof raw === 'string' ? parseFloat(raw) : (raw as number);
             };
-            const getDeadhead = (l: Load) => {
-                return l.details.total_deadhead_mi || Infinity;
+            const getDeadhead = (l: SavedLoad) => {
+                return (l.details.total_deadhead_mi as number) || Infinity;
             };
-            const getRPM = (l: Load) => {
+            const getRPM = (l: SavedLoad) => {
                 const rawRate = l.details.rate || l.details.trip_rate || 0;
                 const rate = typeof rawRate === 'string' ? parseFloat(rawRate) : rawRate;
                 const rawDist = l.details.distance || l.details.trip_distance_mi || 1;
@@ -467,7 +445,7 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
                 return dist > 0 ? rate / dist : 0;
             };
 
-            const getDeliveryDate = (l: Load) => {
+            const getDeliveryDate = (l: SavedLoad) => {
                 const date = l.details.dest_delivery_date || l.details.dest_date;
                 return date ? new Date(date).getTime() : Infinity;
             };
@@ -505,7 +483,8 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
     const backhaulCriteria = criteriaList.filter(c => c.is_backhaul);
 
     // Helper to generate mission stats from a criteria list
-    const generateStats = (list: any[]) => {
+    // Helper to generate mission stats from a criteria list
+    const generateStats = (list: EnrichedCriteria[]): MissionStats[] => {
         const stats = list.reduce((acc, criteria) => {
             acc[criteria.id] = {
                 criteria: criteria,
@@ -514,12 +493,12 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
                 latest: null
             };
             return acc;
-        }, {} as Record<string, any>);
+        }, {} as Record<string, MissionStats>);
 
         // Overlay load stats
         loads.forEach(load => {
             // Only count if this load belongs to one of the criteria in this list
-            if (stats[load.search_criteria.id]) {
+            if (load.search_criteria && stats[load.search_criteria.id]) {
                 const cid = load.search_criteria.id;
                 stats[cid].count++;
                 const rawRate = load.details.rate || load.details.trip_rate || 0;
@@ -535,7 +514,7 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
 
     // --- Filter and Sort Feed ---
     const baseFilteredLoads = selectedCriteriaId
-        ? loads.filter(l => l.search_criteria.id === selectedCriteriaId)
+        ? loads.filter(l => l.search_criteria?.id === selectedCriteriaId)
         : loads;
     const filteredLoads = sortLoads(baseFilteredLoads);
 
@@ -622,14 +601,14 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
                 <div className="flex items-center gap-2">
                     <div className="flex bg-muted/50 p-1 rounded-lg border mr-2">
                         <button
-                            onClick={() => setViewMode('active')}
-                            className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all", viewMode === 'active' ? "bg-white text-black shadow-sm" : "text-muted-foreground hover:bg-muted/50")}
+                            onClick={() => setViewMode('feed')}
+                            className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all", viewMode === 'feed' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
                         >
                             Active
                         </button>
                         <button
                             onClick={() => setViewMode('trash')}
-                            className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all", viewMode === 'trash' ? "bg-white text-black shadow-sm" : "text-muted-foreground hover:bg-muted/50")}
+                            className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all", viewMode === 'trash' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
                         >
                             Trash
                         </button>
@@ -757,7 +736,7 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
                     )}
 
                     {/* Scouts Cards */}
-                    {scoutMissions.map((mission: any) => (
+                    {scoutMissions.map((mission: MissionStats) => (
                         <div
                             key={mission.criteria.id}
                             className={cn(
@@ -809,12 +788,12 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
                                         <div className="text-xs text-muted-foreground">Found</div>
                                     </div>
                                     <div className="text-xs text-muted-foreground">
-                                        {mission.criteria.origin_states && mission.criteria.origin_states.length > 0
+                                        {mission.criteria.origin_states && Array.isArray(mission.criteria.origin_states) && mission.criteria.origin_states.length > 0
                                             ? mission.criteria.origin_states.join(', ')
-                                            : mission.criteria.origin_state} to {
-                                            mission.criteria.destination_states && mission.criteria.destination_states.length > 0
+                                            : (mission.criteria.origin_states as string || mission.criteria.origin_state)} to {
+                                            mission.criteria.destination_states && Array.isArray(mission.criteria.destination_states) && mission.criteria.destination_states.length > 0
                                                 ? mission.criteria.destination_states.join(', ')
-                                                : (mission.criteria.destination_state || 'Any')
+                                                : (mission.criteria.destination_states as string || mission.criteria.destination_state || 'Any')
                                         }
                                     </div>
                                 </div>
@@ -916,7 +895,7 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
 
                         <div className="w-full overflow-x-auto pb-4 scrollbar-hide">
                             <div className="flex w-max space-x-4">
-                                {backhaulMissions.map((mission: any) => (
+                                {backhaulMissions.map((mission) => (
                                     <div
                                         key={mission.criteria.id}
                                         className={cn(
@@ -1008,6 +987,12 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
                             ? `${load.details.dest_city}, ${load.details.dest_state}`
                             : load.details.destination;
 
+                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                        const relevantMissions = backhaulMissions.filter(m =>
+                            m.criteria.origin_city === load.details.dest_city ||
+                            m.criteria.origin_state === load.details.dest_state
+                        );
+
                         const rawRate = load.details.rate || load.details.trip_rate;
                         const rate = typeof rawRate === 'string' ? parseFloat(rawRate) : rawRate;
 
@@ -1018,9 +1003,9 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
                         // delivery date logic
                         let deliveryDate = load.details.dest_delivery_date;
                         if (!deliveryDate && Array.isArray(load.details.stops)) {
-                            const destStop = load.details.stops.find((s: any) => s.type === 'DESTINATION');
+                            const destStop = (load.details.stops as CloudTrucksLoadStop[]).find((s) => s.type === 'DESTINATION');
                             if (destStop) {
-                                deliveryDate = destStop.date_start || destStop.date_end;
+                                deliveryDate = destStop.date_start || destStop.date_end || '';
                             }
                         }
 
@@ -1157,19 +1142,21 @@ export function DashboardFeed({ refreshTrigger = 0 }: DashboardFeedProps) {
                                             )}
                                         </div>
 
-                                        <Button
-                                            className="w-full mt-3 bg-blue-600 hover:bg-blue-700 font-bold"
-                                            size="sm"
-                                            asChild
-                                        >
-                                            <a
-                                                href={`https://app.cloudtrucks.com/loads/${load.cloudtrucks_load_id}/book`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
+                                        {!isPublic && (
+                                            <Button
+                                                className="w-full mt-3 bg-blue-600 hover:bg-blue-700 font-bold"
+                                                size="sm"
+                                                asChild
                                             >
-                                                Book Now
-                                            </a>
-                                        </Button>
+                                                <a
+                                                    href={`https://app.cloudtrucks.com/loads/${load.cloudtrucks_load_id}/book`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    Book Now
+                                                </a>
+                                            </Button>
+                                        )}
 
                                         <Button
                                             className="w-full mt-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"

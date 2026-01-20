@@ -10,8 +10,10 @@ import { cn } from "@/lib/utils"
 import { CityAutocomplete } from "@/components/city-autocomplete"
 import { MultiStateSelect } from "@/components/multi-state-select"
 
+import { SearchCriteria } from "@/workers/cloudtrucks-api-client";
+
 interface SearchCriteriaFormProps {
-    onSuccess?: (criteria: any) => void; // Pass the newly created criteria
+    onSuccess?: (criteria: SearchCriteria) => void; // Pass the newly created criteria
 }
 
 // Field groups that manage state synchronization between city and state selectors
@@ -123,9 +125,10 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                     router.refresh()
                     setTimeout(() => setOutcome(null), 3000)
                 }
-            } catch (error: any) {
+            } catch (error: unknown) {
                 console.error('Form submission error:', error)
-                setOutcome({ error: error.message || 'Failed to save' })
+                const message = error instanceof Error ? error.message : 'Failed to save';
+                setOutcome({ error: message })
             }
         })
     }

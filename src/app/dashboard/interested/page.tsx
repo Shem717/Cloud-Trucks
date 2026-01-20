@@ -13,6 +13,7 @@ interface Load {
     id: string; // Internal interest ID
     created_at: string;
     cloudtrucks_load_id: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     details: any;
 }
 
@@ -280,6 +281,7 @@ export default function InterestedPage() {
                         // Extract delivery date
                         let deliveryDate = load.details.dest_delivery_date;
                         if (!deliveryDate && Array.isArray(load.details.stops)) {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             const destStop = load.details.stops.find((s: any) => s.type === 'DESTINATION');
                             if (destStop) {
                                 deliveryDate = destStop.date_start || destStop.date_end;

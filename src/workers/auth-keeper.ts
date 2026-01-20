@@ -4,6 +4,7 @@ import { decrypt } from '@/lib/crypto';
 import { testApiConnection } from './cloudtrucks-api-client';
 
 // Lazy initialization
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let supabase: any | null = null;
 function getSupabaseClient() {
     if (!supabase) {
@@ -68,8 +69,9 @@ export async function checkAllCredentialsHealth() {
                 // TODO: Trigger email notification here
             }
 
-        } catch (err: any) {
-            console.error(`[AUTH KEEPER] Error processing user ${cred.user_id}:`, err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            console.error(`[AUTH KEEPER] Error processing user ${cred.user_id}:`, message);
         }
     }
 

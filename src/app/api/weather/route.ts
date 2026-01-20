@@ -31,7 +31,7 @@ const weatherCodes: Record<number, { icon: string; description: string }> = {
 };
 
 // In-memory cache with size limit and cleanup
-const cache = new Map<string, { data: any; timestamp: number }>();
+const cache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 const MAX_CACHE_SIZE = 500; // Limit to prevent memory leak
 
@@ -87,15 +87,19 @@ export async function GET(request: NextRequest) {
         }
 
         const data = await res.json();
-
-        // Transform response
         const current = {
-            temperature: Math.round(data.current.temperature_2m),
-            weatherCode: data.current.weather_code,
-            icon: weatherCodes[data.current.weather_code]?.icon || '🌡️',
-            description: weatherCodes[data.current.weather_code]?.description || 'Unknown',
-            windSpeed: Math.round(data.current.wind_speed_10m),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            temperature: Math.round((data as any).current.temperature_2m),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            weatherCode: (data as any).current.weather_code,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            icon: weatherCodes[(data as any).current.weather_code]?.icon || '🌡️',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            description: weatherCodes[(data as any).current.weather_code]?.description || 'Unknown',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            windSpeed: Math.round((data as any).current.wind_speed_10m),
         };
+
 
         const forecast = data.daily.time.map((date: string, i: number) => ({
             date,

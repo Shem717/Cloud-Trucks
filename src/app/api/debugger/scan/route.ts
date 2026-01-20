@@ -55,9 +55,12 @@ export async function POST(req: NextRequest) {
             } else {
                 log('WARNING: No CSRF token found in database.');
             }
-        } catch (e: any) {
-            log(`Decryption error: ${e.message}`);
-            log(`Stack: ${e.stack}`);
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : String(e);
+            log(`Decryption error: ${message}`);
+            if (e instanceof Error && e.stack) {
+                log(`Stack: ${e.stack}`);
+            }
             return NextResponse.json({ success: false, error: 'Failed to decrypt credentials', logs }, { status: 500 });
         }
 
@@ -74,11 +77,12 @@ export async function POST(req: NextRequest) {
             logs
         });
 
-    } catch (error: any) {
-        log(`FATAL ERROR: ${error.message}`);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        log(`FATAL ERROR: ${message}`);
         return NextResponse.json({
             success: false,
-            error: error.message,
+            error: message,
             logs
         }, { status: 500 });
     }

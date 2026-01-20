@@ -2,8 +2,10 @@ import { createClient } from '@supabase/supabase-js';
 import { decrypt } from '@/lib/crypto';
 
 //  @ts-nocheck - Disable type checking for Supabase client until types are generated
+import { CloudTrucksLoad, SearchCriteria } from './cloudtrucks-api-client';
 
 // Lazy initialization to avoid build-time errors
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let supabase: any | null = null;
 
 function getSupabaseClient() {
@@ -28,7 +30,17 @@ function getSupabaseClient() {
 /**
  * Fetch user's CloudTrucks credentials and decrypt them
  */
-export async function getUserCredentials(userId: string, supabaseClient?: any) {
+interface UserCredentials {
+    email: string;
+    cookie: string;
+    csrfToken: string;
+}
+
+/**
+ * Fetch user's CloudTrucks credentials and decrypt them
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getUserCredentials(userId: string, supabaseClient?: any): Promise<UserCredentials> {
     const supabase = supabaseClient || getSupabaseClient();
     const { data, error } = await supabase
         .from('cloudtrucks_credentials')
@@ -36,11 +48,12 @@ export async function getUserCredentials(userId: string, supabaseClient?: any) {
         .eq('user_id', userId)
         .single();
 
-    if (error || !data) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const typedData = data as any;
+
+    if (error || !typedData) {
         throw new Error(`No credentials found for user ${userId}`);
     }
-
-    const typedData = data as any;
 
     // Decrypt credentials using decrypt() directly
     const email = decrypt(typedData.encrypted_email);
@@ -50,8 +63,8 @@ export async function getUserCredentials(userId: string, supabaseClient?: any) {
 
     // Decrypt CSRF token if available
     let csrfToken = '';
-    if (typedData.encrypted_csrf_token) {
-        csrfToken = decrypt(typedData.encrypted_csrf_token);
+    if (data.encrypted_csrf_token) {
+        csrfToken = decrypt(data.encrypted_csrf_token);
         console.log(`[SCANNER] Decrypted CSRF token: ${csrfToken.substring(0, 10)}...`);
     }
 
@@ -61,10 +74,13 @@ export async function getUserCredentials(userId: string, supabaseClient?: any) {
 /**
  * Fetch loads from CloudTrucks using the new API + Pusher approach
  */
+/**
+ * Fetch loads from CloudTrucks using the new API + Pusher approach
+ */
 export async function fetchLoadsFromCloudTrucks(
-    credentials: { email: string; cookie: string; csrfToken: string },
-    criteria: any
-): Promise<any[]> {
+    credentials: UserCredentials,
+    criteria: SearchCriteria & { origin_states?: string[]; destination_states?: string[] }
+): Promise<CloudTrucksLoad[]> {
     try {
         // Use the new API client (dynamic import to avoid build issues)
         const { fetchLoadsViaApi } = await import('./cloudtrucks-api-client');
@@ -90,10 +106,12 @@ export async function fetchLoadsFromCloudTrucks(
         });
 
         // Fetch loads for each state combination
-        const allLoadsMap = new Map(); // Dedupe by load ID
+        const allLoadsMap = new Map<string, CloudTrucksLoad>(); // Dedupe by load ID
 
         for (const originState of originStates) {
             for (const destState of destStates) {
+                if (!originState) continue; // Skip if no origin state (shouldn't happen with filter)
+
                 console.log(`[SCANNER] Querying: ${criteria.origin_city}, ${originState} -> ${criteria.dest_city || 'Any'}, ${destState || 'Any'}`);
 
                 const loads = await fetchLoadsViaApi(
@@ -106,17 +124,17 @@ export async function fetchLoadsFromCloudTrucks(
                         pickup_date: criteria.pickup_date,
                         dest_city: criteria.dest_city,
                         destination_state: destState,
-                        min_rate: criteria.min_rate ? parseFloat(criteria.min_rate) : undefined,
+                        min_rate: criteria.min_rate ? (typeof criteria.min_rate === 'string' ? parseFloat(criteria.min_rate) : criteria.min_rate) : undefined,
                         max_weight: criteria.max_weight,
                         equipment_type: criteria.equipment_type,
                         booking_type: criteria.booking_type,
-                    },
+                    } as SearchCriteria,
                     20000 // 20 second timeout for Pusher collection
                 );
 
                 // Add to map for deduplication
                 if (loads && loads.length > 0) {
-                    loads.forEach(load => allLoadsMap.set(load.id, load));
+                    loads.forEach((load) => allLoadsMap.set(load.id, load));
                 }
             }
         }
@@ -125,8 +143,9 @@ export async function fetchLoadsFromCloudTrucks(
         console.log(`[SCANNER] Found ${uniqueLoads.length} unique loads across ${originStates.length * destStates.length} state combinations`);
 
         return uniqueLoads;
-    } catch (error: any) {
-        console.error('[SCANNER] CloudTrucks API error:', error.message);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error('[SCANNER] CloudTrucks API error:', message);
         throw error;
     }
 }
@@ -134,17 +153,20 @@ export async function fetchLoadsFromCloudTrucks(
 /**
  * Save newly found loads to database (avoiding duplicates)
  */
-export async function saveNewLoads(criteriaId: string, loads: any[], supabaseClient?: any) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function saveNewLoads(criteriaId: string, loads: CloudTrucksLoad[], supabaseClient?: any) {
     if (loads.length === 0) return 0;
 
     const supabase = supabaseClient || getSupabaseClient();
 
     // Get existing load IDs for this criteria
+
     const { data: existingLoads } = await supabase
         .from('found_loads')
         .select('cloudtrucks_load_id')
         .eq('criteria_id', criteriaId);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const existingIds = new Set(existingLoads?.map((l: any) => l.cloudtrucks_load_id) || []);
 
     // Filter out loads we've already saved
@@ -156,13 +178,14 @@ export async function saveNewLoads(criteriaId: string, loads: any[], supabaseCli
     }
 
     // Insert new loads
-    const { data, error } = await supabase
+    const { error } = await supabase
         .from('found_loads')
         .insert(
             newLoads.map(load => ({
                 criteria_id: criteriaId,
                 cloudtrucks_load_id: load.id,
-                details: load,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                details: (load.raw || load) as any, // Store raw data or the load object itself
                 status: 'found',
             }))
         )
@@ -180,6 +203,7 @@ export async function saveNewLoads(criteriaId: string, loads: any[], supabaseCli
 /**
  * Main scan function - scans loads for a specific user
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function scanLoadsForUser(userId: string, supabaseClient?: any): Promise<{
     success: boolean;
     loadsFound: number;
@@ -212,7 +236,7 @@ export async function scanLoadsForUser(userId: string, supabaseClient?: any): Pr
         console.log(`[SCANNER] Found ${criteriaList.length} active criteria for user ${userId}`);
 
         let totalLoadsFound = 0;
-        let scanErrors: string[] = [];
+        const scanErrors: string[] = [];
 
         // 3. For each criteria, fetch and filter loads
         // For now, we still call scrapeCloudTrucksLoads which launches a browser
@@ -229,9 +253,10 @@ export async function scanLoadsForUser(userId: string, supabaseClient?: any): Pr
                     console.log(`[SCANNER] No loads found for criteria ${criteria.id}`);
                 }
 
-            } catch (error: any) {
-                console.error(`[SCANNER] Error processing criteria ${criteria.id}:`, error.message);
-                scanErrors.push(error.message);
+            } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : String(error);
+                console.error(`[SCANNER] Error processing criteria ${criteria.id}:`, message);
+                scanErrors.push(message);
             }
         }
 
@@ -251,12 +276,13 @@ export async function scanLoadsForUser(userId: string, supabaseClient?: any): Pr
             loadsFound: totalLoadsFound,
         };
 
-    } catch (error: any) {
-        console.error(`[SCANNER] Fatal scan failed for user ${userId}:`, error.message);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[SCANNER] Fatal scan failed for user ${userId}:`, message);
         return {
             success: false,
             loadsFound: 0,
-            error: error.message,
+            error: message,
         };
     }
 }

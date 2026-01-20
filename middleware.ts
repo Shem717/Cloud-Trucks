@@ -38,7 +38,24 @@ export async function middleware(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser()
 
-    // Protect /dashboard routes
+    // --- GUEST SESSION LOGIC ---
+    if (request.nextUrl.pathname.startsWith('/public')) {
+        // If visiting /public routes, ensure they have a guest_session cookie
+        const guestSession = request.cookies.get('guest_session')
+
+        if (!guestSession) {
+            const guestId = crypto.randomUUID()
+            response.cookies.set('guest_session', guestId, {
+                path: '/',
+                httpOnly: true,
+                sameSite: 'lax',
+                maxAge: 60 * 60 * 24 * 7 // 7 days
+            })
+        }
+        return response
+    }
+
+    // Protect /dashboard routes (Admin Only)
     if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
         return NextResponse.redirect(new URL('/login', request.url))
     }

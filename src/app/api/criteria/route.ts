@@ -9,10 +9,13 @@ export async function POST(request: NextRequest) {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
+        const guestSession = request.cookies.get('guest_session')?.value;
 
-        if (!user) {
+        if (!user && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        const userId = user?.id || guestSession; // Use guest ID if no user
 
         const formData = await request.formData();
         console.log('Received criteria form data:', Object.fromEntries(formData));
@@ -44,7 +47,7 @@ export async function POST(request: NextRequest) {
         const destStates = parseStates(formData.get('destination_states'));
 
         const criteria = {
-            user_id: user.id,
+            user_id: userId,
             origin_city: formData.get('origin_city') as string || null,
             origin_state: formData.get('origin_state') as string || (originStates?.[0] ?? null),
             origin_states: originStates,
@@ -106,14 +109,27 @@ export async function POST(request: NextRequest) {
                 console.log(`[API] Triggering synchronous scan for criteria ${data.id}`);
                 await updateScanStatus('scanning');
 
-                // 1. Get Credentials (inline to use user session)
-                const { data: creds, error: credError } = await supabase
-                    .from('cloudtrucks_credentials')
-                    .select('encrypted_email, encrypted_session_cookie, encrypted_csrf_token')
-                    .eq('user_id', user.id)
-                    .single();
+                // 1. Get Credentials (inline to use user session OR fallback to any valid credential for guests)
+                let creds;
+                if (user) {
+                    const { data, error } = await supabase
+                        .from('cloudtrucks_credentials')
+                        .select('encrypted_email, encrypted_session_cookie, encrypted_csrf_token')
+                        .eq('user_id', userId)
+                        .single();
+                    creds = data;
+                } else {
+                    // Guest: Fetch the most recent valid credential (Admin's)
+                    const { data, error } = await supabase
+                        .from('cloudtrucks_credentials')
+                        .select('encrypted_email, encrypted_session_cookie, encrypted_csrf_token')
+                        .order('last_validated_at', { ascending: false })
+                        .limit(1)
+                        .single();
+                    creds = data;
+                }
 
-                if (credError || !creds) {
+                if (!creds) {
                     console.error('[API] No credentials found for scan');
                     await updateScanStatus('error', 'No credentials found. Please connect your CloudTrucks account.');
                     return;
@@ -131,8 +147,9 @@ export async function POST(request: NextRequest) {
                         csrfToken = decrypt(creds.encrypted_csrf_token);
                         console.log(`[API] CSRF token decrypted: ${csrfToken?.substring(0, 10)}...`);
                     }
-                } catch (decryptError: any) {
-                    console.error('[API] Decryption failed:', decryptError.message);
+                } catch (decryptError: unknown) {
+                    const message = decryptError instanceof Error ? decryptError.message : String(decryptError);
+                    console.error('[API] Decryption failed:', message);
                     await updateScanStatus('error', 'Failed to decrypt credentials. Please reconnect your account.');
                     return;
                 }
@@ -150,7 +167,7 @@ export async function POST(request: NextRequest) {
                         .select('cloudtrucks_load_id')
                         .eq('criteria_id', data.id);
 
-                    const existingIds = new Set(existing?.map((x: any) => x.cloudtrucks_load_id));
+                    const existingIds = new Set(existing?.map((x: { cloudtrucks_load_id: string }) => x.cloudtrucks_load_id));
                     const newLoads = loads.filter(l => !existingIds.has(l.id));
 
                     if (newLoads.length > 0) {
@@ -178,20 +195,21 @@ export async function POST(request: NextRequest) {
                 }
 
                 await updateScanStatus('success', undefined, newLoadsCount);
-            } catch (scanError: any) {
-                console.error('[API] Background Scan failed:', scanError.message);
-                await updateScanStatus('error', scanError.message || 'Unknown scan error');
+            } catch (scanError: unknown) {
+                const message = scanError instanceof Error ? scanError.message : String(scanError);
+                console.error('[API] Background Scan failed:', message);
+                await updateScanStatus('error', message || 'Unknown scan error');
             }
         })();
 
         return NextResponse.json({ success: true, criteria: data });
 
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('API Unexpected Error:', error);
         return NextResponse.json({
             error: 'Server error',
-            details: error.message
+            details: error instanceof Error ? error.message : String(error)
         }, { status: 500 });
     }
 }
@@ -204,10 +222,13 @@ export async function GET(request: NextRequest) {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
+        const guestSession = request.cookies.get('guest_session')?.value;
 
-        if (!user) {
+        if (!user && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        const userId = user?.id || guestSession;
 
         const { searchParams } = new URL(request.url);
         const view = searchParams.get('view');
@@ -215,7 +236,7 @@ export async function GET(request: NextRequest) {
         let query = supabase
             .from('search_criteria')
             .select('*')
-            .eq('user_id', user.id)
+            .eq('user_id', userId)
             .order('created_at', { ascending: false });
 
         if (view === 'trash') {
@@ -246,10 +267,13 @@ export async function DELETE(request: NextRequest) {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
+        const guestSession = request.cookies.get('guest_session')?.value;
 
-        if (!user) {
+        if (!user && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        const userId = user?.id || guestSession;
 
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
@@ -267,7 +291,7 @@ export async function DELETE(request: NextRequest) {
                 .from('search_criteria')
                 .delete()
                 .eq('id', id)
-                .eq('user_id', user.id);
+                .eq('user_id', userId);
             error = res.error;
         } else {
             // Soft Delete
@@ -275,7 +299,7 @@ export async function DELETE(request: NextRequest) {
                 .from('search_criteria')
                 .update({ deleted_at: new Date().toISOString() })
                 .eq('id', id)
-                .eq('user_id', user.id);
+                .eq('user_id', userId);
             error = res.error;
         }
 
@@ -299,10 +323,13 @@ export async function PATCH(request: NextRequest) {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
+        const guestSession = request.cookies.get('guest_session')?.value;
 
-        if (!user) {
+        if (!user && !guestSession) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        const userId = user?.id || guestSession;
 
         const body = await request.json();
         const { id, action } = body;
@@ -314,16 +341,18 @@ export async function PATCH(request: NextRequest) {
                 .from('search_criteria')
                 .update({ deleted_at: null })
                 .eq('id', id)
-                .eq('user_id', user.id);
+                .eq('user_id', userId);
 
-            if (error) throw error;
+            if (error || !user) throw new Error('Unauthorized');
+
             return NextResponse.json({ success: true });
         }
 
         return NextResponse.json({ error: "Invalid action" }, { status: 400 });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
         console.error("API Patch Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

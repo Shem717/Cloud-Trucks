@@ -115,11 +115,12 @@ export async function attemptBooking(loadId: string): Promise<{
             };
         }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Booking error:', error);
+        const message = error instanceof Error ? error.message : String(error);
         return {
             success: false,
-            message: error.message || 'Booking failed',
+            message: message || 'Booking failed',
         };
     }
 }

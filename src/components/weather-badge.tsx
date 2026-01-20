@@ -53,6 +53,7 @@ async function geocodeCity(city: string, state: string): Promise<{ lat: number; 
         if (!data.results || data.results.length === 0) return null;
 
         // Try to find a match in the correct state
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const match = data.results.find((r: any) =>
             r.admin1?.toLowerCase().includes(state.toLowerCase()) ||
             r.country_code === 'US'

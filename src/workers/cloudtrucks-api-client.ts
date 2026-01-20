@@ -46,9 +46,18 @@ export interface CloudTrucksLoad {
     estimated_rate_max: number;
     truck_weight_lb: number;
     total_deadhead_mi: number;
-    stops: any[];
+    stops: CloudTrucksLoadStop[];
     // Raw data for storage
-    raw: any;
+    raw: unknown;
+}
+
+export interface CloudTrucksLoadStop {
+    type: string;
+    city: string;
+    state: string;
+    date_start?: string;
+    date_end?: string;
+    [key: string]: unknown;
 }
 
 /**
@@ -179,7 +188,7 @@ function collectLoadsFromPusher(channelName: string, timeoutMs: number, log: (ms
         const channel = pusher.subscribe(channelName);
 
         // Debug: Log all events
-        channel.bind_global((eventName: string, data: any) => {
+        channel.bind_global((eventName: string, data: unknown) => {
             log(`[CT API DEBUG] Received event '${eventName}' on channel '${channelName}'`);
             // Only log data if it's not too huge
             if (eventName !== 'pushing_loads') {
@@ -207,7 +216,7 @@ function collectLoadsFromPusher(channelName: string, timeoutMs: number, log: (ms
         });
 
         // Handle subscription error
-        channel.bind('pusher:subscription_error', (error: any) => {
+        channel.bind('pusher:subscription_error', (error: unknown) => {
             log(`[CT API] Subscription error: ${JSON.stringify(error)}`);
             if (!resolved) {
                 resolved = true;
@@ -218,9 +227,10 @@ function collectLoadsFromPusher(channelName: string, timeoutMs: number, log: (ms
         });
 
         // Handle incoming loads
-        channel.bind('pushing_loads', (data: any) => {
+        channel.bind('pushing_loads', (data: unknown) => {
             try {
-                const loadData = typeof data === 'string' ? JSON.parse(data) : data;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const loadData = typeof data === 'string' ? JSON.parse(data) : data as Record<string, any>; // Temporary cast to access properties
 
                 const load: CloudTrucksLoad = {
                     id: loadData.id,
@@ -296,7 +306,8 @@ export async function testApiConnection(
         } else {
             return { success: false, error: `Status ${testResponse.status}` };
         }
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { success: false, error: message };
     }
 }
