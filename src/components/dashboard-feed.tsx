@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, DollarSign, Weight, Calendar, Truck, Activity, Filter, RefreshCw, Trash2, Zap, Star, ArrowUpDown, AlertTriangle, ArrowLeftRight, Search, Map } from 'lucide-react'
+import { MapPin, DollarSign, Weight, Calendar, Truck, Activity, Filter, RefreshCw, Trash2, Zap, Star, ArrowUpDown, AlertTriangle, ArrowLeftRight, Search, Map, Pencil, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -18,6 +18,7 @@ import { BrokerLogo } from "./broker-logo"
 import { WeatherBadge } from "./weather-badge"
 import { ChainLawBadge, useChainLaws } from "./chain-law-badge"
 import { MapboxIntelligenceModal } from "./mapbox-intelligence-modal"
+import { EditCriteriaDialog } from "@/components/edit-criteria-dialog"
 
 type SortOption = 'newest' | 'price_high' | 'price_low' | 'pickup_soonest' | 'pickup_latest' | 'delivery_soonest' | 'delivery_latest' | 'distance_short' | 'deadhead_low' | 'rpm_high' | 'rpm_low';
 
@@ -76,6 +77,8 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
     const [selectedScoutIds, setSelectedScoutIds] = useState<Set<string>>(new Set())
     const [selectedBackhaulIds, setSelectedBackhaulIds] = useState<Set<string>>(new Set())
     const [selectedLoadForMap, setSelectedLoadForMap] = useState<SavedLoad | null>(null) // Route Intelligence Modal
+    const [editingCriteria, setEditingCriteria] = useState<EnrichedCriteria | null>(null) // Edit Modal State
+    const [expandedLoadId, setExpandedLoadId] = useState<string | null>(null) // Expandable Details State
 
 
     const checkCredentials = useCallback(async () => {
@@ -834,18 +837,32 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                     </button>
                                 </div>
                             ) : (
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleDelete(mission.criteria.id);
-                                    }}
-                                    className="absolute top-2 right-2 z-50 p-1.5 rounded-full bg-black/20 hover:bg-red-500/20 text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                                    title="Move to Trash"
-                                >
-                                    <Trash2 className="h-4 w-4 pointer-events-none" />
-                                </button>
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleDelete(mission.criteria.id);
+                                        }}
+                                        className="absolute top-2 right-2 z-50 p-1.5 rounded-full bg-black/20 hover:bg-red-500/20 text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                        title="Move to Trash"
+                                    >
+                                        <Trash2 className="h-4 w-4 pointer-events-none" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setEditingCriteria(mission.criteria);
+                                        }}
+                                        className="absolute top-2 right-9 z-50 p-1.5 rounded-full bg-black/20 hover:bg-blue-500/20 text-slate-400 hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100"
+                                        title="Edit Scout"
+                                    >
+                                        <Pencil className="h-4 w-4 pointer-events-none" />
+                                    </button>
+                                </>
                             )}
                         </div>
                     ))}
@@ -1147,9 +1164,19 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                             )}
                                         </div>
 
+                                        <Button
+                                            className="w-full mt-3 bg-violet-600 hover:bg-violet-700 text-white shadow-sm"
+                                            size="sm"
+                                            onClick={() => setSelectedLoadForMap(load)}
+                                            title="View Route Intelligence"
+                                        >
+                                            <Map className="h-4 w-4 mr-2" />
+                                            Route Intelligence
+                                        </Button>
+
                                         {!isPublic && (
                                             <Button
-                                                className="w-full mt-3 bg-blue-600 hover:bg-blue-700 font-bold"
+                                                className="w-full mt-2 bg-blue-600 hover:bg-blue-700 font-bold"
                                                 size="sm"
                                                 asChild
                                             >
@@ -1178,40 +1205,101 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                             Backhaul
                                         </Button>
 
-                                        <div className="flex gap-2 w-full mt-2">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleMarkInterested(load)}
+                                            disabled={savingInterest === load.id || savedLoadIds.has(load.details.id)}
+                                            className={cn(
+                                                "w-full mt-2 gap-1 border",
+                                                savedLoadIds.has(load.details.id)
+                                                    ? "text-yellow-400 bg-yellow-500/20 border-yellow-500/40 cursor-default"
+                                                    : "text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10 border-yellow-500/20"
+                                            )}
+                                            title={savedLoadIds.has(load.details.id) ? "Already saved" : "Save to Interested"}
+                                        >
+                                            <Star className={cn(
+                                                "h-4 w-4",
+                                                savingInterest === load.id && "animate-pulse",
+                                                savedLoadIds.has(load.details.id) && "fill-current" // Fill the star when saved
+                                            )} />
+                                            <span className="ml-1">{savedLoadIds.has(load.details.id) ? 'Saved' : 'Save'}</span>
+                                        </Button>
+                                        <div className="w-full mt-2">
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => handleMarkInterested(load)}
-                                                disabled={savingInterest === load.id || savedLoadIds.has(load.id)}
-                                                className={cn(
-                                                    "w-full gap-1 border",
-                                                    savedLoadIds.has(load.id)
-                                                        ? "text-yellow-400 bg-yellow-500/20 border-yellow-500/40 cursor-default"
-                                                        : "text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10 border-yellow-500/20"
-                                                )}
-                                                title={savedLoadIds.has(load.id) ? "Already saved" : "Save to Interested"}
+                                                onClick={() => setExpandedLoadId(expandedLoadId === load.id ? null : load.id)}
+                                                className="w-full gap-1 border border-slate-500/20 text-slate-500 hover:text-slate-700 hover:bg-slate-500/10"
                                             >
-                                                <Star className={cn(
-                                                    "h-4 w-4",
-                                                    savingInterest === load.id && "animate-pulse",
-                                                    savedLoadIds.has(load.id) && "fill-current" // Fill the star when saved
-                                                )} />
-                                                <span className="ml-1">{savedLoadIds.has(load.id) ? 'Saved' : 'Save'}</span>
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setSelectedLoadForMap(load)}
-                                                className="w-full gap-1 border border-blue-500/20 text-blue-500 hover:text-blue-400 hover:bg-blue-500/10"
-                                                title="View Route Intelligence"
-                                            >
-                                                <Map className="h-4 w-4" />
-                                                <span className="ml-1">Route Scan</span>
+                                                {expandedLoadId === load.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                                <span className="ml-1">{expandedLoadId === load.id ? 'Hide Details' : 'View Details'}</span>
                                             </Button>
                                         </div>
                                     </div>
                                 </div>
+                                {expandedLoadId === load.id && (
+                                    <div className="border-t border-slate-100 bg-slate-50/50 p-4 animate-in slide-in-from-top-2 duration-200">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                                                    <MapPin className="h-3 w-3" /> Address Details
+                                                </h4>
+                                                <div className="space-y-4 text-sm bg-white p-3 rounded-md border shadow-sm">
+                                                    <div>
+                                                        <span className="text-[10px] font-bold text-green-600 uppercase tracking-wide block mb-1">Origin Address</span>
+                                                        <div className="font-medium text-slate-800 select-all">
+                                                            {load.details.origin_address || (
+                                                                <span className="italic text-muted-foreground">Address not provided by carrier</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground mt-0.5">{load.details.origin_city}, {load.details.origin_state}</div>
+                                                    </div>
+                                                    <div className="border-t pt-2">
+                                                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wide block mb-1">Destination Address</span>
+                                                        <div className="font-medium text-slate-800 select-all">
+                                                            {load.details.dest_address || (
+                                                                <span className="italic text-muted-foreground">Address not provided by carrier</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground mt-0.5">{load.details.dest_city}, {load.details.dest_state}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                {load.details.stops && load.details.stops.length > 0 ? (
+                                                    <>
+                                                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                                                            <Truck className="h-3 w-3" /> Stops ({load.details.stops.length})
+                                                        </h4>
+                                                        <div className="space-y-2">
+                                                            {load.details.stops.map((stop, idx) => (
+                                                                <div key={idx} className="flex items-center gap-3 bg-white p-2 rounded border text-sm shadow-sm">
+                                                                    <Badge variant={stop.type === 'PICKUP' ? 'default' : 'secondary'} className="h-5 px-1.5 text-[10px] min-w-[60px] justify-center">
+                                                                        {stop.type}
+                                                                    </Badge>
+                                                                    <div className="flex-1">
+                                                                        <div className="font-medium">{stop.city}, {stop.state}</div>
+                                                                        {(stop.date_start || stop.date_end) && (
+                                                                            <div className="text-xs text-muted-foreground">
+                                                                                {new Date(stop.date_start || stop.date_end || '').toLocaleDateString()}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <div className="h-full flex items-center justify-center text-muted-foreground text-xs italic bg-white/50 rounded border border-dashed py-8">
+                                                        No additional stops reported
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </Card>
                         )
                     })
@@ -1224,6 +1312,19 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     isOpen={!!selectedLoadForMap}
                     onClose={() => setSelectedLoadForMap(null)}
                     load={selectedLoadForMap}
+                />
+            )}
+
+            {/* Edit Criteria Modal */}
+            {editingCriteria && (
+                <EditCriteriaDialog
+                    open={!!editingCriteria}
+                    onOpenChange={(open) => !open && setEditingCriteria(null)}
+                    criteria={editingCriteria}
+                    onSuccess={() => {
+                        fetchData(); // Refresh list to show updates
+                        setEditingCriteria(null);
+                    }}
                 />
             )}
         </div >

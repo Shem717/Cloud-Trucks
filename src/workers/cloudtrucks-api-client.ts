@@ -34,8 +34,10 @@ export interface CloudTrucksLoad {
     id: string;
     origin_city: string;
     origin_state: string;
+    origin_address?: string;
     dest_city: string;
     dest_state: string;
+    dest_address?: string;
     trip_rate: string;
     trip_distance_mi: number;
     equipment: string[];
@@ -238,8 +240,10 @@ function collectLoadsFromPusher(channelName: string, timeoutMs: number, log: (ms
                     id: loadData.id,
                     origin_city: loadData.origin_city,
                     origin_state: loadData.origin_state,
+                    origin_address: loadData.origin_address,
                     dest_city: loadData.dest_city,
                     dest_state: loadData.dest_state,
+                    dest_address: loadData.dest_address,
                     trip_rate: loadData.trip_rate,
                     trip_distance_mi: loadData.trip_distance_mi,
                     equipment: loadData.equipment,

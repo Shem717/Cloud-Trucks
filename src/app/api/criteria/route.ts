@@ -253,7 +253,7 @@ export async function PATCH(request: NextRequest) {
         const table = isGuest ? GUEST_CRITERIA_TABLE : USER_CRITERIA_TABLE;
 
         const body = await request.json();
-        const { id, action } = body;
+        const { id, action, updates } = body;
 
         if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
 
@@ -271,6 +271,48 @@ export async function PATCH(request: NextRequest) {
             if (res.error) throw new Error('Failed to restore');
 
             return NextResponse.json({ success: true });
+        }
+
+        if (action === 'update') {
+            // Sanitize updates - allow only specific fields
+            const allowedFields = [
+                'origin_city', 'origin_state', 'origin_states',
+                'dest_city', 'destination_state', 'destination_states',
+                'pickup_distance', 'pickup_date',
+                'min_rate', 'min_weight', 'max_weight',
+                'equipment_type', 'booking_type'
+            ];
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const safeUpdates: any = {};
+
+            Object.keys(updates).forEach(key => {
+                if (allowedFields.includes(key)) {
+                    safeUpdates[key] = updates[key];
+                }
+            });
+
+            if (Object.keys(safeUpdates).length === 0) {
+                return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+            }
+
+            let query = db
+                .from(table)
+                .update(safeUpdates)
+                .eq('id', id);
+
+            query = isGuest
+                ? query.eq('guest_session', guestSession as string)
+                : query.eq('user_id', userId as string);
+
+            const { data, error } = await query.select();
+
+            if (error) {
+                console.error("Update error:", error);
+                return NextResponse.json({ error: error.message }, { status: 500 });
+            }
+
+            return NextResponse.json({ success: true, criteria: data });
         }
 
         return NextResponse.json({ error: "Invalid action" }, { status: 400 });
