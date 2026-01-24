@@ -175,13 +175,9 @@ export function LoadCard({ load, isSaved, onSave, onMarkInterested, onViewMap }:
             </div>
 
             {/* --- Buttons (Always Visible) --- */}
-            <div className="p-3 bg-slate-50/50 dark:bg-slate-900/50 border-t flex justify-between items-center" onClick={(e) => e.stopPropagation()}>
-                <div className="text-xs text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-primary transition-colors" onClick={() => setIsExpanded(!isExpanded)}>
-                    {isExpanded ? "Less Details" : "More Data"}
-                    {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                </div>
-
-                <div className="flex gap-2">
+            <div className="bg-slate-50/50 dark:bg-slate-900/50 border-t" onClick={(e) => e.stopPropagation()}>
+                {/* Action Buttons Row */}
+                <div className="p-3 pb-2 flex justify-end items-center gap-2">
                     <Button
                         variant="ghost"
                         size="sm"
@@ -197,6 +193,14 @@ export function LoadCard({ load, isSaved, onSave, onMarkInterested, onViewMap }:
                     <Button size="sm" className="h-7 px-3 gap-1 bg-green-600 hover:bg-green-700 text-white" onClick={onMarkInterested}>
                         <Star className="h-3 w-3" /> Interested
                     </Button>
+                </div>
+                {/* Expand Toggle Row */}
+                <div
+                    className="px-3 pb-2 flex justify-center items-center gap-1 text-xs text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                >
+                    {isExpanded ? "Less Details" : "More Data"}
+                    {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                 </div>
             </div>
 
