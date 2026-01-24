@@ -111,6 +111,16 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess }: 
                 throw new Error(err.error || 'Failed to update');
             }
 
+            // Trigger background scan to fetch fresh loads matching new criteria
+            try {
+                fetch('/api/scan', { method: 'POST' }).catch(err => {
+                    console.warn('Background scan failed:', err);
+                    // Non-fatal - user can manually scan later
+                });
+            } catch {
+                // Ignore scan errors - non-critical
+            }
+
             onSuccess();
             onOpenChange(false);
         } catch (error) {

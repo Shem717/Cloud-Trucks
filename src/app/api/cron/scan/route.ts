@@ -15,12 +15,35 @@ function isAuthorized(request: NextRequest) {
     return headerSecret === secret;
 }
 
+/**
+ * Add randomization to scan execution to avoid predictable patterns.
+ * 30% chance to skip any given cron execution.
+ * This creates further unpredictability in scan timing.
+ */
+function shouldSkipExecution(): boolean {
+    // 30% chance to skip
+    return Math.random() < 0.30;
+}
+
 export async function GET(request: NextRequest) {
     if (!isAuthorized(request)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Randomization: skip some executions to add unpredictability
+    // Only applies to scheduled crons, not manual triggers
+    const isScheduledCron = request.headers.get('x-vercel-cron') === '1';
+    if (isScheduledCron && shouldSkipExecution()) {
+        console.log('[CRON] Skipping this scan execution (randomization)');
+        return NextResponse.json({ 
+            success: true, 
+            skipped: true, 
+            reason: 'Randomized skip for unpredictable scanning pattern' 
+        });
+    }
+
     try {
+        console.log('[CRON] Executing scan for all users');
         const result = await scanLoadsForAllUsers();
         return NextResponse.json({ success: true, result });
     } catch (e: unknown) {

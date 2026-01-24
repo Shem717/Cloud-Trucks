@@ -47,72 +47,106 @@
 }
 
 :root {
+  /* Metrics */
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
+
+  /* Logistics Trust Blue Palette (Light Mode) */
+  --background: oklch(0.985 0 0); /* Slightly off-white for depth */
   --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
+
+  /* Glassmorphism Card */
+  --card: rgba(255, 255, 255, 0.8);
   --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
+  
+  --popover: rgba(255, 255, 255, 0.9);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+
+  /* Primary: Trust Blue (#2563EB) */
+  --primary: #2563EB;
+  --primary-foreground: #FFFFFF;
+
+  /* Secondary: Lighter Blue (#3B82F6) */
+  --secondary: #3B82F6;
+  --secondary-foreground: #FFFFFF;
+
+  /* Muted */
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
+
+  /* Accent: Emergency Orange (#F97316) */
+  --accent: #F97316;
+  --accent-foreground: #FFFFFF;
+
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #2563EB;
+
+  /* Charts */
+  --chart-1: #2563EB;
+  --chart-2: #3B82F6;
+  --chart-3: #F97316;
+  --chart-4: #F59E0B;
+  --chart-5: #10B981;
+
+  /* Sidebar */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #0F172A;
+  --sidebar-primary: #2563EB;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F1F5F9;
+  --sidebar-accent-foreground: #0F172A;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #2563EB;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Logistics Trust Blue Palette (Dark Mode) */
+  --background: #020617; /* Deep Blue/Black */
+  --foreground: #F8FAFC;
+
+  /* Glassmorphism Card */
+  --card: rgba(15, 23, 42, 0.6);
+  --card-foreground: #F8FAFC;
+
+  --popover: rgba(15, 23, 42, 0.8);
+  --popover-foreground: #F8FAFC;
+
+  --primary: #3B82F6; /* Lighter blue for dark mode */
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #1E293B;
+  --secondary-foreground: #F8FAFC;
+
+  --muted: #1E293B;
+  --muted-foreground: #94A3B8;
+
+  --accent: #F97316;
+  --accent-foreground: #FFFFFF;
+
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #1E293B;
+  --input: #1E293B;
+  --ring: #3B82F6;
+
+  --chart-1: #3B82F6;
+  --chart-2: #60A5FA;
+  --chart-3: #F97316;
+  --chart-4: #FBBF24;
+  --chart-5: #34D399;
+
+  --sidebar: #020617;
+  --sidebar-foreground: #F8FAFC;
+  --sidebar-primary: #3B82F6;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #1E293B;
+  --sidebar-accent-foreground: #F8FAFC;
+  --sidebar-border: #1E293B;
+  --sidebar-ring: #3B82F6;
 }
 
 @layer base {
@@ -121,5 +155,23 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* UI/UX Pro Max Utilities */
+@layer utilities {
+  .glass-panel {
+    @apply backdrop-blur-md bg-card border border-white/20 shadow-xl;
+  }
+  
+  .glass-panel-hover {
+    @apply hover:bg-white/10 hover:scale-[1.02] transition-all duration-300;
+  }
+
+  .bento-grid {
+    display: grid;
+    /* auto-fill with separate minmax ensures responsiveness */
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
   }
 }

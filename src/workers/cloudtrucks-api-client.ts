@@ -51,6 +51,21 @@ export interface CloudTrucksLoad {
     truck_weight_lb: number;
     total_deadhead_mi: number;
     stops: CloudTrucksLoadStop[];
+    // New fields from audit
+    age_min?: number;
+    is_team_load?: boolean;
+    estimated_fuel_cost?: number;
+    estimated_toll_cost?: number;
+    estimated_revenue_per_hour?: number;
+    broker_mc_number?: string;
+    contact_phone?: string;
+    contact_email?: string;
+    truck_length_ft?: number;
+    booking_instructions?: string;
+    has_auto_bid?: boolean;
+    origin_deadhead_mi?: number;
+    dest_deadhead_mi?: number;
+    trailer_drop_warnings?: string[];
     // Raw data for storage
     raw: unknown;
 }
@@ -62,6 +77,19 @@ export interface CloudTrucksLoadStop {
     date_start?: string;
     date_end?: string;
     [key: string]: unknown;
+}
+
+/**
+ * Normalize booking_type to API-expected uppercase values
+ */
+function normalizeBookingType(bookingType: string | undefined | null): string {
+    if (!bookingType || bookingType.toLowerCase() === 'any' || bookingType.toLowerCase() === 'all') {
+        return 'ALL';
+    }
+    const upper = bookingType.toUpperCase();
+    if (upper === 'INSTANT') return 'INSTANT';
+    if (upper === 'STANDARD') return 'STANDARD';
+    return 'ALL'; // Default fallback
 }
 
 /**
@@ -80,6 +108,9 @@ function buildApiPayload(criteria: SearchCriteria): object {
         ? criteria.dest_city + (criteria.destination_state ? `, ${criteria.destination_state}` : '')
         : '';
 
+    // For Instant Book loads, try requesting unmasked data to get addresses
+    const isInstantOnly = normalizeBookingType(criteria.booking_type) === 'INSTANT';
+    
     return {
         origin_location: origin,
         origin_range_mi__max: criteria.pickup_distance || 50,
@@ -89,9 +120,10 @@ function buildApiPayload(criteria: SearchCriteria): object {
             ? [equipmentMap[criteria.equipment_type] || 'DRY_VAN']
             : ['DRY_VAN'],
         sort_type: 'BEST_PRICE',
-        booking_type: criteria.booking_type || 'ALL',
+        booking_type: normalizeBookingType(criteria.booking_type),
         trip_distances: ['Local', 'Short', 'Long'],
-        masked_data: true,
+        // Try unmasked data for instant book loads, masked for others
+        masked_data: !isInstantOnly,
         age_min__min: 30,
         truck_weight_lb__max: criteria.max_weight || 45000,
         requested_states: criteria.destination_state ? [criteria.destination_state] : [],
@@ -257,12 +289,67 @@ function collectLoadsFromPusher(channelName: string, timeoutMs: number, log: (ms
                     truck_weight_lb: loadData.truck_weight_lb,
                     total_deadhead_mi: loadData.total_deadhead_mi,
                     stops: loadData.stops,
+                    // Map new fields
+                    age_min: loadData.age_min,
+                    is_team_load: loadData.is_team_load,
+                    estimated_fuel_cost: loadData.estimated_fuel_cost,
+                    estimated_toll_cost: loadData.estimated_toll_cost,
+                    estimated_revenue_per_hour: loadData.estimated_revenue_per_hour,
+                    broker_mc_number: loadData.broker_mc_number,
+                    contact_phone: loadData.contact_phone,
+                    contact_email: loadData.contact_email,
+                    truck_length_ft: loadData.truck_length_ft,
+                    booking_instructions: loadData.booking_instructions,
+                    has_auto_bid: loadData.has_auto_bid,
+                    origin_deadhead_mi: loadData.origin_deadhead_mi,
+                    dest_deadhead_mi: loadData.dest_deadhead_mi,
+                    trailer_drop_warnings: loadData.trailer_drop_warnings,
                     raw: loadData,
                 };
 
                 loads.push(load);
+                
+                // Always log address info for debugging (even without DEBUG flag)
+                const hasAddressData = loadData.origin_address || loadData.dest_address;
+                if (hasAddressData) {
+                    console.log(`[CT API] ADDRESS FOUND for load ${load.id}:`, {
+                        instant_book: loadData.instant_book,
+                        origin_address: loadData.origin_address,
+                        dest_address: loadData.dest_address,
+                    });
+                }
+                
+                // Check stops for address data
+                if (loadData.stops && Array.isArray(loadData.stops)) {
+                    loadData.stops.forEach((stop: any, idx: number) => {
+                        if (stop.address || stop.street || stop.full_address) {
+                            console.log(`[CT API] STOP ADDRESS FOUND for load ${load.id}, stop ${idx}:`, {
+                                type: stop.type,
+                                address: stop.address,
+                                street: stop.street,
+                                full_address: stop.full_address,
+                                zip: stop.zip || stop.postal_code,
+                            });
+                        }
+                    });
+                }
+                
                 if (DEBUG) {
-                    console.log(`[CT API] Received load: ${load.origin_city}, ${load.origin_state} -> ${load.dest_city}, ${load.dest_state} | $${load.trip_rate}`);
+                    console.log(`[CT API] Received load: ${load.origin_city}, ${load.origin_state} -> ${load.dest_city}, ${load.dest_state} | $${load.trip_rate} | instant=${load.instant_book}`);
+                    // DEBUG: Log all available fields to identify unused data
+                    console.log('[CT API DEBUG] Full loadData keys:', Object.keys(loadData));
+                    // Log any fields we're not currently capturing
+                    const capturedFields = new Set(['id', 'origin_city', 'origin_state', 'origin_address', 'dest_city', 'dest_state', 'dest_address', 'trip_rate', 'trip_distance_mi', 'equipment', 'broker_name', 'origin_pickup_date', 'dest_delivery_date', 'instant_book', 'estimated_rate', 'estimated_rate_min', 'estimated_rate_max', 'truck_weight_lb', 'total_deadhead_mi', 'stops']);
+                    const allFields = Object.keys(loadData);
+                    const uncaptured = allFields.filter(k => !capturedFields.has(k));
+                    if (uncaptured.length > 0) {
+                        console.log('[CT API DEBUG] Uncaptured fields:', uncaptured);
+                    }
+                    
+                    // Log stop structure for analysis
+                    if (loadData.stops && loadData.stops.length > 0) {
+                        console.log('[CT API DEBUG] Stop keys:', Object.keys(loadData.stops[0]));
+                    }
                 }
             } catch (e) {
                 if (DEBUG) console.error('[CT API] Error parsing load:', e);

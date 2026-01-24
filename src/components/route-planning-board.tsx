@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, MapPin, Calendar, DollarSign, Truck, AlertCircle, ChevronDown, ChevronUp, Trash2, ExternalLink } from 'lucide-react';
+import { ArrowRight, MapPin, Calendar, DollarSign, Truck, AlertCircle, ChevronDown, ChevronUp, Trash2, ExternalLink, Navigation, Users, User, Map } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import Link from 'next/link';
 import { BrokerLogo } from "./broker-logo";
 import { RouteConditionsPanel } from "./route-conditions-panel";
+import { extractLoadAddresses, openInMaps } from "@/lib/address-utils";
+import { MultiStopRouteModal } from "./multi-stop-route-modal";
 
 import { SearchCriteria, CloudTrucksLoad, CloudTrucksLoadStop } from "@/workers/cloudtrucks-api-client";
 
@@ -31,6 +33,10 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
     const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [selectedRouteForMap, setSelectedRouteForMap] = useState<{
+        outbound: SavedLoad;
+        backhaul?: SavedLoad;
+    } | null>(null);
 
     const isDeleted = (id: string) => deletedIds.has(id);
 
@@ -172,7 +178,7 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
 
             {/* Batch Action Bar */}
             {visibleInterested.length > 0 && (
-                <div className="flex items-center justify-between bg-white dark:bg-card p-3 rounded-lg border shadow-sm mb-4">
+                <div className="flex items-center justify-between bg-card/50 backdrop-blur-sm p-3 rounded-lg border shadow-sm mb-4 glass-panel">
                     <div className="flex items-center gap-2">
                         <input
                             type="checkbox"
@@ -205,6 +211,10 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
                 const load = savedLoad.details;
                 const origin = load.origin_city ? `${load.origin_city}, ${load.origin_state}` : load.origin;
                 const dest = load.dest_city ? `${load.dest_city}, ${load.dest_state}` : load.destination;
+                
+                // Extract addresses from stops
+                const addresses = extractLoadAddresses(load);
+                const isTeam = load.is_team_load === true;
 
                 const isSelected = selectedIds.has(savedLoad.id);
 
@@ -227,7 +237,7 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
 
                         {/* PHASE 1: OUTBOUND CARD */}
                         <Card className={cn(
-                            "relative z-10 border-l-4 border-l-blue-500 shadow-sm bg-card hover:bg-accent/5 transition-colors group",
+                            "relative z-10 border-l-4 border-l-blue-500 shadow-sm bg-card/50 backdrop-blur-sm hover:bg-accent/5 transition-all hover:scale-[1.005] group",
                             isSelected && "ring-2 ring-blue-500 bg-blue-50/10"
                         )}>
                             <CardContent className="p-6">
@@ -250,9 +260,22 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
                                         <div className="flex items-center gap-3 text-xl font-semibold">
                                             <div>
                                                 <div>{origin}</div>
-                                                {load.origin_address && (
-                                                    <div className="text-xs font-normal text-muted-foreground truncate max-w-[200px]">
-                                                        {load.origin_address}
+                                                {addresses.origin.hasAddress && (
+                                                    <div className="flex items-center gap-1 mt-1">
+                                                        <span className="text-xs font-normal text-muted-foreground truncate max-w-[200px]">
+                                                            {addresses.origin.address}
+                                                        </span>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="sm" 
+                                                            className="h-5 px-1 text-[10px]"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                openInMaps(addresses.origin);
+                                                            }}
+                                                        >
+                                                            <Navigation className="h-3 w-3" />
+                                                        </Button>
                                                     </div>
                                                 )}
                                             </div>
@@ -261,12 +284,35 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
                                                     {load.distance ? `${load.distance} mi Loaded` : '---'}
                                                 </span>
                                                 <ArrowRight className="text-muted-foreground h-5 w-5" />
+                                                {/* Team/Solo indicator */}
+                                                {isTeam ? (
+                                                    <Badge variant="secondary" className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-[10px] gap-1 px-1.5 mt-1">
+                                                        <Users className="h-3 w-3" /> Team
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="secondary" className="bg-slate-500/20 text-slate-400 border-slate-500/30 text-[10px] gap-1 px-1.5 mt-1">
+                                                        <User className="h-3 w-3" /> Solo
+                                                    </Badge>
+                                                )}
                                             </div>
                                             <div>
                                                 <div>{dest}</div>
-                                                {load.dest_address && (
-                                                    <div className="text-xs font-normal text-muted-foreground truncate max-w-[200px] text-right">
-                                                        {load.dest_address}
+                                                {addresses.destination.hasAddress && (
+                                                    <div className="flex items-center gap-1 mt-1">
+                                                        <span className="text-xs font-normal text-muted-foreground truncate max-w-[200px]">
+                                                            {addresses.destination.address}
+                                                        </span>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="sm" 
+                                                            className="h-5 px-1 text-[10px]"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                openInMaps(addresses.destination);
+                                                            }}
+                                                        >
+                                                            <Navigation className="h-3 w-3" />
+                                                        </Button>
                                                     </div>
                                                 )}
                                             </div>
@@ -297,6 +343,39 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
+                                        {/* View Route button - show outbound only if no matches, or combined if matches exist */}
+                                        {matches.length > 0 ? (
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => {
+                                                    // Get best backhaul match
+                                                    const criteriaId = matches[0].id;
+                                                    const backhaulMatch = backhaulLoads?.find(l => l.criteria_id === criteriaId);
+                                                    setSelectedRouteForMap({
+                                                        outbound: savedLoad,
+                                                        backhaul: backhaulMatch,
+                                                    });
+                                                }}
+                                                className="gap-1"
+                                            >
+                                                <Map className="h-4 w-4" />
+                                                View Round Trip
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setSelectedRouteForMap({
+                                                        outbound: savedLoad,
+                                                    });
+                                                }}
+                                                className="gap-1"
+                                            >
+                                                <Map className="h-4 w-4" />
+                                                View Route
+                                            </Button>
+                                        )}
+                                        
                                         <Button asChild className="bg-blue-600 hover:bg-blue-700">
                                             <a href={`https://app.cloudtrucks.com/loads/${savedLoad.cloudtrucks_load_id}/book`} target="_blank" rel="noreferrer">
                                                 Book Phase 1
@@ -403,6 +482,10 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
                                                         const lDetails = match.details;
                                                         const lOrigin = lDetails.origin_city ? `${lDetails.origin_city}, ${lDetails.origin_state}` : lDetails.origin;
                                                         const lDest = lDetails.dest_city ? `${lDetails.dest_city}, ${lDetails.dest_state}` : lDetails.destination;
+                                                        
+                                                        // Extract addresses for backhaul loads
+                                                        const lAddresses = extractLoadAddresses(lDetails);
+                                                        const lIsTeam = lDetails.is_team_load === true;
 
                                                         // Derived Stats
                                                         const rawRate = lDetails.rate || lDetails.trip_rate;
@@ -434,22 +517,47 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
                                                                             <div className="flex items-center justify-between">
                                                                                 <div className="flex items-center gap-2">
                                                                                     <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                                                                                    <span className="font-semibold">{lOrigin}</span>
-                                                                                </div>
-                                                                                {broker && (
-                                                                                    <div className="flex items-center gap-2">
-                                                                                        <BrokerLogo name={broker} size="sm" />
-                                                                                        <Badge variant="outline" className="text-[10px] h-5 border-indigo-200 bg-indigo-50 text-indigo-700 font-medium">
-                                                                                            {broker}
-                                                                                        </Badge>
+                                                                                    <div>
+                                                                                        <span className="font-semibold">{lOrigin}</span>
+                                                                                        {lAddresses.origin.hasAddress && (
+                                                                                            <div className="text-[10px] text-muted-foreground truncate max-w-[150px]">
+                                                                                                {lAddresses.origin.address}
+                                                                                            </div>
+                                                                                        )}
                                                                                     </div>
-                                                                                )}
+                                                                                </div>
+                                                                                <div className="flex items-center gap-2">
+                                                                                    {lIsTeam ? (
+                                                                                        <Badge variant="secondary" className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-[9px] gap-0.5 px-1">
+                                                                                            <Users className="h-2.5 w-2.5" /> Team
+                                                                                        </Badge>
+                                                                                    ) : (
+                                                                                        <Badge variant="secondary" className="bg-slate-500/20 text-slate-400 border-slate-500/30 text-[9px] gap-0.5 px-1">
+                                                                                            <User className="h-2.5 w-2.5" /> Solo
+                                                                                        </Badge>
+                                                                                    )}
+                                                                                    {broker && (
+                                                                                        <div className="flex items-center gap-2">
+                                                                                            <BrokerLogo name={broker} size="sm" />
+                                                                                            <Badge variant="outline" className="text-[10px] h-5 border-indigo-200 bg-indigo-50 text-indigo-700 font-medium">
+                                                                                                {broker}
+                                                                                            </Badge>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
                                                                             </div>
                                                                             {/* Dotted Line */}
                                                                             <div className="ml-1 pl-3 border-l-2 border-dashed border-gray-200 h-4 my-1"></div>
                                                                             <div className="flex items-center gap-2">
                                                                                 <span className="w-2 h-2 rounded-sm bg-red-500"></span>
-                                                                                <span className="font-semibold">{lDest}</span>
+                                                                                <div>
+                                                                                    <span className="font-semibold">{lDest}</span>
+                                                                                    {lAddresses.destination.hasAddress && (
+                                                                                        <div className="text-[10px] text-muted-foreground truncate max-w-[150px]">
+                                                                                            {lAddresses.destination.address}
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
                                                                             </div>
 
                                                                             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mt-2 pl-4">
@@ -513,6 +621,16 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
                     </div>
                 );
             })}
+
+            {/* Multi-Stop Route Modal */}
+            {selectedRouteForMap && (
+                <MultiStopRouteModal
+                    isOpen={!!selectedRouteForMap}
+                    onClose={() => setSelectedRouteForMap(null)}
+                    loads={selectedRouteForMap.backhaul ? [selectedRouteForMap.outbound, selectedRouteForMap.backhaul] : [selectedRouteForMap.outbound]}
+                    title={selectedRouteForMap.backhaul ? 'Round Trip Route Visualization' : 'Outbound Route'}
+                />
+            )}
         </div>
     );
 }

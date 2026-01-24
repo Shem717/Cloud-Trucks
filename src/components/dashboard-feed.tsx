@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, DollarSign, Weight, Calendar, Truck, Activity, Filter, RefreshCw, Trash2, Zap, Star, ArrowUpDown, AlertTriangle, ArrowLeftRight, Search, Map, Pencil, ChevronDown, ChevronUp } from 'lucide-react'
+import { MapPin, DollarSign, Weight, Calendar, Truck, Activity, Filter, RefreshCw, Trash2, Zap, Star, ArrowUpDown, AlertTriangle, ArrowLeftRight, Search, Map, Pencil, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -19,6 +19,8 @@ import { WeatherBadge } from "./weather-badge"
 import { ChainLawBadge, useChainLaws } from "./chain-law-badge"
 import { MapboxIntelligenceModal } from "./mapbox-intelligence-modal"
 import { EditCriteriaDialog } from "@/components/edit-criteria-dialog"
+import { BentoGrid, BentoGridItem } from "@/components/ui/bento-grid";
+import { LoadCard } from "@/components/load-card";
 
 type SortOption = 'newest' | 'price_high' | 'price_low' | 'pickup_soonest' | 'pickup_latest' | 'delivery_soonest' | 'delivery_latest' | 'distance_short' | 'deadhead_low' | 'rpm_high' | 'rpm_low';
 
@@ -79,6 +81,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
     const [selectedLoadForMap, setSelectedLoadForMap] = useState<SavedLoad | null>(null) // Route Intelligence Modal
     const [editingCriteria, setEditingCriteria] = useState<EnrichedCriteria | null>(null) // Edit Modal State
     const [expandedLoadId, setExpandedLoadId] = useState<string | null>(null) // Expandable Details State
+    const [bookingTypeFilter, setBookingTypeFilter] = useState<'all' | 'instant' | 'standard'>('all') // Booking type filter
 
 
     const checkCredentials = useCallback(async () => {
@@ -171,7 +174,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
         //         (payload) => {
         //             console.log('New load received via Realtime:', payload.new.id)
         //             fetchData()
-
+        // 
         //             if (document.hidden && Notification.permission === 'granted') {
         //                 new Notification('CloudTrucks Scout', {
         //                     body: 'New High-Value Load Detected!',
@@ -524,110 +527,90 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
     const scoutMissions = generateStats(scoutCriteria);
     const backhaulMissions = generateStats(backhaulCriteria);
 
+    // --- Filter loads to only include those belonging to current criteria ---
+    const criteriaIdsSet = new Set(criteriaList.map(c => c.id));
+    const relevantLoads = loads.filter(l => l.search_criteria && criteriaIdsSet.has(l.search_criteria.id));
+
+    // --- Filter out stale loads (older than 24 hours) ---
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const freshLoads = relevantLoads.filter(load => {
+        const createdAt = new Date(load.created_at);
+        return createdAt > twentyFourHoursAgo;
+    });
+
+    // --- Deduplicate loads by cloudtrucks_load_id (keep most recent) ---
+    const deduplicatedLoads: SavedLoad[] = (() => {
+        const loadMap: Record<string, SavedLoad> = {};
+        for (const load of freshLoads) {
+            const loadId = load.details?.id || load.cloudtrucks_load_id;
+            if (!loadId) continue;
+            
+            const existing = loadMap[loadId];
+            if (!existing || new Date(load.created_at) > new Date(existing.created_at)) {
+                loadMap[loadId] = load;
+            }
+        }
+        return Object.values(loadMap);
+    })();
+
     // --- Filter and Sort Feed ---
     const baseFilteredLoads = selectedCriteriaId
-        ? loads.filter(l => l.search_criteria?.id === selectedCriteriaId)
-        : loads;
-    const filteredLoads = sortLoads(baseFilteredLoads);
+        ? deduplicatedLoads.filter(l => l.search_criteria?.id === selectedCriteriaId)
+        : deduplicatedLoads;
+    
+    // Apply booking type filter
+    const bookingFilteredLoads = bookingTypeFilter === 'all' 
+        ? baseFilteredLoads
+        : baseFilteredLoads.filter(l => {
+            const isInstant = l.details.instant_book === true;
+            return bookingTypeFilter === 'instant' ? isInstant : !isInstant;
+        });
+    
+    const filteredLoads = sortLoads(bookingFilteredLoads);
 
 
 
-    // activeScoutsCount for CURRENT view (used by mission cards below)
+    // activeScoutsCount for CURRENT view
     const activeScoutsCount = activeCriteriaCount;
-    const totalLoadsCount = loads.length;
+    const totalLoadsCount = deduplicatedLoads.length;
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
-            {/* Stats Overview - Moved from page.tsx for Client-Side Accuracy */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Status</CardTitle>
-                        <Activity className="h-4 w-4 text-green-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">Online</div>
-                        <p className="text-xs text-muted-foreground">{loading ? 'Syncing...' : 'System is ready'}</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Active Scouts</CardTitle>
-                        <Search className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{activeScoutsCount}</div>
-                        <p className="text-xs text-muted-foreground">Automated scan criteria</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Loads Found</CardTitle>
-                        <Truck className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{totalLoadsCount}</div>
-                        <p className="text-xs text-muted-foreground">Matching your criteria</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Interested Loads</CardTitle>
-                        <Star className="h-4 w-4 text-yellow-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{savingInterest ? <span className="animate-pulse">...</span> : interestedCount}</div>
-                        <p className="text-xs text-muted-foreground">Saved for review</p>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Credential Warning Banner */}
-            {credentialWarning && (
-                <div className="flex items-center gap-3 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-yellow-500">
-                    <AlertTriangle className="h-5 w-5 flex-shrink-0" />
-                    <span className="text-sm">{credentialWarning}</span>
-                    <a href="/dashboard/settings" className="ml-auto text-sm underline hover:no-underline">
-                        Reconnect
-                    </a>
-                </div>
-            )}
-
+        <div className="space-y-6 animate-in fade-in duration-500 pb-20">
             {/* Header / Connection Pulpit */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight">
-                        {viewMode === 'trash' ? 'Trash Bin' : 'Active Scouts'}
+                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                        {viewMode === 'trash' ? 'Trash Bin' : 'Mission Control'}
                     </h2>
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-muted-foreground text-sm flex items-center gap-2 mt-1">
                         {viewMode === 'trash'
                             ? 'Recover deleted scouts or remove them permanently.'
-                            : lastUpdated ? `Live feed • Updated ${lastUpdated.toLocaleTimeString()}` : 'Syncing...'
+                            : <><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span></span> Live Feed • Updated {lastUpdated ? lastUpdated.toLocaleTimeString() : 'Syncing...'}</>
                         }
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex bg-muted/50 p-1 rounded-lg border">
+                    <div className="flex bg-muted/50 p-1 rounded-lg border glass-panel">
                         <button
                             onClick={() => setViewMode('feed')}
-                            className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all", viewMode === 'feed' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                            className={cn("px-4 py-2 text-sm font-medium rounded-md transition-all", viewMode === 'feed' ? "bg-white text-primary shadow-sm" : "text-muted-foreground hover:text-foreground")}
                         >
                             Active
                         </button>
                         <button
                             onClick={() => setViewMode('trash')}
-                            className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all", viewMode === 'trash' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                            className={cn("px-4 py-2 text-sm font-medium rounded-md transition-all", viewMode === 'trash' ? "bg-white text-primary shadow-sm" : "text-muted-foreground hover:text-foreground")}
                         >
                             Trash
                         </button>
                     </div>
 
                     <Button
-                        variant="outline"
+                        variant="default"
                         size="sm"
                         onClick={handleScan}
                         disabled={scanning || criteriaList.length === 0 || viewMode === 'trash'}
-                        className="gap-2"
+                        className="gap-2 bg-primary hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20"
                     >
                         {scanning ? (
                             <RefreshCw className="h-4 w-4 animate-spin" />
@@ -638,675 +621,230 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     </Button>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="gap-2">
+                            <Button variant="outline" size="sm" className="gap-2 glass-panel border-white/20">
                                 <ArrowUpDown className="h-4 w-4" />
                                 Sort
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setSortBy('rpm_high')} className={sortBy === 'rpm_high' ? 'bg-muted' : ''}>
-                                RPM: High to Low
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('rpm_low')} className={sortBy === 'rpm_low' ? 'bg-muted' : ''}>
-                                RPM: Low to High
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('newest')} className={sortBy === 'newest' ? 'bg-muted' : ''}>
-                                Newest First
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('price_high')} className={sortBy === 'price_high' ? 'bg-muted' : ''}>
-                                Price: High to Low
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('price_low')} className={sortBy === 'price_low' ? 'bg-muted' : ''}>
-                                Price: Low to High
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('pickup_soonest')} className={sortBy === 'pickup_soonest' ? 'bg-muted' : ''}>
-                                Pickup: Soonest
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('pickup_latest')} className={sortBy === 'pickup_latest' ? 'bg-muted' : ''}>
-                                Pickup: Latest
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('delivery_soonest')} className={sortBy === 'delivery_soonest' ? 'bg-muted' : ''}>
-                                Delivery: Soonest
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('delivery_latest')} className={sortBy === 'delivery_latest' ? 'bg-muted' : ''}>
-                                Delivery: Latest
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('distance_short')} className={sortBy === 'distance_short' ? 'bg-muted' : ''}>
-                                Distance: Shortest
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('deadhead_low')} className={sortBy === 'deadhead_low' ? 'bg-muted' : ''}>
-                                Deadhead: Lowest
-                            </DropdownMenuItem>
+                        <DropdownMenuContent align="end" className="glass-panel">
+                            <DropdownMenuItem onClick={() => setSortBy('rpm_high')} className={sortBy === 'rpm_high' ? 'bg-primary/10' : ''}>RPM: High to Low</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('rpm_low')} className={sortBy === 'rpm_low' ? 'bg-primary/10' : ''}>RPM: Low to High</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('newest')} className={sortBy === 'newest' ? 'bg-primary/10' : ''}>Newest First</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('price_high')} className={sortBy === 'price_high' ? 'bg-primary/10' : ''}>Price: High to Low</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('price_low')} className={sortBy === 'price_low' ? 'bg-primary/10' : ''}>Price: Low to High</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('pickup_soonest')} className={sortBy === 'pickup_soonest' ? 'bg-primary/10' : ''}>Pickup: Soonest</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('pickup_latest')} className={sortBy === 'pickup_latest' ? 'bg-primary/10' : ''}>Pickup: Latest</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('delivery_soonest')} className={sortBy === 'delivery_soonest' ? 'bg-primary/10' : ''}>Delivery: Soonest</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('delivery_latest')} className={sortBy === 'delivery_latest' ? 'bg-primary/10' : ''}>Delivery: Latest</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('distance_short')} className={sortBy === 'distance_short' ? 'bg-primary/10' : ''}>Distance: Shortest</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('deadhead_low')} className={sortBy === 'deadhead_low' ? 'bg-primary/10' : ''}>Deadhead: Lowest</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                    {loading && <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />}
                 </div>
             </div>
 
+            {/* Credential Warning Banner */}
+            {credentialWarning && (
+                <div className="flex items-center gap-3 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-yellow-600 backdrop-blur-md">
+                    <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                    <span className="text-sm font-medium">{credentialWarning}</span>
+                    <a href="/dashboard/settings" className="ml-auto text-sm underline hover:no-underline font-semibold">
+                        Reconnect
+                    </a>
+                </div>
+            )}
+
+            {/* --- COMMAND CENTER (Stats) --- */}
+            <BentoGrid className="mb-10">
+                <BentoGridItem
+                    title="System Status"
+                    description="Operational"
+                    header={<div className={cn("text-4xl font-bold font-mono", loading ? "text-yellow-500" : "text-green-500")}>Online</div>}
+                    icon={<Activity className="h-4 w-4 text-muted-foreground" />}
+                    className="md:col-span-1 border-l-4 border-l-green-500"
+                />
+                <BentoGridItem
+                    title="Active Scouts"
+                    description="Monitoring criteria"
+                    header={<div className="text-4xl font-bold font-mono text-primary">{activeScoutsCount}</div>}
+                    icon={<Search className="h-4 w-4 text-muted-foreground" />}
+                    className="md:col-span-1 border-l-4 border-l-primary"
+                />
+                <BentoGridItem
+                    title="Loads Found"
+                    description="Matching Criteria"
+                    header={<div className="text-4xl font-bold font-mono text-indigo-500">{totalLoadsCount}</div>}
+                    icon={<Truck className="h-4 w-4 text-muted-foreground" />}
+                    className="md:col-span-1 border-l-4 border-l-indigo-500"
+                />
+                <BentoGridItem
+                    title="Saved Loads"
+                    description="Interested"
+                    header={<div className="text-4xl font-bold font-mono text-orange-500">{interestedCount}</div>}
+                    icon={<Star className="h-4 w-4 text-muted-foreground" />}
+                    className="md:col-span-1 border-l-4 border-l-orange-500"
+                />
+            </BentoGrid>
+
             {/* --- SCOUTS DECK --- */}
-            <div className="w-full pb-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* 'All' Card */}
-                    <button
-                        onClick={() => setSelectedCriteriaId(null)}
-                        className={cn(
-                            "flex w-full flex-col items-start justify-between rounded-xl border p-4 min-h-[120px] transition-all hover:scale-105 focus:outline-none focus:ring-2 ring-primary/20",
-                            !selectedCriteriaId
-                                ? "bg-primary text-primary-foreground shadow-lg scale-105 border-primary"
-                                : "bg-background hover:bg-muted/50"
-                        )}
-                    >
+            <div className="space-y-4">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                    <Map className="h-5 w-5 text-primary" />
+                    Route Scouts
+                </h3>
+
+                {/* Batch Action Bar for Scouts */}
+                {scoutMissions.length > 0 && (
+                    <div className="flex items-center justify-between bg-muted/20 p-2 rounded-lg border glass-panel">
                         <div className="flex items-center gap-2">
-                            <Activity className="h-5 w-5" />
-                            <span className="font-semibold">All Scouts</span>
+                            <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 ml-2"
+                                checked={selectedScoutIds.size === scoutMissions.length && scoutMissions.length > 0}
+                                onChange={toggleScoutSelectAll}
+                            />
+                            <span className="text-sm text-muted-foreground ml-2">
+                                {selectedScoutIds.size} scout{selectedScoutIds.size !== 1 ? 's' : ''} selected
+                            </span>
                         </div>
-                        <div className="mt-auto">
-                            <div className="text-3xl font-bold">{loads.length}</div>
-                            <div className="text-xs opacity-80">Total Loads</div>
-                        </div>
-                    </button>
-
-                    {/* Batch Action Bar for Scouts (Trash Mode Only) */}
-                    {viewMode === 'trash' && scoutMissions.length > 0 && (
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-muted/20 p-2 rounded-lg border w-full col-span-full">
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    checked={selectedScoutIds.size === scoutMissions.length && scoutMissions.length > 0}
-                                    onChange={toggleScoutSelectAll}
-                                    className="h-4 w-4 rounded border-gray-300"
-                                />
-                                <span className="text-sm text-muted-foreground">
-                                    {selectedScoutIds.size > 0 ? `${selectedScoutIds.size} selected` : 'Select all'}
-                                </span>
-                            </div>
+                        <div className="flex gap-2">
                             {selectedScoutIds.size > 0 && (
-                                <div className="flex flex-wrap gap-2">
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleBatchScoutAction('restore')}
-                                        className="h-8"
-                                    >
-                                        Restore Selected
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="destructive"
-                                        onClick={() => handleBatchScoutAction('delete')}
-                                        className="h-8"
-                                    >
-                                        Delete Forever
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Scouts Cards */}
-                    {scoutMissions.map((mission: MissionStats) => (
-                        <div
-                            key={mission.criteria.id}
-                            className={cn(
-                                "relative flex w-full flex-col items-start justify-between rounded-xl border min-h-[120px] transition-all hover:scale-105 focus-within:ring-2 ring-primary/20 group",
-                                viewMode === 'trash' ? "p-4 pl-8" : "p-4",
-                                selectedCriteriaId === mission.criteria.id
-                                    ? "bg-slate-800 text-white shadow-lg scale-105 border-slate-600 ring-2 ring-slate-400"
-                                    : "bg-background hover:bg-muted/50",
-                                viewMode === 'trash' && selectedScoutIds.has(mission.criteria.id) && "border-blue-500 bg-blue-50/10 ring-1 ring-blue-500"
-                            )}
-                        >
-                            {/* Checkbox for trash mode */}
-                            {viewMode === 'trash' && (
-                                <input
-                                    type="checkbox"
-                                    checked={selectedScoutIds.has(mission.criteria.id)}
-                                    onChange={() => toggleScoutSelection(mission.criteria.id)}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 rounded border-gray-300 z-10"
-                                />
-                            )}
-
-                            {/* Make the whole card clickable EXCEPT the delete button */}
-                            <button
-                                onClick={() => setSelectedCriteriaId(mission.criteria.id)}
-                                className="absolute inset-0 w-full h-full z-0 text-left p-4 flex flex-col justify-between"
-                            >
-                                <div className="w-full">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <Badge variant="outline" className={cn(
-                                            "bg-background/20 backdrop-blur-sm border-white/20 text-xs",
-                                            selectedCriteriaId !== mission.criteria.id && "border-slate-300"
-                                        )}>
-                                            {mission.criteria.equipment_type || 'Any'}
-                                        </Badge>
-                                        {mission.maxRate > 0 && (
-                                            <span className="text-green-400 font-mono text-xs font-bold">
-                                                ${mission.maxRate.toFixed(0)}+
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="font-semibold truncate w-full text-left pr-6">
-                                        {mission.criteria.origin_city} <span className="text-muted-foreground">→</span> {mission.criteria.dest_city || 'Any'}
-                                    </div>
-                                </div>
-                                <div className="mt-auto flex items-end justify-between w-full">
-                                    <div>
-                                        <div className="text-2xl font-bold">{mission.count}</div>
-                                        <div className="text-xs text-muted-foreground">Found</div>
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                        {mission.criteria.origin_states && Array.isArray(mission.criteria.origin_states) && mission.criteria.origin_states.length > 0
-                                            ? mission.criteria.origin_states.join(', ')
-                                            : (mission.criteria.origin_states as string || mission.criteria.origin_state)} to {
-                                            mission.criteria.destination_states && Array.isArray(mission.criteria.destination_states) && mission.criteria.destination_states.length > 0
-                                                ? mission.criteria.destination_states.join(', ')
-                                                : (mission.criteria.destination_states as string || mission.criteria.destination_state || 'Any')
-                                        }
-                                    </div>
-                                </div>
-                            </button>
-
-                            {/* Delete Button (Z-Index above card click) */}
-                            {/* Action Button (Delete or Restore) */}
-                            {viewMode === 'trash' ? (
-                                <div className="absolute top-2 right-2 z-50 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            handleRestore(mission.criteria.id);
-                                        }}
-                                        className="p-1.5 rounded-full bg-green-500/20 hover:bg-green-500 hover:text-white text-green-600 transition-colors"
-                                        title="Restore Scout"
-                                    >
-                                        <RefreshCw className="h-3 w-3 pointer-events-none" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            handleDelete(mission.criteria.id, true);
-                                        }}
-                                        className="p-1.5 rounded-full bg-red-500/20 hover:bg-red-500 hover:text-white text-red-600 transition-colors"
-                                        title="Delete Permanently"
-                                    >
-                                        <Trash2 className="h-3 w-3 pointer-events-none" />
-                                    </button>
-                                </div>
-                            ) : (
                                 <>
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            handleDelete(mission.criteria.id);
-                                        }}
-                                        className="absolute top-2 right-2 z-50 p-1.5 rounded-full bg-black/20 hover:bg-red-500/20 text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                                        title="Move to Trash"
-                                    >
-                                        <Trash2 className="h-4 w-4 pointer-events-none" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            setEditingCriteria(mission.criteria);
-                                        }}
-                                        className="absolute top-2 right-9 z-50 p-1.5 rounded-full bg-black/20 hover:bg-blue-500/20 text-slate-400 hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100"
-                                        title="Edit Scout"
-                                    >
-                                        <Pencil className="h-4 w-4 pointer-events-none" />
-                                    </button>
+                                    {viewMode === 'trash' ? (
+                                        <Button size="sm" variant="secondary" onClick={() => handleBatchScoutAction('restore')}>
+                                            <RefreshCw className="h-4 w-4 mr-2" />
+                                            Restore
+                                        </Button>
+                                    ) : null}
+                                    <Button size="sm" variant="destructive" onClick={() => handleBatchScoutAction('delete')}>
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        {viewMode === 'trash' ? 'Delete Forever' : 'Delete'}
+                                    </Button>
                                 </>
                             )}
                         </div>
-                    ))}
-                </div>
-            </div>
+                    </div>
+                )}
 
-            {/* --- BACKHAULS DECK (Rendered below Scouts) --- */}
-            {
-                backhaulMissions.length > 0 && (
-                    <div className="space-y-2 mt-6">
-                        <h3 className="text-lg font-semibold tracking-tight text-muted-foreground flex items-center gap-2">
-                            <ArrowLeftRight className="h-4 w-4" />
-                            Backhauls
-                        </h3>
+                <BentoGrid>
+                    {/* 'All' Card */}
+                    <BentoGridItem
+                        className={cn("bg-gradient-to-br from-primary to-blue-600 text-white border-0 shadow-lg cursor-pointer", !selectedCriteriaId && "ring-4 ring-blue-200 dark:ring-blue-900")}
+                        onClick={() => setSelectedCriteriaId(null)}
+                        header={<div className="text-3xl font-bold text-white mb-4">{relevantLoads.length}</div>}
+                        title={<span className="text-white">All Scouts</span>}
+                        description={<span className="text-blue-100">View Global Feed</span>}
+                        icon={<Activity className="h-4 w-4 text-blue-200" />}
+                    />
 
-                        {/* Batch Action Bar for Backhauls (Trash Mode Only) */}
-                        {viewMode === 'trash' && (
-                            <div className="flex items-center justify-between bg-muted/20 p-2 rounded-lg border w-full">
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedBackhaulIds.size === backhaulMissions.length && backhaulMissions.length > 0}
-                                        onChange={toggleBackhaulSelectAll}
-                                        className="h-4 w-4 rounded border-gray-300"
-                                    />
-                                    <span className="text-sm text-muted-foreground">
-                                        {selectedBackhaulIds.size > 0 ? `${selectedBackhaulIds.size} selected` : 'Select all'}
-                                    </span>
-                                </div>
-                                {selectedBackhaulIds.size > 0 && (
-                                    <div className="flex gap-2">
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => handleBatchBackhaulAction('restore')}
-                                            className="h-8"
-                                        >
-                                            Restore Selected
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="destructive"
-                                            onClick={() => handleBatchBackhaulAction('delete')}
-                                            className="h-8"
-                                        >
-                                            Delete Forever
-                                        </Button>
-                                    </div>
+                    {/* Scout Cards */}
+                    {scoutMissions.map((mission: MissionStats) => {
+                        const isSelected = selectedScoutIds.has(mission.criteria.id);
+                        return (
+                            <BentoGridItem
+                                key={mission.criteria.id}
+                                className={cn(
+                                    "cursor-pointer border-l-4 relative",
+                                    isSelected ? "border-l-blue-500 ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-950/20" :
+                                        selectedCriteriaId === mission.criteria.id ? "border-l-primary ring-2 ring-primary bg-blue-50/50 dark:bg-blue-950/20" : "border-l-gray-300 hover:border-l-blue-300"
                                 )}
-                            </div>
-                        )}
-
-                        <div className="w-full overflow-x-auto pb-4 scrollbar-hide">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:flex lg:w-max lg:gap-0 lg:space-x-4">
-                                {backhaulMissions.map((mission) => (
-                                    <div
-                                        key={mission.criteria.id}
-                                        className={cn(
-                                            "relative flex w-full flex-col items-start justify-between rounded-xl border min-h-[100px] transition-all hover:scale-105 focus-within:ring-2 ring-indigo-500/20 group lg:w-[240px]",
-                                            viewMode === 'trash' ? "p-4 pl-8" : "p-4",
-                                            selectedCriteriaId === mission.criteria.id
-                                                ? "bg-indigo-950/40 text-white shadow-lg scale-105 border-indigo-500 ring-2 ring-indigo-500"
-                                                : "bg-background hover:bg-muted/50 border-indigo-500/20",
-                                            viewMode === 'trash' && selectedBackhaulIds.has(mission.criteria.id) && "border-blue-500 bg-blue-50/10 ring-1 ring-blue-500"
-                                        )}
-                                    >
-                                        {/* Checkbox for trash mode */}
-                                        {viewMode === 'trash' && (
+                                onClick={() => setSelectedCriteriaId(mission.criteria.id)}
+                                header={
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex items-center gap-2">
                                             <input
                                                 type="checkbox"
-                                                checked={selectedBackhaulIds.has(mission.criteria.id)}
-                                                onChange={() => toggleBackhaulSelection(mission.criteria.id)}
+                                                className="h-4 w-4 rounded border-gray-300 cursor-pointer accent-blue-600"
+                                                checked={isSelected}
                                                 onClick={(e) => e.stopPropagation()}
-                                                className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 rounded border-gray-300 z-10"
+                                                onChange={(e) => { e.stopPropagation(); toggleScoutSelection(mission.criteria.id); }}
                                             />
-                                        )}
-
-                                        <button
-                                            onClick={() => setSelectedCriteriaId(mission.criteria.id)}
-                                            className="absolute inset-0 w-full h-full z-0 text-left p-4 flex flex-col justify-between"
-                                        >
-                                            <div className="w-full">
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <Badge variant="secondary" className="text-[10px] h-5">
-                                                        Backhaul
-                                                    </Badge>
-                                                    {mission.maxRate > 0 && (
-                                                        <span className="text-green-400 font-mono text-xs font-bold">
-                                                            ${mission.maxRate.toFixed(0)}+
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="font-semibold truncate w-full text-left flex items-center gap-1.5 text-sm">
-                                                    {mission.criteria.origin_city} <ArrowLeftRight className="h-3 w-3 text-muted-foreground" /> {mission.criteria.dest_city}
-                                                </div>
-                                            </div>
-                                            <div className="mt-auto flex items-end justify-between w-full">
-                                                <div className="text-xs text-muted-foreground font-mono">
-                                                    {mission.criteria.min_weight ? `${mission.criteria.min_weight / 1000}k` : '0'} - {mission.criteria.max_weight ? `${mission.criteria.max_weight / 1000}k` : 'Any'}
-                                                </div>
-                                                <div className="flex items-center gap-1">
-                                                    <span className="text-lg font-bold">{mission.count}</span>
-                                                    <span className="text-[10px] text-muted-foreground uppercase">Found</span>
-                                                </div>
-                                            </div>
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                // Instant soft delete (no confirm)
-                                                handleDelete(mission.criteria.id);
-                                            }}
-                                            className="absolute top-2 right-2 z-50 p-1.5 rounded-full bg-black/20 hover:bg-red-500/20 text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                                            title="Stop Scanning"
-                                        >
-                                            <Trash2 className="h-4 w-4 pointer-events-none" />
-                                        </button>
+                                            <Badge variant="secondary" className="bg-white/50 backdrop-blur-sm">{mission.criteria.equipment_type || 'Any'}</Badge>
+                                        </div>
+                                        {mission.maxRate > 0 && <span className="font-mono text-green-600 font-bold">${mission.maxRate}+</span>}
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-            {/* --- LIVE FEED (Stream) --- */}
-            <div className="grid gap-4">
-                {filteredLoads.length === 0 ? (
-                    <Card className="border-dashed">
-                        <CardContent className="flex flex-col items-center justify-center p-12 text-muted-foreground">
-                            <Filter className="h-10 w-10 mb-4 opacity-20" />
-                            <p>No loads visible in this feed.</p>
-                        </CardContent>
-                    </Card>
-                ) : (
-                    filteredLoads.map((load) => {
-                        const origin = load.details.origin_city
-                            ? `${load.details.origin_city}, ${load.details.origin_state}`
-                            : load.details.origin;
-                        const dest = load.details.dest_city
-                            ? `${load.details.dest_city}, ${load.details.dest_state}`
-                            : load.details.destination;
-
-                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                        const relevantMissions = backhaulMissions.filter(m =>
-                            m.criteria.origin_city === load.details.dest_city ||
-                            m.criteria.origin_state === load.details.dest_state
-                        );
-
-                        const rawRate = load.details.rate || load.details.trip_rate;
-                        const rate = typeof rawRate === 'string' ? parseFloat(rawRate) : rawRate;
-
-                        const rawDist = load.details.distance || load.details.trip_distance_mi;
-                        const dist = typeof rawDist === 'string' ? parseFloat(rawDist) : rawDist;
-                        const rpm = (rate && dist) ? (rate / dist).toFixed(2) : null;
-
-                        // delivery date logic
-                        let deliveryDate = load.details.dest_delivery_date;
-                        if (!deliveryDate && Array.isArray(load.details.stops)) {
-                            const destStop = (load.details.stops as CloudTrucksLoadStop[]).find((s) => s.type === 'DESTINATION');
-                            if (destStop) {
-                                deliveryDate = destStop.date_start || destStop.date_end || '';
-                            }
-                        }
-
-                        // broker logic
-                        const broker = load.details.broker_name;
-
-                        return (
-                            <Card key={load.id} className="group overflow-hidden transition-all hover:shadow-md hover:border-slate-400/50">
-                                <div className="flex flex-col md:flex-row">
-                                    {/* Left: Route Info */}
-                                    <div className="flex-1 p-5 space-y-3">
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex gap-2">
-                                                <Badge className="bg-blue-600/10 text-blue-600 hover:bg-blue-600/20 border-0">
-                                                    New
-                                                </Badge>
-                                                {load.search_criteria && (
-                                                    <Badge variant="outline" className="text-xs opacity-50">
-                                                        From Search: {load.search_criteria.origin_city}
-                                                    </Badge>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                {broker && (
-                                                    <div className="flex items-center gap-2">
-                                                        <BrokerLogo name={broker} size="sm" />
-                                                        <Badge variant="outline" className="text-[10px] h-5 border-indigo-200 bg-indigo-50 text-indigo-700 font-medium">
-                                                            {broker}
-                                                        </Badge>
-                                                    </div>
-                                                )}
-                                                <span className="text-xs text-muted-foreground font-mono">
-                                                    {new Date(load.created_at).toLocaleTimeString()}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-                                            <div className="flex-1">
-                                                <div className="flex flex-wrap items-center gap-2 text-lg font-semibold">
-                                                    <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></span>
-                                                    {origin}
-                                                    {load.details.origin_address && (
-                                                        <span className="block text-xs font-normal text-muted-foreground truncate max-w-[200px]">
-                                                            {load.details.origin_address}
-                                                        </span>
-                                                    )}
-                                                    <WeatherBadge
-                                                        lat={load.details.origin_lat}
-                                                        lon={load.details.origin_lon}
-                                                        city={load.details.origin_city}
-                                                        state={load.details.origin_state}
-                                                        size="sm"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-col items-center px-4 sm:px-2">
-                                                <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                                                    {dist ? `${dist.toFixed(0)} mi Loaded` : '---'}
-                                                </span>
-                                                <div className="w-24 h-[1px] bg-border my-1 relative">
-                                                    <div className="absolute right-0 -top-[3px] w-0 h-0 border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent border-l-[6px] border-l-border"></div>
-                                                </div>
-                                            </div>
-                                            <div className="flex-1 sm:text-right">
-                                                <div className="flex flex-wrap items-center gap-2 text-lg font-semibold sm:justify-end">
-                                                    <WeatherBadge
-                                                        lat={load.details.dest_lat}
-                                                        lon={load.details.dest_lon}
-                                                        city={load.details.dest_city}
-                                                        state={load.details.dest_state}
-                                                        size="sm"
-                                                    />
-                                                    <div>
-                                                        {dest}
-                                                        {load.details.dest_address && (
-                                                            <span className="block text-xs font-normal text-muted-foreground truncate max-w-[200px] sm:text-right">
-                                                                {load.details.dest_address}
-                                                            </span>
-                                                        )}
-                                                    </div>
-
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground pt-1 sm:gap-6">
-                                            {(load.details.pickup_date || load.details.origin_pickup_date) && (
-                                                <div className="flex items-center gap-1.5 text-green-700 font-medium">
-                                                    <Calendar className="h-4 w-4" />
-                                                    <span>Pick: {new Date(load.details.pickup_date || load.details.origin_pickup_date).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                                                </div>
-                                            )}
-                                            {deliveryDate ? (
-                                                <div className="flex items-center gap-1.5 text-blue-700 font-medium">
-                                                    <Calendar className="h-4 w-4" />
-                                                    <span>Drop: {new Date(deliveryDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                                                </div>
-                                            ) : (
-                                                <div className="flex items-center gap-1.5 text-muted-foreground/50 font-medium">
-                                                    <Calendar className="h-4 w-4" />
-                                                    <span>Drop: <span className="italic">Unavailable</span></span>
-                                                </div>
-                                            )}
-                                            <div className="flex items-center gap-1.5">
-                                                <Truck className="h-4 w-4" />
-                                                {Array.isArray(load.details.equipment) ? load.details.equipment.join(', ') : load.details.equipment}
-                                            </div>
-                                            {(load.details.weight || load.details.truck_weight_lb) && (
-                                                <div className="flex items-center gap-1.5">
-                                                    <Weight className="h-4 w-4" />
-                                                    {load.details.weight || load.details.truck_weight_lb} lbs
-                                                </div>
-                                            )}
-                                        </div>
+                                }
+                                title={
+                                    <div className="truncate text-sm flex items-center gap-1">
+                                        {mission.criteria.origin_city} <ArrowRight className="h-3 w-3 text-muted-foreground" /> {mission.criteria.dest_city || 'Any'}
                                     </div>
-
-                                    {/* Right: Rate & Action */}
-                                    <div className="flex flex-col items-stretch justify-center p-5 bg-muted/30 border-t md:border-t-0 md:border-l md:min-w-[180px]">
-                                        <div className="text-center">
-                                            <div className="text-3xl font-bold text-green-600 flex items-center justify-center">
-                                                <span className="text-lg mr-0.5">$</span>
-                                                {rate?.toFixed(0) || '---'}
-                                            </div>
-                                            {rpm && (
-                                                <Badge variant="secondary" className="mt-1 font-mono text-xs">
-                                                    ${rpm}/mi
-                                                </Badge>
-                                            )}
-                                            {load.details.total_deadhead_mi && (
-                                                <div className="text-xs text-muted-foreground mt-1">
-                                                    {load.details.total_deadhead_mi} mi deadhead
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <Button
-                                            className="w-full mt-3 bg-violet-600 hover:bg-violet-700 text-white shadow-sm"
-                                            size="sm"
-                                            onClick={() => setSelectedLoadForMap(load)}
-                                            title="View Route Intelligence"
-                                        >
-                                            <Map className="h-4 w-4 mr-2" />
-                                            Route Intelligence
-                                        </Button>
-
-                                        {!isPublic && (
-                                            <Button
-                                                className="w-full mt-2 bg-blue-600 hover:bg-blue-700 font-bold"
-                                                size="sm"
-                                                asChild
-                                            >
-                                                <a
-                                                    href={`https://app.cloudtrucks.com/loads/${load.cloudtrucks_load_id}/book`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                >
-                                                    Book Now
-                                                </a>
+                                }
+                                description={
+                                    <div className="flex justify-between items-end mt-2">
+                                        <span>{mission.count} Loads</span>
+                                        {/* Action Buttons */}
+                                        <div className="flex gap-1">
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleDelete(mission.criteria.id); }}>
+                                                <Trash2 className="h-3 w-3" />
                                             </Button>
-                                        )}
-
-                                        <Button
-                                            className="w-full mt-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
-                                            size="sm"
-                                            onClick={() => handleBackhaul(load)}
-                                            disabled={backhaulingId === load.id}
-                                            title="Search Return Trip (Swap Origin/Dest)"
-                                        >
-                                            {backhaulingId === load.id ? (
-                                                <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                                            ) : (
-                                                <ArrowLeftRight className="h-4 w-4 mr-2" />
-                                            )}
-                                            Backhaul
-                                        </Button>
-
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => handleMarkInterested(load)}
-                                            disabled={savingInterest === load.id || savedLoadIds.has(load.details.id)}
-                                            className={cn(
-                                                "w-full mt-2 gap-1 border",
-                                                savedLoadIds.has(load.details.id)
-                                                    ? "text-yellow-400 bg-yellow-500/20 border-yellow-500/40 cursor-default"
-                                                    : "text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10 border-yellow-500/20"
-                                            )}
-                                            title={savedLoadIds.has(load.details.id) ? "Already saved" : "Save to Interested"}
-                                        >
-                                            <Star className={cn(
-                                                "h-4 w-4",
-                                                savingInterest === load.id && "animate-pulse",
-                                                savedLoadIds.has(load.details.id) && "fill-current" // Fill the star when saved
-                                            )} />
-                                            <span className="ml-1">{savedLoadIds.has(load.details.id) ? 'Saved' : 'Save'}</span>
-                                        </Button>
-                                        <div className="w-full mt-2">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => setExpandedLoadId(expandedLoadId === load.id ? null : load.id)}
-                                                className="w-full gap-1 border border-slate-500/20 text-slate-500 hover:text-slate-700 hover:bg-slate-500/10"
-                                            >
-                                                {expandedLoadId === load.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                                <span className="ml-1">{expandedLoadId === load.id ? 'Hide Details' : 'View Details'}</span>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-blue-500" onClick={(e) => { e.stopPropagation(); setEditingCriteria(mission.criteria); }}>
+                                                <Pencil className="h-3 w-3" />
                                             </Button>
                                         </div>
                                     </div>
-                                </div>
-                                {expandedLoadId === load.id && (
-                                    <div className="border-t border-slate-100 bg-slate-50/50 p-4 animate-in slide-in-from-top-2 duration-200">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div>
-                                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-                                                    <MapPin className="h-3 w-3" /> Address Details
-                                                </h4>
-                                                <div className="space-y-4 text-sm bg-white p-3 rounded-md border shadow-sm">
-                                                    <div>
-                                                        <span className="text-[10px] font-bold text-green-600 uppercase tracking-wide block mb-1">Origin Address</span>
-                                                        <div className="font-medium text-slate-800 select-all">
-                                                            {load.details.origin_address || (
-                                                                <span className="italic text-muted-foreground">Address not provided by carrier</span>
-                                                            )}
-                                                        </div>
-                                                        <div className="text-xs text-muted-foreground mt-0.5">{load.details.origin_city}, {load.details.origin_state}</div>
-                                                    </div>
-                                                    <div className="border-t pt-2">
-                                                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wide block mb-1">Destination Address</span>
-                                                        <div className="font-medium text-slate-800 select-all">
-                                                            {load.details.dest_address || (
-                                                                <span className="italic text-muted-foreground">Address not provided by carrier</span>
-                                                            )}
-                                                        </div>
-                                                        <div className="text-xs text-muted-foreground mt-0.5">{load.details.dest_city}, {load.details.dest_state}</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                {load.details.stops && load.details.stops.length > 0 ? (
-                                                    <>
-                                                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-                                                            <Truck className="h-3 w-3" /> Stops ({load.details.stops.length})
-                                                        </h4>
-                                                        <div className="space-y-2">
-                                                            {load.details.stops.map((stop, idx) => (
-                                                                <div key={idx} className="flex items-center gap-3 bg-white p-2 rounded border text-sm shadow-sm">
-                                                                    <Badge variant={stop.type === 'PICKUP' ? 'default' : 'secondary'} className="h-5 px-1.5 text-[10px] min-w-[60px] justify-center">
-                                                                        {stop.type}
-                                                                    </Badge>
-                                                                    <div className="flex-1">
-                                                                        <div className="font-medium">{stop.city}, {stop.state}</div>
-                                                                        {(stop.date_start || stop.date_end) && (
-                                                                            <div className="text-xs text-muted-foreground">
-                                                                                {new Date(stop.date_start || stop.date_end || '').toLocaleDateString()}
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </>
-                                                ) : (
-                                                    <div className="h-full flex items-center justify-center text-muted-foreground text-xs italic bg-white/50 rounded border border-dashed py-8">
-                                                        No additional stops reported
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </Card>
+                                }
+                            />
                         )
-                    })
+                    })}
+                </BentoGrid>
+            </div>
+
+            {/* --- LIVE FEED --- */}
+            <div className="space-y-4 mt-12">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                        <Activity className="h-5 w-5 text-primary" />
+                        Live Feed
+                    </h3>
+                    <div className="flex bg-muted/50 p-1 rounded-lg border glass-panel">
+                        <button
+                            onClick={() => setBookingTypeFilter('all')}
+                            className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all", bookingTypeFilter === 'all' ? "bg-white dark:bg-slate-800 text-primary shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                        >
+                            All
+                        </button>
+                        <button
+                            onClick={() => setBookingTypeFilter('instant')}
+                            className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1", bookingTypeFilter === 'instant' ? "bg-white dark:bg-slate-800 text-amber-600 shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                        >
+                            <Zap className="h-3 w-3" /> Instant
+                        </button>
+                        <button
+                            onClick={() => setBookingTypeFilter('standard')}
+                            className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all", bookingTypeFilter === 'standard' ? "bg-white dark:bg-slate-800 text-primary shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                        >
+                            Standard
+                        </button>
+                    </div>
+                </div>
+
+                {filteredLoads.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl bg-muted/30">
+                        <Filter className="h-12 w-12 text-muted-foreground opacity-20 mb-4" />
+                        <p className="text-muted-foreground font-medium">No loads detected.</p>
+                        <p className="text-xs text-muted-foreground">Adjust your filters or wait for the next scan.</p>
+                    </div>
+                ) : (
+                    <BentoGrid>
+                        {filteredLoads.map((load) => {
+                            const isSaved = savedLoadIds.has(load.details.id);
+
+                            return (
+                                <LoadCard
+                                    key={load.id}
+                                    load={load}
+                                    isSaved={isSaved}
+                                    onSave={(e) => { e.stopPropagation(); handleMarkInterested(load); }}
+                                    onMarkInterested={(e) => { e.stopPropagation(); handleMarkInterested(load); }}
+                                    onViewMap={(e) => { e.stopPropagation(); setSelectedLoadForMap(load); }}
+                                />
+                            );
+                        })}
+                    </BentoGrid>
                 )}
             </div>
 
-            {/* Route Intelligence Modal */}
+            {/* Modals */}
             {selectedLoadForMap && (
                 <MapboxIntelligenceModal
                     isOpen={!!selectedLoadForMap}
@@ -1314,19 +852,17 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     load={selectedLoadForMap}
                 />
             )}
-
-            {/* Edit Criteria Modal */}
             {editingCriteria && (
                 <EditCriteriaDialog
                     open={!!editingCriteria}
                     onOpenChange={(open) => !open && setEditingCriteria(null)}
                     criteria={editingCriteria}
                     onSuccess={() => {
-                        fetchData(); // Refresh list to show updates
+                        fetchData();
                         setEditingCriteria(null);
                     }}
                 />
             )}
-        </div >
+        </div>
     )
 }

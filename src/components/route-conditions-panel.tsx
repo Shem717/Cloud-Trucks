@@ -149,14 +149,14 @@ export function RouteConditionsPanel({
             <Button
                 variant="ghost"
                 size="sm"
-                className="w-full justify-between text-xs text-muted-foreground hover:text-foreground"
+                className="w-full justify-between text-xs text-muted-foreground hover:text-foreground transition-colors"
                 onClick={() => setIsExpanded(!isExpanded)}
             >
                 <span className="flex items-center gap-2">
-                    <Cloud className="h-4 w-4" />
+                    <Cloud className="h-4 w-4 text-blue-400" />
                     Route Conditions
                     {hasActiveChainLaws && (
-                        <Badge variant="outline" className="text-[10px] border-orange-200 bg-orange-50 text-orange-700">
+                        <Badge variant="outline" className="text-[10px] border-orange-200 bg-orange-50 text-orange-700 animate-pulse">
                             ⛓️ Chain Control
                         </Badge>
                     )}
@@ -167,89 +167,96 @@ export function RouteConditionsPanel({
             {isExpanded && (
                 <div className="mt-3 space-y-3 animate-in slide-in-from-top-2 duration-300">
                     {loading ? (
-                        <div className="text-center text-sm text-muted-foreground py-4 animate-pulse">
-                            Loading route conditions...
+                        <div className="flex items-center justify-center p-6 text-sm text-muted-foreground animate-pulse glass-panel rounded-lg">
+                            <span className="flex items-center gap-2">
+                                <Cloud className="h-4 w-4 animate-bounce" /> Loading route conditions...
+                            </span>
                         </div>
                     ) : (
                         <>
                             {/* Weather Section */}
                             <div className="grid grid-cols-2 gap-3">
                                 {/* Origin Weather */}
-                                <Card className="bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/20 dark:to-black/50 border-blue-100 dark:border-blue-900">
-                                    <CardHeader className="pb-2 pt-3 px-3">
-                                        <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                <Card className="glass-panel overflow-hidden border-blue-200/20 shadow-none hover:shadow-lg transition-shadow bg-gradient-to-br from-blue-50/50 to-white/50 dark:from-blue-900/10 dark:to-background">
+                                    <CardHeader className="pb-2 pt-3 px-3 border-b border-blue-100/20">
+                                        <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                                            <span className="relative flex h-2 w-2">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                            </span>
                                             {originCity || 'Origin'}
                                         </CardTitle>
                                     </CardHeader>
-                                    <CardContent className="px-3 pb-3">
+                                    <CardContent className="px-3 pb-3 pt-3">
                                         {originWeather ? (
                                             <div className="space-y-2">
                                                 <div className="flex items-center justify-between">
-                                                    <span className="text-4xl">{originWeather.current.icon}</span>
-                                                    <span className="text-4xl font-extrabold">{originWeather.current.temperature}°F</span>
+                                                    <span className="text-4xl drop-shadow-md">{originWeather.current.icon}</span>
+                                                    <span className="text-3xl font-bold tracking-tighter">{originWeather.current.temperature}°</span>
                                                 </div>
-                                                <div className="text-sm font-bold">
+                                                <div className="text-sm font-semibold text-blue-700 dark:text-blue-300">
                                                     {originWeather.current.description}
                                                 </div>
-                                                <div className="text-xs text-muted-foreground font-medium">
+                                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                                    <Thermometer className="h-3 w-3" />
                                                     Wind: {originWeather.current.windSpeed} mph
                                                 </div>
                                                 {/* Mini forecast */}
-                                                <div className="flex justify-between text-[10px] border-t pt-2 mt-2">
+                                                <div className="flex justify-between text-[10px] border-t border-blue-100/30 pt-2 mt-2">
                                                     {originWeather.forecast.slice(0, 5).map((day, i) => (
                                                         <div key={i} className="flex flex-col items-center">
-                                                            <span className="text-muted-foreground">
+                                                            <span className="text-muted-foreground/80 font-medium">
                                                                 {new Date(day.date).toLocaleDateString('en', { weekday: 'short' }).slice(0, 2)}
                                                             </span>
-                                                            <span>{day.icon}</span>
-                                                            <span className="font-medium">{day.high}°</span>
+                                                            <span className="text-base my-0.5">{day.icon}</span>
+                                                            <span className="font-bold">{day.high}°</span>
                                                         </div>
                                                     ))}
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="text-xs text-muted-foreground">Weather unavailable</div>
+                                            <div className="text-xs text-muted-foreground italic p-2 text-center">Weather unavailable</div>
                                         )}
                                     </CardContent>
                                 </Card>
 
                                 {/* Destination Weather */}
-                                <Card className="bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-950/20 dark:to-black/50 border-indigo-100 dark:border-indigo-900">
-                                    <CardHeader className="pb-2 pt-3 px-3">
-                                        <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                                            <span className="w-2 h-2 rounded-sm bg-red-500"></span>
+                                <Card className="glass-panel overflow-hidden border-orange-200/20 shadow-none hover:shadow-lg transition-shadow bg-gradient-to-br from-orange-50/50 to-white/50 dark:from-orange-900/10 dark:to-background">
+                                    <CardHeader className="pb-2 pt-3 px-3 border-b border-orange-100/20">
+                                        <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                                            <span className="h-2 w-2 rounded-full bg-red-500"></span>
                                             {destCity || 'Destination'}
                                         </CardTitle>
                                     </CardHeader>
-                                    <CardContent className="px-3 pb-3">
+                                    <CardContent className="px-3 pb-3 pt-3">
                                         {destWeather ? (
                                             <div className="space-y-2">
                                                 <div className="flex items-center justify-between">
-                                                    <span className="text-4xl">{destWeather.current.icon}</span>
-                                                    <span className="text-4xl font-extrabold">{destWeather.current.temperature}°F</span>
+                                                    <span className="text-4xl drop-shadow-md">{destWeather.current.icon}</span>
+                                                    <span className="text-3xl font-bold tracking-tighter">{destWeather.current.temperature}°</span>
                                                 </div>
-                                                <div className="text-sm font-bold">
+                                                <div className="text-sm font-semibold text-orange-700 dark:text-orange-300">
                                                     {destWeather.current.description}
                                                 </div>
-                                                <div className="text-xs text-muted-foreground font-medium">
+                                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                                    <Thermometer className="h-3 w-3" />
                                                     Wind: {destWeather.current.windSpeed} mph
                                                 </div>
                                                 {/* Mini forecast */}
-                                                <div className="flex justify-between text-[10px] border-t pt-2 mt-2">
+                                                <div className="flex justify-between text-[10px] border-t border-orange-100/30 pt-2 mt-2">
                                                     {destWeather.forecast.slice(0, 5).map((day, i) => (
                                                         <div key={i} className="flex flex-col items-center">
-                                                            <span className="text-muted-foreground">
+                                                            <span className="text-muted-foreground/80 font-medium">
                                                                 {new Date(day.date).toLocaleDateString('en', { weekday: 'short' }).slice(0, 2)}
                                                             </span>
-                                                            <span>{day.icon}</span>
-                                                            <span className="font-medium">{day.high}°</span>
+                                                            <span className="text-base my-0.5">{day.icon}</span>
+                                                            <span className="font-bold">{day.high}°</span>
                                                         </div>
                                                     ))}
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="text-xs text-muted-foreground">Weather unavailable</div>
+                                            <div className="text-xs text-muted-foreground italic p-2 text-center">Weather unavailable</div>
                                         )}
                                     </CardContent>
                                 </Card>
@@ -258,19 +265,21 @@ export function RouteConditionsPanel({
                             {/* Chain Laws Section */}
                             {chainLaws.length > 0 && (
                                 <Card className={cn(
-                                    "border",
-                                    hasActiveChainLaws ? "border-orange-200 dark:border-orange-900" : "border-green-200 dark:border-green-900"
+                                    "glass-panel border shadow-sm",
+                                    hasActiveChainLaws
+                                        ? "border-orange-200 bg-orange-50/30 dark:border-orange-900 dark:bg-orange-900/10"
+                                        : "border-green-200 bg-green-50/30 dark:border-green-900 dark:bg-green-900/10"
                                 )}>
                                     <CardHeader className="pb-2 pt-3 px-3">
                                         <CardTitle className="text-xs font-medium flex items-center gap-2">
                                             <Link2 className="h-4 w-4" />
                                             Chain Control Zones
                                             {hasActiveChainLaws ? (
-                                                <Badge className="text-[10px] bg-orange-100 text-orange-700 border-orange-200">
+                                                <Badge className="text-[10px] bg-orange-100 text-orange-700 border-orange-200 shadow-sm">
                                                     {activeChainLaws.length} Active
                                                 </Badge>
                                             ) : (
-                                                <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200">
+                                                <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200 shadow-sm">
                                                     All Clear
                                                 </Badge>
                                             )}
@@ -282,17 +291,18 @@ export function RouteConditionsPanel({
                                                 <div
                                                     key={law.id}
                                                     className={cn(
-                                                        "flex items-center justify-between p-2 rounded text-xs",
-                                                        statusColors[law.status]
+                                                        "flex items-center justify-between p-2 rounded-md text-xs border backdrop-blur-sm transition-all",
+                                                        statusColors[law.status],
+                                                        law.isActive ? "border-current shadow-sm" : "border-transparent opacity-80"
                                                     )}
                                                 >
                                                     <div>
-                                                        <div className="font-medium">{law.route_name}</div>
+                                                        <div className="font-bold">{law.route_name}</div>
                                                         {law.description && (
-                                                            <div className="text-muted-foreground text-[10px]">{law.description}</div>
+                                                            <div className="opacity-90 text-[10px] mt-0.5">{law.description}</div>
                                                         )}
                                                     </div>
-                                                    <Badge variant="outline" className={cn("text-[10px]", statusColors[law.status])}>
+                                                    <Badge variant="outline" className={cn("text-[10px] border-current font-bold", statusColors[law.status])}>
                                                         {law.status === 'none' ? 'CLEAR' : law.status.toUpperCase()}
                                                     </Badge>
                                                 </div>
@@ -303,7 +313,7 @@ export function RouteConditionsPanel({
                             )}
 
                             {/* Last Updated */}
-                            <div className="text-[10px] text-muted-foreground/50 text-right">
+                            <div className="text-[10px] text-muted-foreground/50 text-right font-mono">
                                 Last updated: {new Date().toLocaleTimeString()}
                             </div>
                         </>

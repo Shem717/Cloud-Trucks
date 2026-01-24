@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MapPin, DollarSign, Weight, Calendar, Truck, Trash2, ArrowLeft, ArrowLeftRight, RefreshCw } from 'lucide-react'
+import { MapPin, DollarSign, Weight, Calendar, Truck, Trash2, ArrowLeft, ArrowLeftRight, RefreshCw, Navigation, Users, User, Map } from 'lucide-react'
 import { cn } from "@/lib/utils"
 import { BrokerLogo } from "@/components/broker-logo"
 import { WeatherBadge } from "@/components/weather-badge"
+import { extractLoadAddresses, openInMaps } from "@/lib/address-utils"
+import { MapboxIntelligenceModal } from "@/components/mapbox-intelligence-modal"
 // Reuse types if possible, or redefine for speed given simple page
 interface Load {
     id: string; // Internal interest ID
@@ -23,6 +25,7 @@ export default function InterestedPage() {
     const [deletingId, setDeletingId] = useState<string | null>(null)
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [backhaulingId, setBackhaulingId] = useState<string | null>(null)
+    const [selectedLoadForMap, setSelectedLoadForMap] = useState<Load | null>(null)
 
     const [viewMode, setViewMode] = useState<'active' | 'trash'>('active')
 
@@ -197,16 +200,16 @@ export default function InterestedPage() {
                         {viewMode === 'trash' ? 'Loads you have deleted. Restore or delete forever.' : 'Loads you have saved for later review.'}
                     </p>
                 </div>
-                <div className="ml-auto flex bg-muted/50 p-1 rounded-lg border">
+                <div className="ml-auto flex bg-muted/50 p-1 rounded-lg border glass-panel">
                     <button
                         onClick={() => setViewMode('active')}
-                        className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all", viewMode === 'active' ? "bg-white text-black shadow-sm" : "text-muted-foreground hover:bg-muted/50")}
+                        className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all", viewMode === 'active' ? "bg-white text-primary shadow-sm dark:bg-slate-800 dark:text-white" : "text-muted-foreground hover:bg-muted/50")}
                     >
                         Active
                     </button>
                     <button
                         onClick={() => setViewMode('trash')}
-                        className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all", viewMode === 'trash' ? "bg-white text-black shadow-sm" : "text-muted-foreground hover:bg-muted/50")}
+                        className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all", viewMode === 'trash' ? "bg-white text-primary shadow-sm dark:bg-slate-800 dark:text-white" : "text-muted-foreground hover:bg-muted/50")}
                     >
                         Trash
                     </button>
@@ -215,7 +218,7 @@ export default function InterestedPage() {
 
             {/* Batch Action Bar */}
             {loads.length > 0 && (
-                <div className="flex items-center justify-between bg-muted/20 p-2 rounded-lg border">
+                <div className="flex items-center justify-between bg-muted/20 p-2 rounded-lg border glass-panel">
                     <div className="flex items-center gap-2">
                         <input
                             type="checkbox"
@@ -264,6 +267,9 @@ export default function InterestedPage() {
             ) : (
                 <div className="grid gap-4">
                     {loads.map(load => {
+                        // Extract addresses from stops
+                        const addresses = extractLoadAddresses(load.details);
+                        
                         const origin = load.details.origin_city
                             ? `${load.details.origin_city}, ${load.details.origin_state}`
                             : load.details.origin;
@@ -290,6 +296,7 @@ export default function InterestedPage() {
 
                         const broker = load.details.broker_name;
                         const isSelected = selectedIds.has(load.id);
+                        const isTeam = load.details.is_team_load === true;
 
                         return (
                             <div key={load.id} className="relative group">
@@ -302,7 +309,7 @@ export default function InterestedPage() {
                                     />
                                 </div>
                                 <Card className={cn(
-                                    "overflow-hidden hover:border-blue-400/50 transition-all hover:shadow-md pl-8",
+                                    "overflow-hidden hover:border-blue-400/50 transition-all hover:shadow-md hover:scale-[1.01] pl-8 bg-card/50 backdrop-blur-sm",
                                     isSelected && "border-blue-500 bg-blue-50/10 ring-1 ring-blue-500"
                                 )}>
                                     <div className="flex flex-col md:flex-row">
@@ -341,10 +348,23 @@ export default function InterestedPage() {
                                                             size="sm"
                                                         />
                                                     </div>
-                                                    {load.details.origin_address && (
-                                                        <span className="block text-xs font-normal text-muted-foreground truncate max-w-[150px]">
-                                                            {load.details.origin_address}
-                                                        </span>
+                                                    {addresses.origin.hasAddress && (
+                                                        <div className="flex items-center gap-1 mt-1">
+                                                            <span className="text-xs font-normal text-muted-foreground truncate max-w-[200px]">
+                                                                {addresses.origin.address}
+                                                            </span>
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="sm" 
+                                                                className="h-5 px-1 text-[10px]"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    openInMaps(addresses.origin);
+                                                                }}
+                                                            >
+                                                                <Navigation className="h-3 w-3" />
+                                                            </Button>
+                                                        </div>
                                                     )}
                                                 </div>
                                                 <div className="flex flex-col items-center px-4">
@@ -354,6 +374,16 @@ export default function InterestedPage() {
                                                     <div className="w-24 h-[1px] bg-border my-1 relative">
                                                         <div className="absolute right-0 -top-[3px] w-0 h-0 border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent border-l-[6px] border-l-border"></div>
                                                     </div>
+                                                    {/* Team/Solo indicator */}
+                                                    {isTeam ? (
+                                                        <Badge variant="secondary" className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-[10px] gap-1 px-1.5 mt-1">
+                                                            <Users className="h-3 w-3" /> Team
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge variant="secondary" className="bg-slate-500/20 text-slate-400 border-slate-500/30 text-[10px] gap-1 px-1.5 mt-1">
+                                                            <User className="h-3 w-3" /> Solo
+                                                        </Badge>
+                                                    )}
                                                 </div>
                                                 <div className="flex-1 text-right">
                                                     <div className="flex items-center justify-end gap-2 text-lg font-semibold">
@@ -366,10 +396,23 @@ export default function InterestedPage() {
                                                         />
                                                         <div>
                                                             {dest}
-                                                            {load.details.dest_address && (
-                                                                <span className="block text-xs font-normal text-muted-foreground truncate max-w-[150px] text-right">
-                                                                    {load.details.dest_address}
-                                                                </span>
+                                                            {addresses.destination.hasAddress && (
+                                                                <div className="flex items-center justify-end gap-1 mt-1">
+                                                                    <span className="text-xs font-normal text-muted-foreground truncate max-w-[200px] text-right">
+                                                                        {addresses.destination.address}
+                                                                    </span>
+                                                                    <Button 
+                                                                        variant="ghost" 
+                                                                        size="sm" 
+                                                                        className="h-5 px-1 text-[10px]"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            openInMaps(addresses.destination);
+                                                                        }}
+                                                                    >
+                                                                        <Navigation className="h-3 w-3" />
+                                                                    </Button>
+                                                                </div>
                                                             )}
                                                         </div>
                                                     </div>
@@ -439,20 +482,31 @@ export default function InterestedPage() {
                                                 </a>
                                             </Button>
 
-                                            <Button
-                                                className="w-full mt-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
-                                                size="sm"
-                                                onClick={() => handleBackhaul(load)}
-                                                disabled={backhaulingId === load.id}
-                                                title="Search Return Trip (Swap Origin/Dest)"
-                                            >
-                                                {backhaulingId === load.id ? (
-                                                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                                                ) : (
-                                                    <ArrowLeftRight className="h-4 w-4 mr-2" />
-                                                )}
-                                                Backhaul
-                                            </Button>
+                                            <div className="grid grid-cols-2 gap-2 w-full mt-3">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setSelectedLoadForMap(load)}
+                                                    className="gap-1"
+                                                    title="View Route Intelligence"
+                                                >
+                                                    <Map className="h-4 w-4" />
+                                                    Route
+                                                </Button>
+                                                <Button
+                                                    className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm gap-1"
+                                                    size="sm"
+                                                    onClick={() => handleBackhaul(load)}
+                                                    disabled={backhaulingId === load.id}
+                                                    title="Search Return Trip (Swap Origin/Dest)"
+                                                >
+                                                    {backhaulingId === load.id ? (
+                                                        <RefreshCw className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <ArrowLeftRight className="h-4 w-4" />
+                                                    )}
+                                                </Button>
+                                            </div>
 
                                             <div className="flex gap-2 w-full mt-2">
                                                 {viewMode === 'trash' ? (
@@ -488,6 +542,15 @@ export default function InterestedPage() {
                         )
                     })}
                 </div>
+            )}
+
+            {/* Route Intelligence Modal */}
+            {selectedLoadForMap && (
+                <MapboxIntelligenceModal
+                    isOpen={!!selectedLoadForMap}
+                    onClose={() => setSelectedLoadForMap(null)}
+                    load={selectedLoadForMap}
+                />
             )}
         </div>
     )
