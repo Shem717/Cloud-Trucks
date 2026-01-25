@@ -4,12 +4,23 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MapPin, DollarSign, Weight, Calendar, Truck, Trash2, ArrowLeft, ArrowLeftRight, RefreshCw, Navigation, Users, User, Map } from 'lucide-react'
+import { Input } from "@/components/ui/input"
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog"
+import { toast } from 'sonner'
+import { MapPin, DollarSign, Weight, Calendar, Truck, Trash2, ArrowLeft, ArrowLeftRight, RefreshCw, Navigation, Users, User, Map, Loader2, ChevronDown } from 'lucide-react'
 import { cn } from "@/lib/utils"
 import { BrokerLogo } from "@/components/broker-logo"
 import { WeatherBadge } from "@/components/weather-badge"
 import { extractLoadAddresses, openInMaps } from "@/lib/address-utils"
 import { MapboxIntelligenceModal } from "@/components/mapbox-intelligence-modal"
+import { CityAutocomplete } from "@/components/city-autocomplete"
+import { MultiStateSelect } from "@/components/multi-state-select"
 // Reuse types if possible, or redefine for speed given simple page
 interface Load {
     id: string; // Internal interest ID
@@ -19,6 +30,26 @@ interface Load {
     details: any;
 }
 
+interface BackhaulDraft {
+    load_id: string;
+    origin_city: string;
+    origin_state: string;
+    dest_city: string;
+    destination_states: string[];
+    equipment_type: string;
+    pickup_distance: number;
+    booking_type: string;
+    min_rate?: number | null;
+    max_weight?: number | null;
+    pickup_date?: string | null;
+}
+
+const FieldLabel = ({ children }: { children: React.ReactNode }) => (
+    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">{children}</label>
+);
+
+const inputStyles = "bg-slate-900/50 border-slate-600 h-10 text-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium text-sm rounded-md placeholder:text-slate-600";
+
 export default function InterestedPage() {
     const [loads, setLoads] = useState<Load[]>([])
     const [loading, setLoading] = useState(true)
@@ -26,12 +57,22 @@ export default function InterestedPage() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [backhaulingId, setBackhaulingId] = useState<string | null>(null)
     const [selectedLoadForMap, setSelectedLoadForMap] = useState<Load | null>(null)
+    const [backhaulDialogOpen, setBackhaulDialogOpen] = useState(false)
+    const [backhaulDraft, setBackhaulDraft] = useState<BackhaulDraft | null>(null)
+    const [originState, setOriginState] = useState('')
+    const [destStates, setDestStates] = useState<string[]>([])
 
     const [viewMode, setViewMode] = useState<'active' | 'trash'>('active')
 
     useEffect(() => {
         fetchInterested()
     }, [viewMode])
+
+    useEffect(() => {
+        if (!backhaulDraft) return;
+        setOriginState(backhaulDraft.origin_state || '')
+        setDestStates(backhaulDraft.destination_states || [])
+    }, [backhaulDraft])
 
     const fetchInterested = async () => {
         try {
@@ -141,48 +182,64 @@ export default function InterestedPage() {
     // Old handleDelete removed in favor of Batch/Soft options
     /* const handleDelete = ... */
 
-    // --- Backhaul Strategy (Swap Origin/Dest) ---
-    const handleBackhaul = async (load: Load) => {
-        if (backhaulingId) return;
-        setBackhaulingId(load.id);
+    const openBackhaulDialog = (load: Load) => {
+        const equip = Array.isArray(load.details.equipment) ? load.details.equipment[0] : load.details.equipment;
+        const maxWeight = load.details.weight || load.details.truck_weight_lb || 45000;
+        const pickupDate = load.details.pickup_date || load.details.origin_pickup_date || null;
 
+        setBackhaulDraft({
+            load_id: load.id,
+            origin_city: load.details.dest_city || '',
+            origin_state: load.details.dest_state || '',
+            dest_city: load.details.origin_city || '',
+            destination_states: load.details.origin_state ? [load.details.origin_state] : [],
+            equipment_type: equip || 'Any',
+            pickup_distance: 50,
+            booking_type: 'Any',
+            min_rate: null,
+            max_weight: maxWeight,
+            pickup_date: pickupDate,
+        })
+        setBackhaulDialogOpen(true)
+    }
+
+    const handleBackhaulSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault()
+        if (!backhaulDraft || backhaulingId) return
+
+        setBackhaulingId(backhaulDraft.load_id)
         try {
-            const formData = new FormData();
-
-            // SWAP Origin and Destination from details
-            formData.append('origin_city', load.details.dest_city || '');
-            formData.append('origin_state', load.details.dest_state || '');
-            formData.append('dest_city', load.details.origin_city || '');
-            formData.append('destination_state', load.details.origin_state || '');
-            formData.append('is_backhaul', 'true'); // Flag as backhaul
-
-            const equip = Array.isArray(load.details.equipment) ? load.details.equipment[0] : load.details.equipment;
-            formData.append('equipment_type', equip || 'Any');
-
-            // Defaults
-            formData.append('pickup_distance', '50');
-            formData.append('booking_type', 'Any');
+            const formData = new FormData(event.currentTarget)
+            formData.set('origin_state', originState)
+            formData.set('destination_states', destStates.join(','))
+            formData.append('is_backhaul', 'true')
 
             const res = await fetch('/api/criteria', {
                 method: 'POST',
                 body: formData
-            });
+            })
 
-            const result = await res.json();
+            const result = await res.json()
             if (res.ok) {
-                console.log('Backhaul criteria created:', result);
-                alert('Backhaul search started! Check the Dashboard.');
-                window.location.href = '/dashboard';
+                console.log('Backhaul criteria created:', result)
+                toast.success('Backhaul created. Scan started.')
+                setBackhaulDialogOpen(false)
+                setBackhaulDraft(null)
+                fetch('/api/scan', { method: 'POST' }).catch(() => {
+                    // Non-fatal; user can still click "Scan Now".
+                })
+                window.location.href = '/dashboard'
             } else {
-                console.error('Failed to create backhaul:', result.error);
-                alert('Failed to create backhaul: ' + result.error);
+                console.error('Failed to create backhaul:', result.error)
+                toast.error(result.error || 'Failed to create backhaul')
             }
         } catch (error) {
-            console.error('Backhaul error:', error);
+            console.error('Backhaul error:', error)
+            toast.error('Failed to create backhaul')
         } finally {
-            setBackhaulingId(null);
+            setBackhaulingId(null)
         }
-    };
+    }
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -496,7 +553,7 @@ export default function InterestedPage() {
                                                 <Button
                                                     className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm gap-1"
                                                     size="sm"
-                                                    onClick={() => handleBackhaul(load)}
+                                                    onClick={() => openBackhaulDialog(load)}
                                                     disabled={backhaulingId === load.id}
                                                     title="Search Return Trip (Swap Origin/Dest)"
                                                 >
@@ -552,7 +609,174 @@ export default function InterestedPage() {
                     load={selectedLoadForMap}
                 />
             )}
+
+            {backhaulDraft && (
+                <Dialog
+                    open={backhaulDialogOpen}
+                    onOpenChange={(open) => {
+                        setBackhaulDialogOpen(open)
+                        if (!open) setBackhaulDraft(null)
+                    }}
+                >
+                    <DialogContent className="sm:max-w-[600px] bg-slate-900 border-slate-800 text-slate-200">
+                        <DialogHeader>
+                            <DialogTitle>Create Backhaul Search</DialogTitle>
+                        </DialogHeader>
+
+                        <form onSubmit={handleBackhaulSubmit} className="grid gap-6 py-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex-1">
+                                    <FieldLabel>Pickup (City & State)</FieldLabel>
+                                    <div className="flex gap-2">
+                                        <CityAutocomplete
+                                            name="origin_city"
+                                            defaultValue={backhaulDraft.origin_city}
+                                            required
+                                            onStateChange={(st) => setOriginState(st)}
+                                            className="flex-[2]"
+                                        />
+                                        <div className="flex-1 w-[60px]">
+                                            <Input
+                                                name="origin_state"
+                                                value={originState}
+                                                onChange={(e) => setOriginState(e.target.value.toUpperCase().slice(0, 2))}
+                                                placeholder="ST"
+                                                maxLength={2}
+                                                required
+                                                className={cn(inputStyles, "text-center font-bold uppercase")}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex-1">
+                                    <FieldLabel>Dropoff</FieldLabel>
+                                    <div className="flex gap-2">
+                                        <CityAutocomplete
+                                            name="dest_city"
+                                            placeholder="Any City"
+                                            defaultValue={backhaulDraft.dest_city || ''}
+                                            onStateChange={(st) => {
+                                                if (st && !destStates.includes(st)) {
+                                                    setDestStates([st])
+                                                }
+                                            }}
+                                            className="flex-[1.5]"
+                                        />
+                                        <MultiStateSelect
+                                            name="destination_states"
+                                            placeholder="States"
+                                            className={cn(inputStyles, "flex-1 min-w-[100px] px-3")}
+                                            value={destStates}
+                                            onChange={setDestStates}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4">
+                                <div>
+                                    <FieldLabel>Radius</FieldLabel>
+                                    <div className="relative">
+                                        <select
+                                            name="pickup_distance"
+                                            defaultValue={backhaulDraft.pickup_distance || 50}
+                                            className={cn(inputStyles, "w-full appearance-none px-3 cursor-pointer")}
+                                        >
+                                            <option value="50">50 mi</option>
+                                            <option value="100">100 mi</option>
+                                            <option value="150">150 mi</option>
+                                            <option value="200">200 mi</option>
+                                            <option value="300">300 mi</option>
+                                            <option value="400">400 mi</option>
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <FieldLabel>Date</FieldLabel>
+                                    <div className="relative">
+                                        <Input
+                                            type="date"
+                                            name="pickup_date"
+                                            defaultValue={backhaulDraft.pickup_date ? new Date(backhaulDraft.pickup_date).toISOString().split('T')[0] : ''}
+                                            className={cn(inputStyles, "pl-10 appearance-none")}
+                                            style={{ colorScheme: 'dark' }}
+                                        />
+                                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <FieldLabel>Trailer Type</FieldLabel>
+                                    <div className="relative">
+                                        <select
+                                            name="equipment_type"
+                                            defaultValue={backhaulDraft.equipment_type || 'Any'}
+                                            className={cn(inputStyles, "w-full appearance-none px-3 cursor-pointer")}
+                                        >
+                                            <option value="Any">Any Equipment</option>
+                                            <option value="Dry Van">Dry Van</option>
+                                            <option value="Power Only">Power Only</option>
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4">
+                                <div>
+                                    <FieldLabel>Min Rate ($)</FieldLabel>
+                                    <Input
+                                        name="min_rate"
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="Any"
+                                        defaultValue={backhaulDraft.min_rate || ''}
+                                        className={inputStyles}
+                                    />
+                                </div>
+
+                                <div>
+                                    <FieldLabel>Max Weight (lbs)</FieldLabel>
+                                    <Input
+                                        name="max_weight"
+                                        type="number"
+                                        placeholder="45000"
+                                        defaultValue={backhaulDraft.max_weight || 45000}
+                                        className={inputStyles}
+                                    />
+                                </div>
+
+                                <div>
+                                    <FieldLabel>Booking Type</FieldLabel>
+                                    <div className="relative">
+                                        <select
+                                            name="booking_type"
+                                            defaultValue={backhaulDraft.booking_type || 'Any'}
+                                            className={cn(inputStyles, "w-full appearance-none px-3 cursor-pointer")}
+                                        >
+                                            <option value="Any">Any Method</option>
+                                            <option value="instant">Instant Book</option>
+                                            <option value="standard">Standard Book</option>
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <DialogFooter>
+                                <Button type="button" variant="ghost" onClick={() => setBackhaulDialogOpen(false)}>Cancel</Button>
+                                <Button type="submit" disabled={!!backhaulingId} className="bg-blue-600 hover:bg-blue-500">
+                                    {backhaulingId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                    Create Backhaul
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+            )}
         </div>
     )
 }
-
