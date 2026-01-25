@@ -613,7 +613,7 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
                                     <AlertCircle className="h-5 w-5" />
                                     <span>No active backhaul search matching this destination.</span>
                                     <Button size="sm" variant="outline" asChild>
-                                        <Link href="/dashboard/interested">Create One</Link>
+                                        <Link href="/interested">Create One</Link>
                                     </Button>
                                 </div>
                             )}

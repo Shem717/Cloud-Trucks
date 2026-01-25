@@ -1,6 +1,6 @@
 import AuthedLayout from '@/components/authed-layout'
 
-export default async function DashboardLayout({
+export default function InterestedLayout({
     children,
 }: {
     children: React.ReactNode

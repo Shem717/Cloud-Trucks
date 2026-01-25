@@ -128,13 +128,13 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     const activeCriteriaRes = await fetch('/api/criteria');
                     const activeCriteriaJson = await activeCriteriaRes.json();
                     const activeList: EnrichedCriteria[] = activeCriteriaJson.data || [];
-                    setActiveCriteriaCount(activeList.filter((c) => c.active).length);
+                    setActiveCriteriaCount(activeList.filter((c) => c.active && !c.is_backhaul).length);
                 } catch (e) {
                     console.error('Failed to fetch active criteria:', e);
                     setActiveCriteriaCount(0);
                 }
             } else {
-                setActiveCriteriaCount(criteriaData.filter((c) => c.active).length);
+                setActiveCriteriaCount(criteriaData.filter((c) => c.active && !c.is_backhaul).length);
             }
 
             if (interestedResult.loads) {
@@ -498,8 +498,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
     const backhaulCriteria = criteriaList.filter(c => c.is_backhaul);
 
     // Helper to generate mission stats from a criteria list
-    // Helper to generate mission stats from a criteria list
-    const generateStats = (list: EnrichedCriteria[]): MissionStats[] => {
+    const generateStats = (list: EnrichedCriteria[], loadsForStats: SavedLoad[]): MissionStats[] => {
         const stats = list.reduce((acc, criteria) => {
             acc[criteria.id] = {
                 criteria: criteria,
@@ -511,7 +510,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
         }, {} as Record<string, MissionStats>);
 
         // Overlay load stats
-        loads.forEach(load => {
+        loadsForStats.forEach(load => {
             // Only count if this load belongs to one of the criteria in this list
             if (load.search_criteria && stats[load.search_criteria.id]) {
                 const cid = load.search_criteria.id;
@@ -524,8 +523,11 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
         return Object.values(stats);
     };
 
-    const scoutMissions = generateStats(scoutCriteria);
-    const backhaulMissions = generateStats(backhaulCriteria);
+    const scoutCriteriaIds = new Set(scoutCriteria.map(c => c.id));
+    const backhaulCriteriaIds = new Set(backhaulCriteria.map(c => c.id));
+
+    const scoutMissionLoads = loads.filter(l => l.search_criteria && scoutCriteriaIds.has(l.search_criteria.id));
+    const backhaulMissionLoads = loads.filter(l => l.search_criteria && backhaulCriteriaIds.has(l.search_criteria.id));
 
     // --- Filter loads to only include those belonging to current criteria ---
     const criteriaIdsSet = new Set(criteriaList.map(c => c.id));
@@ -553,6 +555,9 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
         return Object.values(loadMap);
     })();
 
+    const scoutMissions = generateStats(scoutCriteria, scoutMissionLoads);
+    const backhaulMissions = generateStats(backhaulCriteria, backhaulMissionLoads);
+
     // --- Filter and Sort Feed ---
     const baseFilteredLoads = selectedCriteriaId
         ? deduplicatedLoads.filter(l => l.search_criteria?.id === selectedCriteriaId)
@@ -572,7 +577,8 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
 
     // activeScoutsCount for CURRENT view
     const activeScoutsCount = activeCriteriaCount;
-    const totalLoadsCount = deduplicatedLoads.length;
+    const totalLoadsCount = scoutMissionLoads.length;
+    const backhaulLoadsCount = backhaulMissionLoads.length;
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -664,7 +670,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     className="md:col-span-1 border-l-4 border-l-green-500"
                 />
                 <BentoGridItem
-                    title="Active Scouts"
+                    title="Active Fronthauls"
                     description="Monitoring criteria"
                     header={<div className="text-4xl font-bold font-mono text-primary">{activeScoutsCount}</div>}
                     icon={<Search className="h-4 w-4 text-muted-foreground" />}
@@ -672,7 +678,14 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                 />
                 <BentoGridItem
                     title="Loads Found"
-                    description="Matching Criteria"
+                    description={
+                        <span>
+                            Matching Criteria
+                            <a href="/routes" className="block text-xs text-muted-foreground underline decoration-dotted underline-offset-4 hover:text-foreground">
+                                Backhauls: {backhaulLoadsCount}
+                            </a>
+                        </span>
+                    }
                     header={<div className="text-4xl font-bold font-mono text-indigo-500">{totalLoadsCount}</div>}
                     icon={<Truck className="h-4 w-4 text-muted-foreground" />}
                     className="md:col-span-1 border-l-4 border-l-indigo-500"
@@ -686,11 +699,11 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                 />
             </BentoGrid>
 
-            {/* --- SCOUTS DECK --- */}
+            {/* --- FRONTHAULS DECK --- */}
             <div className="space-y-4">
                 <h3 className="text-xl font-bold flex items-center gap-2">
                     <Map className="h-5 w-5 text-primary" />
-                    Route Scouts
+                    Route Fronthauls
                 </h3>
 
                 {/* Batch Action Bar for Scouts */}
@@ -704,7 +717,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                 onChange={toggleScoutSelectAll}
                             />
                             <span className="text-sm text-muted-foreground ml-2">
-                                {selectedScoutIds.size} scout{selectedScoutIds.size !== 1 ? 's' : ''} selected
+                                {selectedScoutIds.size} fronthaul{selectedScoutIds.size !== 1 ? 's' : ''} selected
                             </span>
                         </div>
                         <div className="flex gap-2">
@@ -731,9 +744,9 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     <BentoGridItem
                         className={cn("bg-gradient-to-br from-primary to-blue-600 text-white border-0 shadow-lg cursor-pointer", !selectedCriteriaId && "ring-4 ring-blue-200 dark:ring-blue-900")}
                         onClick={() => setSelectedCriteriaId(null)}
-                        header={<div className="text-3xl font-bold text-white mb-4">{relevantLoads.length}</div>}
-                        title={<span className="text-white">All Scouts</span>}
-                        description={<span className="text-blue-100">View Global Feed</span>}
+                        header={<div className="text-3xl font-bold text-white mb-4">{scoutMissionLoads.length}</div>}
+                        title={<span className="text-white">All Fronthauls</span>}
+                        description={<span className="text-blue-100">View Fronthaul Feed</span>}
                         icon={<Activity className="h-4 w-4 text-blue-200" />}
                     />
 
@@ -773,6 +786,108 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                     <div className="flex justify-between items-end mt-2">
                                         <span>{mission.count} Loads</span>
                                         {/* Action Buttons */}
+                                        <div className="flex gap-1">
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleDelete(mission.criteria.id); }}>
+                                                <Trash2 className="h-3 w-3" />
+                                            </Button>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-blue-500" onClick={(e) => { e.stopPropagation(); setEditingCriteria(mission.criteria); }}>
+                                                <Pencil className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                }
+                            />
+                        )
+                    })}
+                </BentoGrid>
+            </div>
+
+            {/* --- BACKHAULS DECK --- */}
+            <div className="space-y-4 mt-10">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                    <ArrowLeftRight className="h-5 w-5 text-indigo-500" />
+                    Route Backhauls
+                </h3>
+
+                {/* Batch Action Bar for Backhauls */}
+                {backhaulMissions.length > 0 && (
+                    <div className="flex items-center justify-between bg-muted/20 p-2 rounded-lg border glass-panel">
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 ml-2"
+                                checked={selectedBackhaulIds.size === backhaulMissions.length && backhaulMissions.length > 0}
+                                onChange={toggleBackhaulSelectAll}
+                            />
+                            <span className="text-sm text-muted-foreground ml-2">
+                                {selectedBackhaulIds.size} backhaul{selectedBackhaulIds.size !== 1 ? 's' : ''} selected
+                            </span>
+                        </div>
+                        <div className="flex gap-2">
+                            {selectedBackhaulIds.size > 0 && (
+                                <>
+                                    {viewMode === 'trash' ? (
+                                        <Button size="sm" variant="secondary" onClick={() => handleBatchBackhaulAction('restore')}>
+                                            <RefreshCw className="h-4 w-4 mr-2" />
+                                            Restore
+                                        </Button>
+                                    ) : null}
+                                    <Button size="sm" variant="destructive" onClick={() => handleBatchBackhaulAction('delete')}>
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        {viewMode === 'trash' ? 'Delete Forever' : 'Delete'}
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                <BentoGrid>
+                    {/* 'All' Card */}
+                    <BentoGridItem
+                        className={cn("bg-gradient-to-br from-indigo-500 to-indigo-700 text-white border-0 shadow-lg cursor-pointer", !selectedCriteriaId && "ring-4 ring-indigo-200 dark:ring-indigo-900")}
+                        onClick={() => setSelectedCriteriaId(null)}
+                        header={<div className="text-3xl font-bold text-white mb-4">{backhaulMissionLoads.length}</div>}
+                        title={<span className="text-white">All Backhauls</span>}
+                        description={<span className="text-indigo-100">View Backhaul Feed</span>}
+                        icon={<ArrowLeftRight className="h-4 w-4 text-indigo-100" />}
+                    />
+
+                    {/* Backhaul Cards */}
+                    {backhaulMissions.map((mission: MissionStats) => {
+                        const isSelected = selectedBackhaulIds.has(mission.criteria.id);
+                        return (
+                            <BentoGridItem
+                                key={mission.criteria.id}
+                                className={cn(
+                                    "cursor-pointer border-l-4 relative",
+                                    isSelected ? "border-l-indigo-500 ring-2 ring-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20" :
+                                        selectedCriteriaId === mission.criteria.id ? "border-l-indigo-500 ring-2 ring-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20" : "border-l-gray-300 hover:border-l-indigo-300"
+                                )}
+                                onClick={() => setSelectedCriteriaId(mission.criteria.id)}
+                                header={
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="checkbox"
+                                                className="h-4 w-4 rounded border-gray-300 cursor-pointer accent-indigo-600"
+                                                checked={isSelected}
+                                                onClick={(e) => e.stopPropagation()}
+                                                onChange={(e) => { e.stopPropagation(); toggleBackhaulSelection(mission.criteria.id); }}
+                                            />
+                                            <Badge variant="secondary" className="bg-white/50 backdrop-blur-sm">{mission.criteria.equipment_type || 'Any'}</Badge>
+                                        </div>
+                                        {mission.maxRate > 0 && <span className="font-mono text-green-600 font-bold">${mission.maxRate}+</span>}
+                                    </div>
+                                }
+                                title={
+                                    <div className="truncate text-sm flex items-center gap-1">
+                                        {mission.criteria.origin_city} <ArrowRight className="h-3 w-3 text-muted-foreground" /> {mission.criteria.dest_city || 'Any'}
+                                    </div>
+                                }
+                                description={
+                                    <div className="flex justify-between items-end mt-2">
+                                        <span>{mission.count} Loads</span>
                                         <div className="flex gap-1">
                                             <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleDelete(mission.criteria.id); }}>
                                                 <Trash2 className="h-3 w-3" />
