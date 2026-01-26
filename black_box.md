@@ -64,3 +64,17 @@ function OriginFieldGroup() {
 ```
 
 **Prevention:** Use native HTML elements for interactive UI when possible. Avoid wrapping clickable elements in components that may interfere with event propagation.
+
+---
+
+## 2026-01-25: Schema Drift Issue
+
+**Failure Signature #4:** "Could not find the 'min_rpm' column of 'search_criteria' in the schema cache"
+
+**Root Cause:** `min_rpm` field was added to the UI and API Handler (`edit-criteria-dialog.tsx`) but the corresponding column was missing from the `search_criteria` database table.
+
+**Fix:**
+1. Applied migration: `ALTER TABLE search_criteria ADD COLUMN min_rpm NUMERIC;`
+2. Updated Supabase Types: Synced `src/types/supabase.ts` with the new schema.
+
+**Prevention:** Ensure database migrations are created and applied when adding new fields to the schema. Run type generation to catch mismatches during development.

@@ -15,6 +15,7 @@ interface Criteria {
     dest_city: string | null;
     destination_state: string | null;
     min_rate: number | null;
+    min_rpm?: number | null;
     min_weight: number | null;
     max_weight: number | null;
     equipment_type: string | null;
@@ -148,6 +149,12 @@ export function CriteriaList({ refreshTrigger }: { refreshTrigger?: number }) {
                                 <div className="flex items-center gap-2 text-muted-foreground">
                                     <DollarSign className="h-4 w-4" />
                                     <span>Min Rate: ${c.min_rate.toFixed(2)}</span>
+                                </div>
+                            )}
+                            {c.min_rpm && (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <DollarSign className="h-4 w-4" />
+                                    <span>Min RPM: ${c.min_rpm.toFixed(2)}/mi</span>
                                 </div>
                             )}
                             {(c.min_weight || c.max_weight) && (

@@ -25,6 +25,7 @@ export interface SearchCriteria {
     dest_city?: string;
     destination_state?: string;
     min_rate?: number;
+    min_rpm?: number;
     max_weight?: number; // truck_weight_lb__max
     equipment_type?: string; // 'Dry Van' -> 'DRY_VAN'
     booking_type?: string; // 'ALL', 'INSTANT', 'STANDARD'

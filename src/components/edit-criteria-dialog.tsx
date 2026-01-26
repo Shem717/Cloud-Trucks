@@ -102,6 +102,9 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess }: 
         const rawMinRate = formData.get('min_rate');
         updates.min_rate = rawMinRate ? parseFloat(rawMinRate as string) : null;
 
+        const rawMinRpm = formData.get('min_rpm');
+        updates.min_rpm = rawMinRpm ? parseFloat(rawMinRpm as string) : null;
+
         const rawMaxWeight = formData.get('max_weight');
         updates.max_weight = rawMaxWeight ? parseInt(rawMaxWeight as string) : null;
 
@@ -266,7 +269,7 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess }: 
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-4 gap-4">
                         {/* Min Rate */}
                         <div>
                             <FieldLabel>Min Rate ($)</FieldLabel>
@@ -276,6 +279,19 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess }: 
                                 step="0.01"
                                 placeholder="Any"
                                 defaultValue={criteria.min_rate || ''}
+                                className={inputStyles}
+                            />
+                        </div>
+
+                        {/* Min RPM */}
+                        <div>
+                            <FieldLabel>Min RPM ($/mi)</FieldLabel>
+                            <Input
+                                name="min_rpm"
+                                type="number"
+                                step="0.01"
+                                placeholder="Any"
+                                defaultValue={(criteria as { min_rpm?: number | null }).min_rpm || ''}
                                 className={inputStyles}
                             />
                         </div>

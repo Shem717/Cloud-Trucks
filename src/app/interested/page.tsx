@@ -40,6 +40,7 @@ interface BackhaulDraft {
     pickup_distance: number;
     booking_type: string;
     min_rate?: number | null;
+    min_rpm?: number | null;
     max_weight?: number | null;
     pickup_date?: string | null;
 }
@@ -197,6 +198,7 @@ export default function InterestedPage() {
             pickup_distance: 50,
             booking_type: 'Any',
             min_rate: null,
+            min_rpm: null,
             max_weight: maxWeight,
             pickup_date: pickupDate,
         })
@@ -741,7 +743,7 @@ export default function InterestedPage() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-4 gap-4">
                                 <div>
                                     <FieldLabel>Min Rate ($)</FieldLabel>
                                     <Input
@@ -750,6 +752,18 @@ export default function InterestedPage() {
                                         step="0.01"
                                         placeholder="Any"
                                         defaultValue={backhaulDraft.min_rate || ''}
+                                        className={inputStyles}
+                                    />
+                                </div>
+
+                                <div>
+                                    <FieldLabel>Min RPM ($/mi)</FieldLabel>
+                                    <Input
+                                        name="min_rpm"
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="Any"
+                                        defaultValue={backhaulDraft.min_rpm || ''}
                                         className={inputStyles}
                                     />
                                 </div>

@@ -228,7 +228,7 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
 
                     {/* Expandable Filters Panel */}
                     <div className="border-t border-slate-800/50 bg-slate-900/30 py-4 px-4">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
                             {/* Trailer Type */}
                             <div>
                                 <FieldLabel>Trailer Type</FieldLabel>
@@ -259,6 +259,17 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                                 <FieldLabel>Min Rate ($)</FieldLabel>
                                 <Input
                                     name="min_rate"
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="Any"
+                                    className={inputStyles}
+                                />
+                            </div>
+
+                            <div>
+                                <FieldLabel>Min RPM ($/mi)</FieldLabel>
+                                <Input
+                                    name="min_rpm"
                                     type="number"
                                     step="0.01"
                                     placeholder="Any"

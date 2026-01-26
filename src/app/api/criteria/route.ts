@@ -67,6 +67,8 @@ export async function POST(request: NextRequest) {
             destination_states: destStates,
             // Validate min_rate: min $0, max $50,000
             min_rate: parseNumeric(formData.get('min_rate'), 'float', 0, 50000),
+            // Validate min_rpm: min $0, max $50
+            min_rpm: parseNumeric(formData.get('min_rpm'), 'float', 0, 50),
             // Validate weights: min 0 lbs, max 100,000 lbs
             min_weight: parseNumeric(formData.get('min_weight'), 'int', 0, 100000),
             max_weight: parseNumeric(formData.get('max_weight'), 'int', 0, 100000),
@@ -279,7 +281,7 @@ export async function PATCH(request: NextRequest) {
                 'origin_city', 'origin_state', 'origin_states',
                 'dest_city', 'destination_state', 'destination_states',
                 'pickup_distance', 'pickup_date',
-                'min_rate', 'min_weight', 'max_weight',
+                'min_rate', 'min_rpm', 'min_weight', 'max_weight',
                 'equipment_type', 'booking_type'
             ];
 

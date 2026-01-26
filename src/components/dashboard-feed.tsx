@@ -33,6 +33,8 @@ interface SavedLoad {
     search_criteria?: {
         id: string;
         origin_city: string;
+        min_rate?: number | null;
+        min_rpm?: number | null;
     };
 }
 
@@ -544,12 +546,36 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
     const scoutCriteriaIds = new Set(scoutCriteria.map(c => c.id));
     const backhaulCriteriaIds = new Set(backhaulCriteria.map(c => c.id));
 
-    const scoutMissionLoads = loads.filter(l => l.search_criteria && scoutCriteriaIds.has(l.search_criteria.id));
-    const backhaulMissionLoads = loads.filter(l => l.search_criteria && backhaulCriteriaIds.has(l.search_criteria.id));
+    const matchesCriteriaFilters = (load: SavedLoad) => {
+        // Look up the latest criteria state from our list, providing a fallback to the load's attached criteria if needed
+        const loadCriteriaId = load.search_criteria?.id;
+        if (!loadCriteriaId) return true;
+
+        const liveCriteria = criteriaList.find(c => c.id === loadCriteriaId);
+        const criteria = liveCriteria || (load.search_criteria as EnrichedCriteria | undefined);
+
+        if (!criteria) return true;
+
+        const rawRate = load.details.rate || load.details.trip_rate || 0;
+        const rate = typeof rawRate === 'string' ? parseFloat(rawRate) : rawRate;
+        const rawDist = load.details.distance || load.details.trip_distance_mi || 0;
+        const dist = typeof rawDist === 'string' ? parseFloat(rawDist) : rawDist;
+        const rpm = rate && dist ? rate / dist : null;
+
+        if (criteria.min_rate != null && rate < criteria.min_rate) return false;
+        if (criteria.min_rpm != null) {
+            if (!rpm || rpm < criteria.min_rpm) return false;
+        }
+
+        return true;
+    };
+
+    const scoutMissionLoads = loads.filter(l => l.search_criteria && scoutCriteriaIds.has(l.search_criteria.id) && matchesCriteriaFilters(l));
+    const backhaulMissionLoads = loads.filter(l => l.search_criteria && backhaulCriteriaIds.has(l.search_criteria.id) && matchesCriteriaFilters(l));
 
     // --- Filter loads to only include those belonging to current criteria ---
     const criteriaIdsSet = new Set(criteriaList.map(c => c.id));
-    const relevantLoads = loads.filter(l => l.search_criteria && criteriaIdsSet.has(l.search_criteria.id));
+    const relevantLoads = loads.filter(l => l.search_criteria && criteriaIdsSet.has(l.search_criteria.id) && matchesCriteriaFilters(l));
 
     // --- Filter out stale loads (older than 24 hours) ---
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -564,7 +590,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
         for (const load of freshLoads) {
             const loadId = load.details?.id || load.cloudtrucks_load_id;
             if (!loadId) continue;
-            
+
             const existing = loadMap[loadId];
             if (!existing || new Date(load.created_at) > new Date(existing.created_at)) {
                 loadMap[loadId] = load;
@@ -580,15 +606,15 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
     const baseFilteredLoads = selectedCriteriaId
         ? deduplicatedLoads.filter(l => l.search_criteria?.id === selectedCriteriaId)
         : deduplicatedLoads;
-    
+
     // Apply booking type filter
-    const bookingFilteredLoads = bookingTypeFilter === 'all' 
+    const bookingFilteredLoads = bookingTypeFilter === 'all'
         ? baseFilteredLoads
         : baseFilteredLoads.filter(l => {
             const isInstant = l.details.instant_book === true;
             return bookingTypeFilter === 'instant' ? isInstant : !isInstant;
         });
-    
+
     const filteredLoads = sortLoads(bookingFilteredLoads);
 
 
@@ -685,41 +711,41 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     <h2 className="text-xl font-semibold tracking-tight">Overview</h2>
                 </div>
                 <BentoGrid className="gap-4 md:gap-5">
-                <BentoGridItem
-                    title="System Status"
-                    description="Operational"
-                    header={<div className={cn("text-3xl font-bold font-mono", loading ? "text-yellow-500" : "text-green-500")}>Online</div>}
-                    icon={<Activity className="h-4 w-4 text-muted-foreground" />}
-                    className="md:col-span-1 border-l-4 border-l-green-500"
-                />
-                <BentoGridItem
-                    title="Active Fronthauls"
-                    description="Monitoring criteria"
-                    header={<div className="text-3xl font-bold font-mono text-primary">{activeScoutsCount}</div>}
-                    icon={<Search className="h-4 w-4 text-muted-foreground" />}
-                    className="md:col-span-1 border-l-4 border-l-primary"
-                />
-                <BentoGridItem
-                    title="Loads Found"
-                    description={
-                        <span>
-                            Matching Criteria
-                            <a href="/routes" className="block text-xs text-muted-foreground underline decoration-dotted underline-offset-4 hover:text-foreground">
-                                Backhauls: {backhaulLoadsCount}
-                            </a>
-                        </span>
-                    }
-                    header={<div className="text-3xl font-bold font-mono text-indigo-500">{totalLoadsCount}</div>}
-                    icon={<Truck className="h-4 w-4 text-muted-foreground" />}
-                    className="md:col-span-1 border-l-4 border-l-indigo-500"
-                />
-                <BentoGridItem
-                    title="Saved Loads"
-                    description="Interested"
-                    header={<div className="text-3xl font-bold font-mono text-orange-500">{interestedCount}</div>}
-                    icon={<Star className="h-4 w-4 text-muted-foreground" />}
-                    className="md:col-span-1 border-l-4 border-l-orange-500"
-                />
+                    <BentoGridItem
+                        title="System Status"
+                        description="Operational"
+                        header={<div className={cn("text-3xl font-bold font-mono", loading ? "text-yellow-500" : "text-green-500")}>Online</div>}
+                        icon={<Activity className="h-4 w-4 text-muted-foreground" />}
+                        className="md:col-span-1 border-l-4 border-l-green-500"
+                    />
+                    <BentoGridItem
+                        title="Active Fronthauls"
+                        description="Monitoring criteria"
+                        header={<div className="text-3xl font-bold font-mono text-primary">{activeScoutsCount}</div>}
+                        icon={<Search className="h-4 w-4 text-muted-foreground" />}
+                        className="md:col-span-1 border-l-4 border-l-primary"
+                    />
+                    <BentoGridItem
+                        title="Loads Found"
+                        description={
+                            <span>
+                                Matching Criteria
+                                <a href="/routes" className="block text-xs text-muted-foreground underline decoration-dotted underline-offset-4 hover:text-foreground">
+                                    Backhauls: {backhaulLoadsCount}
+                                </a>
+                            </span>
+                        }
+                        header={<div className="text-3xl font-bold font-mono text-indigo-500">{totalLoadsCount}</div>}
+                        icon={<Truck className="h-4 w-4 text-muted-foreground" />}
+                        className="md:col-span-1 border-l-4 border-l-indigo-500"
+                    />
+                    <BentoGridItem
+                        title="Saved Loads"
+                        description="Interested"
+                        header={<div className="text-3xl font-bold font-mono text-orange-500">{interestedCount}</div>}
+                        icon={<Star className="h-4 w-4 text-muted-foreground" />}
+                        className="md:col-span-1 border-l-4 border-l-orange-500"
+                    />
                 </BentoGrid>
             </div>
 

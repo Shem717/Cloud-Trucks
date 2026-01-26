@@ -1,12 +1,3 @@
-/**
- * Supabase Database Types
- * Generated manually from schema.sql for type safety
- */
-
-// ============================================
-// Tables
-// ============================================
-
 export type Json =
   | string
   | number
@@ -15,33 +6,214 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export interface Database {
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.1"
+  }
   public: {
     Tables: {
-      users: {
-        Row: UsersRow
-        Insert: UsersInsert
-        Update: UsersUpdate
+      booked_loads: {
+        Row: {
+          broker: string | null
+          cloudtrucks_load_id: string | null
+          created_at: string | null
+          destination: string
+          equipment: string | null
+          id: string
+          origin: string
+          pickup_date: string | null
+          rate: number | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          broker?: string | null
+          cloudtrucks_load_id?: string | null
+          created_at?: string | null
+          destination: string
+          equipment?: string | null
+          id?: string
+          origin: string
+          pickup_date?: string | null
+          rate?: number | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          broker?: string | null
+          cloudtrucks_load_id?: string | null
+          created_at?: string | null
+          destination?: string
+          equipment?: string | null
+          id?: string
+          origin?: string
+          pickup_date?: string | null
+          rate?: number | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      chain_laws: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          last_updated: string
+          route_name: string
+          state: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          last_updated?: string
+          route_name: string
+          state: string
+          status: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          last_updated?: string
+          route_name?: string
+          state?: string
+          status?: string
+        }
+        Relationships: []
       }
       cloudtrucks_credentials: {
-        Row: CloudTrucksCredentialsRow
-        Insert: CloudTrucksCredentialsInsert
-        Update: CloudTrucksCredentialsUpdate
-      }
-      search_criteria: {
-        Row: SearchCriteriaRow
-        Insert: SearchCriteriaInsert
-        Update: SearchCriteriaUpdate
-      }
-      found_loads: {
-        Row: FoundLoadsRow
-        Insert: FoundLoadsInsert
-        Update: FoundLoadsUpdate
+        Row: {
+          created_at: string | null
+          encrypted_csrf_token: string | null
+          encrypted_email: string
+          encrypted_session_cookie: string
+          is_valid: boolean | null
+          last_validated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          encrypted_csrf_token?: string | null
+          encrypted_email: string
+          encrypted_session_cookie: string
+          is_valid?: boolean | null
+          last_validated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          encrypted_csrf_token?: string | null
+          encrypted_email?: string
+          encrypted_session_cookie?: string
+          is_valid?: boolean | null
+          last_validated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       interested_loads: {
-        Row: InterestedLoadsRow
-        Insert: InterestedLoadsInsert
-        Update: InterestedLoadsUpdate
+        Row: {
+          cloudtrucks_load_id: string
+          created_at: string | null
+          details: Json
+          id: string
+          last_checked_at: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          cloudtrucks_load_id: string
+          created_at?: string | null
+          details: Json
+          id?: string
+          last_checked_at?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          cloudtrucks_load_id?: string
+          created_at?: string | null
+          details?: Json
+          id?: string
+          last_checked_at?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      search_criteria: {
+        Row: {
+          active: boolean | null
+          booking_type: string | null
+          created_at: string | null
+          deleted_at: string | null
+          dest_city: string | null
+          destination_state: string | null
+          destination_states: string[] | null
+          equipment_type: string | null
+          id: string
+          is_backhaul: boolean | null
+          max_weight: number | null
+          min_rate: number | null
+          min_rpm: number | null
+          min_weight: number | null
+          origin_city: string | null
+          origin_state: string | null
+          origin_states: string[] | null
+          pickup_date: string | null
+          pickup_distance: number | null
+          user_id: string
+        }
+        Insert: {
+          active?: boolean | null
+          booking_type?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          dest_city?: string | null
+          destination_state?: string | null
+          destination_states?: string[] | null
+          equipment_type?: string | null
+          id?: string
+          is_backhaul?: boolean | null
+          max_weight?: number | null
+          min_rate?: number | null
+          min_rpm?: number | null
+          min_weight?: number | null
+          origin_city?: string | null
+          origin_state?: string | null
+          origin_states?: string[] | null
+          pickup_date?: string | null
+          pickup_distance?: number | null
+          user_id: string
+        }
+        Update: {
+          active?: boolean | null
+          booking_type?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          dest_city?: string | null
+          destination_state?: string | null
+          destination_states?: string[] | null
+          equipment_type?: string | null
+          id?: string
+          is_backhaul?: boolean | null
+          max_weight?: number | null
+          min_rate?: number | null
+          min_rpm?: number | null
+          min_weight?: number | null
+          origin_city?: string | null
+          origin_state?: string | null
+          origin_states?: string[] | null
+          pickup_date?: string | null
+          pickup_distance?: number | null
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -53,115 +225,105 @@ export interface Database {
     Enums: {
       [_ in never]: never
     }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
 }
 
-// ============================================
-// Users Table
-// ============================================
+type PublicSchema = Database[Extract<keyof Database, "public">]
 
-export type UsersRow = {
-  id: string
-  email: string
-  phone_number: string | null
-  subscription_tier: string
-  created_at: string
-}
+export type Tables<
+  PublicTableNameOrOptions extends
+  | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
+  | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+  ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+    Database[PublicTableNameOrOptions["schema"]]["Views"])
+  : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+    Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+  ? R
+  : never
+  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
+    PublicSchema["Views"])
+  ? (PublicSchema["Tables"] &
+    PublicSchema["Views"])[PublicTableNameOrOptions] extends {
+      Row: infer R
+    }
+  ? R
+  : never
+  : never
 
-export type UsersInsert = Omit<UsersRow, 'id' | 'created_at'>
-export type UsersUpdate = Partial<UsersInsert>
+export type TablesInsert<
+  PublicTableNameOrOptions extends
+  | keyof PublicSchema["Tables"]
+  | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+  ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+    Insert: infer I
+  }
+  ? I
+  : never
+  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
+  ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+    Insert: infer I
+  }
+  ? I
+  : never
+  : never
 
-// ============================================
-// CloudTrucks Credentials Table
-// ============================================
+export type TablesUpdate<
+  PublicTableNameOrOptions extends
+  | keyof PublicSchema["Tables"]
+  | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+  ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+    Update: infer U
+  }
+  ? U
+  : never
+  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
+  ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+    Update: infer U
+  }
+  ? U
+  : never
+  : never
 
-export type CloudTrucksCredentialsRow = {
-  user_id: string
-  encrypted_email: string
-  encrypted_session_cookie: string
-  encrypted_csrf_token: string | null
-  last_validated_at: string | null
-  is_valid: boolean
-}
+export type Enums<
+  PublicEnumNameOrOptions extends
+  | keyof PublicSchema["Enums"]
+  | { schema: keyof Database },
+  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
+  ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+  : never = never,
+> = PublicEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
+  ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+  : never
 
-export type CloudTrucksCredentialsInsert = Omit<CloudTrucksCredentialsRow, 'last_validated_at' | 'is_valid'> & {
-  last_validated_at?: string | null
-  is_valid?: boolean
-}
-export type CloudTrucksCredentialsUpdate = Partial<CloudTrucksCredentialsInsert>
-
-// ============================================
-// Search Criteria Table
-// ============================================
-
-export type SearchCriteriaRow = {
-  id: string
-  user_id: string
-  origin_city: string | null
-  origin_state: string | null
-  origin_states: string[] | null
-  pickup_distance: number
-  pickup_date: string | null
-  dest_city: string | null
-  destination_state: string | null
-  destination_states: string[] | null
-  min_rate: number | null
-  min_weight: number | null
-  max_weight: number
-  equipment_type: string | null
-  booking_type: string | null
-  active: boolean
-  is_backhaul: boolean | null
-  deleted_at: string | null
-  last_scanned_at: string | null
-  scan_status: string | null
-  scan_error: string | null
-  last_scan_loads_found: number | null
-  created_at: string
-}
-
-export type SearchCriteriaInsert = Omit<SearchCriteriaRow, 'id' | 'created_at' | 'last_scanned_at' | 'scan_status' | 'scan_error' | 'last_scan_loads_found'>
-export type SearchCriteriaUpdate = Partial<SearchCriteriaInsert>
-
-// ============================================
-// Found Loads Table
-// ============================================
-
-export type FoundLoadsRow = {
-  id: string
-  criteria_id: string
-  cloudtrucks_load_id: string
-  details: Json
-  status: string
-  created_at: string
-}
-
-export type FoundLoadsInsert = Omit<FoundLoadsRow, 'id' | 'created_at'>
-export type FoundLoadsUpdate = Partial<FoundLoadsInsert>
-
-// ============================================
-// Interested Loads Table
-// ============================================
-
-export type InterestedLoadsRow = {
-  id: string
-  user_id: string
-  cloudtrucks_load_id: string
-  details: Json
-  status: string
-  last_checked_at: string | null
-  created_at: string
-}
-
-export type InterestedLoadsInsert = Omit<InterestedLoadsRow, 'id' | 'created_at'>
-export type InterestedLoadsUpdate = Partial<InterestedLoadsInsert>
-
-// ============================================
-// Utility Types
-// ============================================
-
-export type Tables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row']
-
-export type TablesInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
-
-export type TablesUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+  | keyof PublicSchema["CompositeTypes"]
+  | { schema: keyof Database },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof Database
+  }
+  ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+  : never = never,
+> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
+  ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  : never
