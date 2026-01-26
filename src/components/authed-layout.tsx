@@ -29,7 +29,7 @@ export default async function AuthedLayout({
                         </div>
                         <nav className="hidden md:flex items-center gap-1">
                             <NavLink href="/dashboard">Dashboard</NavLink>
-                            <NavLink href="/interested">Interested</NavLink>
+                            <NavLink href="/interested">Saved</NavLink>
                             <NavLink href="/routes">Routes</NavLink>
                         </nav>
                     </div>

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Zap, Map, Star, ChevronDown, ChevronUp, ArrowRight,
-    Calendar, Weight, Truck, DollarSign, Bookmark, BookmarkCheck, Users, User
+    Calendar, Weight, Truck, DollarSign, Users, User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CloudTrucksLoad, CloudTrucksLoadStop } from "@/workers/cloudtrucks-api-client";
@@ -22,12 +22,11 @@ interface LoadCardProps {
         details: CloudTrucksLoad & Record<string, any>;
     };
     isSaved: boolean;
-    onSave: (e: React.MouseEvent) => void;
-    onMarkInterested: (e: React.MouseEvent) => void;
+    onToggleSaved: (e: React.MouseEvent) => void;
     onViewMap: (e: React.MouseEvent) => void;
 }
 
-export function LoadCard({ load, isSaved, onSave, onMarkInterested, onViewMap }: LoadCardProps) {
+export function LoadCard({ load, isSaved, onToggleSaved, onViewMap }: LoadCardProps) {
     const [isExpanded, setIsExpanded] = useState(false);
 
     // --- Derived Data ---
@@ -178,20 +177,20 @@ export function LoadCard({ load, isSaved, onSave, onMarkInterested, onViewMap }:
             <div className="bg-slate-50/50 dark:bg-slate-900/50 border-t" onClick={(e) => e.stopPropagation()}>
                 {/* Action Buttons Row */}
                 <div className="p-3 pb-2 flex justify-end items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className={cn("h-7 px-2", isSaved ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary")}
-                        onClick={onSave}
-                        title={isSaved ? "Saved" : "Save Load"}
-                    >
-                        {isSaved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
-                    </Button>
                     <Button variant="outline" size="sm" className="h-7 px-2 gap-1" onClick={onViewMap}>
                         <Map className="h-3 w-3" /> Route
                     </Button>
-                    <Button size="sm" className="h-7 px-3 gap-1 bg-green-600 hover:bg-green-700 text-white" onClick={onMarkInterested}>
-                        <Star className="h-3 w-3" /> Interested
+                    <Button
+                        size="sm"
+                        className={cn(
+                            "h-7 px-3 gap-1 text-white",
+                            isSaved ? "bg-green-600 hover:bg-green-700" : "bg-green-600/60 hover:bg-green-600"
+                        )}
+                        onClick={onToggleSaved}
+                        title={isSaved ? "Saved" : "Save Load"}
+                    >
+                        <Star className={cn("h-3 w-3", isSaved && "fill-current")} />
+                        {isSaved ? "Saved" : "Save"}
                     </Button>
                 </div>
                 {/* Expand Toggle Row */}

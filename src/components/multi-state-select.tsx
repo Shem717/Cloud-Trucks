@@ -129,6 +129,7 @@ export function MultiStateSelect({
                 <Button
                     variant="outline"
                     role="combobox"
+                    suppressHydrationWarning
                     className={cn(
                         "w-full justify-between text-left font-normal bg-slate-900/50 border-slate-600 hover:border-slate-500 hover:bg-slate-800/50 transition-colors",
                         className

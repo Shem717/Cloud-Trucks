@@ -4,7 +4,7 @@ import React, { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { AlertCircle, CheckCircle2, Loader2, Search, ChevronDown, ChevronUp, Calendar } from "lucide-react"
+import { AlertCircle, CheckCircle2, Loader2, Search, ChevronDown, Calendar } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { cn } from "@/lib/utils"
 import { CityAutocomplete } from "@/components/city-autocomplete"
@@ -94,7 +94,7 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
     const router = useRouter()
     const [isPending, startTransition] = useTransition()
     const [outcome, setOutcome] = useState<{ error?: string; success?: string } | null>(null)
-    const [showFilters, setShowFilters] = useState(false)
+    const [showFilters] = useState(true)
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
@@ -208,20 +208,6 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
 
                         {/* Action Group */}
                         <div className="flex items-center gap-2 mt-2 xl:mt-0 w-full xl:w-auto">
-                            {/* More Filters Toggle */}
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                onClick={() => setShowFilters(!showFilters)}
-                                className={cn(
-                                    "flex-1 xl:flex-none h-10 border border-transparent hover:border-slate-700 text-slate-400 hover:text-white transition-all",
-                                    showFilters && "bg-slate-800 text-white border-slate-700"
-                                )}
-                            >
-                                <span className="mr-2">Filters</span>
-                                {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                            </Button>
-
                             {/* Submit */}
                             <Button
                                 type="submit"
@@ -241,10 +227,7 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                     </div>
 
                     {/* Expandable Filters Panel */}
-                    <div className={cn(
-                        "overflow-hidden transition-all duration-300 ease-in-out border-t border-slate-800/50 bg-slate-900/30",
-                        showFilters ? "max-h-[200px] opacity-100 py-4 px-4" : "max-h-0 opacity-0 py-0"
-                    )}>
+                    <div className="border-t border-slate-800/50 bg-slate-900/30 py-4 px-4">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                             {/* Trailer Type */}
                             <div>

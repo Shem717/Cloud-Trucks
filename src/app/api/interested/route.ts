@@ -236,8 +236,9 @@ export async function DELETE(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
         const ids = searchParams.get('ids')?.split(',');
+        const cloudtrucksLoadId = searchParams.get('cloudtrucks_load_id');
 
-        if (!id && !ids) {
+        if (!id && !ids && !cloudtrucksLoadId) {
             return NextResponse.json({ error: 'Missing id param' }, { status: 400 });
         }
 
@@ -247,6 +248,8 @@ export async function DELETE(request: NextRequest) {
             query = query.in('id', ids);
         } else if (id) {
             query = query.eq('id', id);
+        } else if (cloudtrucksLoadId) {
+            query = query.eq('cloudtrucks_load_id', cloudtrucksLoadId);
         }
 
         const { error } = await query;

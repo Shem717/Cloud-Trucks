@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, MapPin, Calendar, DollarSign, Truck, AlertCircle, ChevronDown, ChevronUp, Trash2, ExternalLink, Navigation, Users, User, Map } from 'lucide-react';
+import { ArrowRight, MapPin, Calendar, DollarSign, Truck, AlertCircle, ChevronDown, ChevronUp, Trash2, ExternalLink, Navigation, Users, User, Map, Link2 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import Link from 'next/link';
 import { BrokerLogo } from "./broker-logo";
@@ -163,102 +163,110 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
     const visibleInterested = interestedLoads.filter(l => !isDeleted(l.id));
 
     return (
-        <div className="grid gap-8">
-            {visibleInterested.length === 0 && (
-                <Card className="border-dashed">
-                    <CardContent className="flex flex-col items-center justify-center p-12 text-muted-foreground">
-                        <AlertCircle className="h-10 w-10 mb-4 opacity-20" />
-                        <p>No interested loads found.</p>
-                        <Button variant="link" asChild className="mt-2">
-                            <Link href="/dashboard">Go find some loads!</Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-            )}
+        <>
+            <div className="space-y-6">
+                {visibleInterested.length === 0 && (
+                    <Card className="border-dashed">
+                        <CardContent className="flex flex-col items-center justify-center p-12 text-muted-foreground">
+                            <AlertCircle className="h-10 w-10 mb-4 opacity-20" />
+                            <p>No interested loads found.</p>
+                            <Button variant="link" asChild className="mt-2">
+                                <Link href="/dashboard">Go find some loads!</Link>
+                            </Button>
+                        </CardContent>
+                    </Card>
+                )}
 
-            {/* Batch Action Bar */}
-            {visibleInterested.length > 0 && (
-                <div className="flex items-center justify-between bg-card/50 backdrop-blur-sm p-3 rounded-lg border shadow-sm mb-4 glass-panel">
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-gray-300 ml-2"
-                            checked={selectedIds.size === visibleInterested.length && visibleInterested.length > 0}
-                            onChange={toggleSelectAll}
-                        />
-                        <span className="text-sm text-muted-foreground ml-2">
-                            {selectedIds.size} routes selected
-                        </span>
-                    </div>
-                    <div className="flex gap-2">
-                        {selectedIds.size > 0 && (
-                            <>
-                                <Button size="sm" variant="secondary" onClick={() => handleBatchAction('trash')}>
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Move to Trash
-                                </Button>
-                                <Button size="sm" variant="destructive" onClick={() => handleBatchAction('delete')}>
-                                    Delete Forever
-                                </Button>
-                            </>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {visibleInterested.map((savedLoad) => {
-                const matches = findMatches(savedLoad);
-                const load = savedLoad.details;
-                const origin = load.origin_city ? `${load.origin_city}, ${load.origin_state}` : load.origin;
-                const dest = load.dest_city ? `${load.dest_city}, ${load.dest_state}` : load.destination;
-                
-                // Extract addresses from stops
-                const addresses = extractLoadAddresses(load);
-                const isTeam = load.is_team_load === true;
-
-                const isSelected = selectedIds.has(savedLoad.id);
-
-                return (
-                    <div key={savedLoad.id} className="relative animate-in fade-in slide-in-from-bottom-2 duration-500 pl-8">
-                        {/* Selection Checkbox */}
-                        <div className="absolute left-0 top-8 z-20">
+                {/* Batch Action Bar */}
+                {visibleInterested.length > 0 && (
+                    <div className="flex items-center justify-between bg-card/50 backdrop-blur-sm p-3 rounded-lg border shadow-sm glass-panel">
+                        <div className="flex items-center gap-2">
                             <input
                                 type="checkbox"
-                                className="h-5 w-5 rounded border-gray-300 cursor-pointer accent-blue-600 shadow-sm"
-                                checked={isSelected}
-                                onChange={() => toggleSelection(savedLoad.id)}
+                                className="h-4 w-4 rounded border-gray-300 ml-2"
+                                checked={selectedIds.size === visibleInterested.length && visibleInterested.length > 0}
+                                onChange={toggleSelectAll}
                             />
+                            <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Selection</span>
+                            <span className="text-xs font-semibold bg-slate-800/70 text-slate-200 px-2 py-1 rounded-full">
+                                {selectedIds.size}/{visibleInterested.length}
+                            </span>
                         </div>
+                        <div className="flex gap-2">
+                            {selectedIds.size > 0 && (
+                                <>
+                                    <Button size="sm" variant="secondary" onClick={() => handleBatchAction('trash')}>
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Move to Trash
+                                    </Button>
+                                    <Button size="sm" variant="destructive" onClick={() => handleBatchAction('delete')}>
+                                        Delete Forever
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                )}
 
-                        {/* Visual Connector Line */}
-                        {matches.length > 0 && (
-                            <div className="absolute left-[3rem] top-[6rem] bottom-4 w-[2px] bg-gradient-to-b from-blue-500/30 to-indigo-500/30 -z-10"></div>
-                        )}
+                {visibleInterested.map((savedLoad) => {
+                    const matches = findMatches(savedLoad);
+                    const load = savedLoad.details;
+                    const origin = load.origin_city ? `${load.origin_city}, ${load.origin_state}` : load.origin;
+                    const dest = load.dest_city ? `${load.dest_city}, ${load.dest_state}` : load.destination;
+                    
+                    // Extract addresses from stops
+                    const addresses = extractLoadAddresses(load);
+                    const isTeam = load.is_team_load === true;
 
-                        {/* PHASE 1: OUTBOUND CARD */}
-                        <Card className={cn(
-                            "relative z-10 border-l-4 border-l-blue-500 shadow-sm bg-card/50 backdrop-blur-sm hover:bg-accent/5 transition-all hover:scale-[1.005] group",
-                            isSelected && "ring-2 ring-blue-500 bg-blue-50/10"
-                        )}>
-                            <CardContent className="p-6">
-                                <div className="flex flex-col md:flex-row justify-between gap-4">
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-2">
-                                            <Badge className="bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 border-blue-200">Outbound Phase 1</Badge>
-                                            {load.broker_name && (
-                                                <div className="flex items-center gap-2">
-                                                    <BrokerLogo name={load.broker_name} size="sm" />
-                                                    <Badge variant="outline" className="text-[10px] h-5 border-indigo-200 bg-indigo-50 text-indigo-700 font-medium">
-                                                        {load.broker_name}
+                    const isSelected = selectedIds.has(savedLoad.id);
+
+                    return (
+                        <div key={savedLoad.id} className="relative animate-in fade-in slide-in-from-bottom-2 duration-500 pl-8">
+                            {/* Selection Checkbox */}
+                            <div className="absolute left-0 top-8 z-20">
+                                <input
+                                    type="checkbox"
+                                    className="h-5 w-5 rounded border-gray-300 cursor-pointer accent-blue-600 shadow-sm"
+                                    checked={isSelected}
+                                    onChange={() => toggleSelection(savedLoad.id)}
+                                />
+                            </div>
+
+                            {/* Visual Connector Line */}
+                            {matches.length > 0 && (
+                                <div className="absolute left-[3rem] top-[6rem] bottom-4 w-[2px] bg-gradient-to-b from-blue-500/30 to-indigo-500/30 -z-10"></div>
+                            )}
+
+                            {/* PHASE 1: OUTBOUND CARD */}
+                            <Card className={cn(
+                                "relative z-10 border-l-4 border-l-blue-500 shadow-sm bg-card/50 backdrop-blur-sm hover:bg-accent/5 transition-all hover:scale-[1.005] group",
+                                isSelected && "ring-2 ring-blue-500 bg-blue-50/10"
+                            )}>
+                                <CardContent className="p-6">
+                                    <div className="flex flex-col md:flex-row justify-between gap-4">
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                <Badge className="bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 border-blue-200">Outbound Phase 1</Badge>
+                                                {matches.length > 0 && (
+                                                    <Badge variant="secondary" className="bg-indigo-500/10 text-indigo-300 border-indigo-500/30 text-[10px] gap-1">
+                                                        <Link2 className="h-3 w-3" />
+                                                        {matches.length} backhaul{matches.length !== 1 ? 's' : ''}
                                                     </Badge>
-                                                </div>
-                                            )}
-                                            <span className="text-sm text-muted-foreground font-mono">
-                                                {new Date(savedLoad.created_at).toLocaleDateString()}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-3 text-xl font-semibold">
-                                            <div>
+                                                )}
+                                                {load.broker_name && (
+                                                    <div className="flex items-center gap-2">
+                                                        <BrokerLogo name={load.broker_name} size="sm" />
+                                                        <Badge variant="outline" className="text-[10px] h-5 border-indigo-200 bg-indigo-50 text-indigo-700 font-medium">
+                                                            {load.broker_name}
+                                                        </Badge>
+                                                    </div>
+                                                )}
+                                                <span className="text-sm text-muted-foreground font-mono">
+                                                    {new Date(savedLoad.created_at).toLocaleDateString()}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-3 text-xl font-semibold">
+                                                <div>
                                                 <div>{origin}</div>
                                                 {addresses.origin.hasAddress && (
                                                     <div className="flex items-center gap-1 mt-1">
@@ -619,8 +627,9 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
                             )}
                         </div>
                     </div>
-                );
-            })}
+                    );
+                })}
+            </div>
 
             {/* Multi-Stop Route Modal */}
             {selectedRouteForMap && (
@@ -631,6 +640,6 @@ export function RoutePlanningBoard({ interestedLoads, backhaulCriteria, backhaul
                     title={selectedRouteForMap.backhaul ? 'Round Trip Route Visualization' : 'Outbound Route'}
                 />
             )}
-        </div>
+        </>
     );
 }

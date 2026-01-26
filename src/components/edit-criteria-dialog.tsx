@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,6 +21,7 @@ interface EnrichedCriteria extends SearchCriteria {
     id: string;
     origin_states?: string | string[];
     destination_states?: string | string[];
+    is_backhaul?: boolean;
 }
 
 interface EditCriteriaDialogProps {
@@ -51,6 +52,26 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess }: 
                     ? [criteria.destination_state]
                     : []
     );
+
+    useEffect(() => {
+        if (!open) return;
+        const originFallback = Array.isArray(criteria.origin_states)
+            ? criteria.origin_states[0]
+            : typeof criteria.origin_states === 'string'
+                ? criteria.origin_states
+                : "";
+
+        setOriginState((criteria.origin_state || originFallback || "").toUpperCase().slice(0, 2));
+
+        const nextDestStates = Array.isArray(criteria.destination_states)
+            ? criteria.destination_states
+            : typeof criteria.destination_states === 'string'
+                ? [criteria.destination_states]
+                : criteria.destination_state
+                    ? [criteria.destination_state]
+                    : [];
+        setDestStates(nextDestStates);
+    }, [criteria.id, open]);
 
     const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -135,7 +156,7 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess }: 
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[600px] bg-slate-900 border-slate-800 text-slate-200">
                 <DialogHeader>
-                    <DialogTitle>Edit Scout</DialogTitle>
+                    <DialogTitle>{criteria.is_backhaul ? 'Edit Backhaul' : 'Edit Fronthaul'}</DialogTitle>
                 </DialogHeader>
 
                 <form onSubmit={handleFormSubmit} className="grid gap-6 py-4">
@@ -144,24 +165,24 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess }: 
                         <div className="flex-1">
                             <FieldLabel>Pickup (City & State)</FieldLabel>
                             <div className="flex gap-2">
-                                <CityAutocomplete
-                                    name="origin_city"
-                                    defaultValue={criteria.origin_city}
-                                    required
-                                    onStateChange={(st) => setOriginState(st)}
-                                    className="flex-[2]"
-                                />
-                                <div className="flex-1 w-[60px]">
-                                    <Input
-                                        name="origin_state"
-                                        value={originState}
-                                        onChange={(e) => setOriginState(e.target.value.toUpperCase().slice(0, 2))}
-                                        placeholder="ST"
-                                        maxLength={2}
+                                    <CityAutocomplete
+                                        name="origin_city"
+                                        defaultValue={criteria.origin_city}
                                         required
-                                        className={cn(inputStyles, "text-center font-bold uppercase")}
+                                        onStateChange={(st) => setOriginState(st.toUpperCase().slice(0, 2))}
+                                        className="flex-[2]"
                                     />
-                                </div>
+                                    <div className="flex-1 w-[60px]">
+                                        <Input
+                                            type="text"
+                                            name="origin_state"
+                                            value={originState}
+                                            onChange={(e) => setOriginState(e.currentTarget.value.toUpperCase().slice(0, 2))}
+                                            placeholder="ST"
+                                            maxLength={2}
+                                            className={cn(inputStyles, "text-center font-bold uppercase")}
+                                        />
+                                    </div>
                             </div>
                         </div>
 

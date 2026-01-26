@@ -354,29 +354,47 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
         }
     }
 
-    // --- Mark as Interested ---
-    const handleMarkInterested = async (load: SavedLoad) => {
+    // --- Toggle Saved ---
+    const handleToggleSaved = async (load: SavedLoad) => {
         if (savingInterest) return;
         setSavingInterest(load.id);
         try {
+            const loadId = load.details.id;
+            const isAlreadySaved = savedLoadIds.has(loadId);
+
+            if (isAlreadySaved) {
+                const res = await fetch(`/api/interested?cloudtrucks_load_id=${encodeURIComponent(loadId)}`, {
+                    method: 'DELETE',
+                });
+                const result = await res.json();
+                if (result.success) {
+                    const next = new Set(savedLoadIds);
+                    next.delete(loadId);
+                    setSavedLoadIds(next);
+                } else {
+                    console.error('Failed to remove saved load:', result.error);
+                }
+                return;
+            }
+
             const res = await fetch('/api/interested', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    cloudtrucks_load_id: load.details.id,
+                    cloudtrucks_load_id: loadId,
                     details: load.details,
                 }),
             });
             const result = await res.json();
             if (result.success) {
-                console.log('Load marked as interested');
-                // Add to saved set for UI feedback
-                setSavedLoadIds(prev => new Set(prev).add(load.details.id));
+                const next = new Set(savedLoadIds);
+                next.add(loadId);
+                setSavedLoadIds(next);
             } else {
-                console.error('Failed to mark interested:', result.error);
+                console.error('Failed to save load:', result.error);
             }
         } catch (error) {
-            console.error('Mark interested error:', error);
+            console.error('Toggle saved error:', error);
         } finally {
             setSavingInterest(null);
         }
@@ -627,7 +645,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     </Button>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="gap-2 glass-panel border-white/20">
+                            <Button variant="outline" size="sm" className="gap-2 glass-panel border-white/20" suppressHydrationWarning>
                                 <ArrowUpDown className="h-4 w-4" />
                                 Sort
                             </Button>
@@ -661,18 +679,23 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
             )}
 
             {/* --- COMMAND CENTER (Stats) --- */}
-            <BentoGrid className="mb-10">
+            <div className="space-y-4 mb-10">
+                <div>
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Command Center</p>
+                    <h2 className="text-xl font-semibold tracking-tight">Overview</h2>
+                </div>
+                <BentoGrid className="gap-4 md:gap-5">
                 <BentoGridItem
                     title="System Status"
                     description="Operational"
-                    header={<div className={cn("text-4xl font-bold font-mono", loading ? "text-yellow-500" : "text-green-500")}>Online</div>}
+                    header={<div className={cn("text-3xl font-bold font-mono", loading ? "text-yellow-500" : "text-green-500")}>Online</div>}
                     icon={<Activity className="h-4 w-4 text-muted-foreground" />}
                     className="md:col-span-1 border-l-4 border-l-green-500"
                 />
                 <BentoGridItem
                     title="Active Fronthauls"
                     description="Monitoring criteria"
-                    header={<div className="text-4xl font-bold font-mono text-primary">{activeScoutsCount}</div>}
+                    header={<div className="text-3xl font-bold font-mono text-primary">{activeScoutsCount}</div>}
                     icon={<Search className="h-4 w-4 text-muted-foreground" />}
                     className="md:col-span-1 border-l-4 border-l-primary"
                 />
@@ -686,25 +709,32 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                             </a>
                         </span>
                     }
-                    header={<div className="text-4xl font-bold font-mono text-indigo-500">{totalLoadsCount}</div>}
+                    header={<div className="text-3xl font-bold font-mono text-indigo-500">{totalLoadsCount}</div>}
                     icon={<Truck className="h-4 w-4 text-muted-foreground" />}
                     className="md:col-span-1 border-l-4 border-l-indigo-500"
                 />
                 <BentoGridItem
                     title="Saved Loads"
                     description="Interested"
-                    header={<div className="text-4xl font-bold font-mono text-orange-500">{interestedCount}</div>}
+                    header={<div className="text-3xl font-bold font-mono text-orange-500">{interestedCount}</div>}
                     icon={<Star className="h-4 w-4 text-muted-foreground" />}
                     className="md:col-span-1 border-l-4 border-l-orange-500"
                 />
-            </BentoGrid>
+                </BentoGrid>
+            </div>
 
             {/* --- FRONTHAULS DECK --- */}
-            <div className="space-y-4">
-                <h3 className="text-xl font-bold flex items-center gap-2">
-                    <Map className="h-5 w-5 text-primary" />
-                    Route Fronthauls
-                </h3>
+            <div className="space-y-4 rounded-2xl border border-slate-800/60 bg-slate-900/30 p-4">
+                <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                        <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Fronthauls</p>
+                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                            <Map className="h-5 w-5 text-primary" />
+                            Route Fronthauls
+                        </h3>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{scoutMissions.length} routes</span>
+                </div>
 
                 {/* Batch Action Bar for Scouts */}
                 {scoutMissions.length > 0 && (
@@ -803,11 +833,17 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
             </div>
 
             {/* --- BACKHAULS DECK --- */}
-            <div className="space-y-4 mt-10">
-                <h3 className="text-xl font-bold flex items-center gap-2">
-                    <ArrowLeftRight className="h-5 w-5 text-indigo-500" />
-                    Route Backhauls
-                </h3>
+            <div className="space-y-4 mt-10 rounded-2xl border border-indigo-500/20 bg-indigo-950/10 p-4">
+                <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                        <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Backhauls</p>
+                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                            <ArrowLeftRight className="h-5 w-5 text-indigo-500" />
+                            Route Backhauls
+                        </h3>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{backhaulMissions.length} routes</span>
+                </div>
 
                 {/* Batch Action Bar for Backhauls */}
                 {backhaulMissions.length > 0 && (
@@ -949,8 +985,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                     key={load.id}
                                     load={load}
                                     isSaved={isSaved}
-                                    onSave={(e) => { e.stopPropagation(); handleMarkInterested(load); }}
-                                    onMarkInterested={(e) => { e.stopPropagation(); handleMarkInterested(load); }}
+                                    onToggleSaved={(e) => { e.stopPropagation(); handleToggleSaved(load); }}
                                     onViewMap={(e) => { e.stopPropagation(); setSelectedLoadForMap(load); }}
                                 />
                             );

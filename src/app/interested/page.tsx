@@ -251,7 +251,7 @@ export default function InterestedPage() {
                 </Button>
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight">
-                        {viewMode === 'trash' ? 'Trash Bin' : 'Interested Loads'}
+                        {viewMode === 'trash' ? 'Trash Bin' : 'Saved Loads'}
                     </h2>
                     <p className="text-muted-foreground text-sm">
                         {viewMode === 'trash' ? 'Loads you have deleted. Restore or delete forever.' : 'Loads you have saved for later review.'}
@@ -275,16 +275,17 @@ export default function InterestedPage() {
 
             {/* Batch Action Bar */}
             {loads.length > 0 && (
-                <div className="flex items-center justify-between bg-muted/20 p-2 rounded-lg border glass-panel">
-                    <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between bg-card/40 backdrop-blur-md p-3 rounded-xl border border-slate-800/60 glass-panel">
+                    <div className="flex items-center gap-3">
                         <input
                             type="checkbox"
                             className="h-4 w-4 rounded border-gray-300 ml-2"
                             checked={selectedIds.size === loads.length && loads.length > 0}
                             onChange={toggleSelectAll}
                         />
-                        <span className="text-sm text-muted-foreground ml-2">
-                            {selectedIds.size} selected
+                        <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Selection</span>
+                        <span className="text-xs font-semibold bg-slate-800/70 text-slate-200 px-2 py-1 rounded-full">
+                            {selectedIds.size}/{loads.length}
                         </span>
                     </div>
                     <div className="flex gap-2">
@@ -322,7 +323,7 @@ export default function InterestedPage() {
                     </CardContent>
                 </Card>
             ) : (
-                <div className="grid gap-4">
+                <div className="grid gap-3">
                     {loads.map(load => {
                         // Extract addresses from stops
                         const addresses = extractLoadAddresses(load.details);
@@ -366,11 +367,11 @@ export default function InterestedPage() {
                                     />
                                 </div>
                                 <Card className={cn(
-                                    "overflow-hidden hover:border-blue-400/50 transition-all hover:shadow-md hover:scale-[1.01] pl-8 bg-card/50 backdrop-blur-sm",
+                                    "overflow-hidden hover:border-blue-400/50 transition-all hover:shadow-md hover:scale-[1.005] pl-7 bg-card/50 backdrop-blur-sm",
                                     isSelected && "border-blue-500 bg-blue-50/10 ring-1 ring-blue-500"
                                 )}>
                                     <div className="flex flex-col md:flex-row">
-                                        <div className="flex-1 p-5 space-y-3">
+                                        <div className="flex-1 p-4 space-y-2">
                                             <div className="flex items-start justify-between">
                                                 <div className="flex gap-2">
                                                     <Badge className="bg-yellow-500/10 text-yellow-600 hover:bg-yellow-600/20 border-0">
@@ -386,15 +387,15 @@ export default function InterestedPage() {
                                                             </Badge>
                                                         </div>
                                                     )}
-                                                    <span className="text-xs text-muted-foreground font-mono">
+                                                    <span className="text-[11px] text-muted-foreground font-mono">
                                                         {new Date(load.created_at).toLocaleTimeString()}
                                                     </span>
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center gap-4">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 text-lg font-semibold">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <div className="flex items-center gap-2 text-[15px] font-semibold">
                                                         <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></span>
                                                         {origin}
                                                         <WeatherBadge
@@ -407,12 +408,12 @@ export default function InterestedPage() {
                                                     </div>
                                                     {addresses.origin.hasAddress && (
                                                         <div className="flex items-center gap-1 mt-1">
-                                                            <span className="text-xs font-normal text-muted-foreground truncate max-w-[200px]">
+                                                            <span className="text-[11px] font-normal text-muted-foreground truncate max-w-[240px]">
                                                                 {addresses.origin.address}
                                                             </span>
-                                                            <Button 
-                                                                variant="ghost" 
-                                                                size="sm" 
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
                                                                 className="h-5 px-1 text-[10px]"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
@@ -424,26 +425,8 @@ export default function InterestedPage() {
                                                         </div>
                                                     )}
                                                 </div>
-                                                <div className="flex flex-col items-center px-4">
-                                                    <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                                                        {dist ? `${dist.toFixed(0)} mi Loaded` : '---'}
-                                                    </span>
-                                                    <div className="w-24 h-[1px] bg-border my-1 relative">
-                                                        <div className="absolute right-0 -top-[3px] w-0 h-0 border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent border-l-[6px] border-l-border"></div>
-                                                    </div>
-                                                    {/* Team/Solo indicator */}
-                                                    {isTeam ? (
-                                                        <Badge variant="secondary" className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-[10px] gap-1 px-1.5 mt-1">
-                                                            <Users className="h-3 w-3" /> Team
-                                                        </Badge>
-                                                    ) : (
-                                                        <Badge variant="secondary" className="bg-slate-500/20 text-slate-400 border-slate-500/30 text-[10px] gap-1 px-1.5 mt-1">
-                                                            <User className="h-3 w-3" /> Solo
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                                <div className="flex-1 text-right">
-                                                    <div className="flex items-center justify-end gap-2 text-lg font-semibold">
+                                                <div className="md:text-right">
+                                                    <div className="flex items-center md:justify-end gap-2 text-[15px] font-semibold">
                                                         <WeatherBadge
                                                             lat={load.details.dest_lat}
                                                             lon={load.details.dest_lon}
@@ -454,13 +437,13 @@ export default function InterestedPage() {
                                                         <div>
                                                             {dest}
                                                             {addresses.destination.hasAddress && (
-                                                                <div className="flex items-center justify-end gap-1 mt-1">
-                                                                    <span className="text-xs font-normal text-muted-foreground truncate max-w-[200px] text-right">
+                                                                <div className="flex items-center justify-start md:justify-end gap-1 mt-1">
+                                                                    <span className="text-[11px] font-normal text-muted-foreground truncate max-w-[240px] md:text-right">
                                                                         {addresses.destination.address}
                                                                     </span>
-                                                                    <Button 
-                                                                        variant="ghost" 
-                                                                        size="sm" 
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
                                                                         className="h-5 px-1 text-[10px]"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
@@ -476,7 +459,42 @@ export default function InterestedPage() {
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center gap-6 text-sm text-muted-foreground pt-1">
+                                            <div className="flex flex-wrap items-center gap-3 text-[12px] text-muted-foreground pt-1">
+                                                <span className="inline-flex items-center gap-1 rounded-full bg-slate-800/60 px-2 py-0.5">
+                                                    {dist ? `${dist.toFixed(0)} mi loaded` : '---'}
+                                                </span>
+                                                {isTeam ? (
+                                                    <Badge variant="secondary" className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-[10px] gap-1 px-1.5">
+                                                        <Users className="h-3 w-3" /> Team
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="secondary" className="bg-slate-500/20 text-slate-400 border-slate-500/30 text-[10px] gap-1 px-1.5">
+                                                        <User className="h-3 w-3" /> Solo
+                                                    </Badge>
+                                                )}
+                                                <span className="flex items-center gap-1">
+                                                    <Truck className="h-4 w-4" />
+                                                    {Array.isArray(load.details.equipment) ? load.details.equipment.join(', ') : load.details.equipment}
+                                                </span>
+                                                {(load.details.weight || load.details.truck_weight_lb) && (
+                                                    <span className="flex items-center gap-1">
+                                                        <Weight className="h-4 w-4" />
+                                                        {load.details.weight || load.details.truck_weight_lb} lbs
+                                                    </span>
+                                                )}
+                                                {rpm && (
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 text-green-400 px-2 py-0.5 font-mono text-[11px]">
+                                                        ${rpm}/mi
+                                                    </span>
+                                                )}
+                                                {load.details.total_deadhead_mi && (
+                                                    <span className="text-[11px] text-muted-foreground">
+                                                        {load.details.total_deadhead_mi} mi deadhead
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <div className="flex flex-wrap items-center gap-4 text-[12px] text-muted-foreground">
                                                 {(load.details.pickup_date || load.details.origin_pickup_date) && (
                                                     <div className="flex items-center gap-1.5 text-green-700 font-medium">
                                                         <Calendar className="h-4 w-4" />
@@ -494,22 +512,12 @@ export default function InterestedPage() {
                                                         <span>Drop: <span className="italic">Unavailable</span></span>
                                                     </div>
                                                 )}
-                                                <div className="flex items-center gap-1.5">
-                                                    <Truck className="h-4 w-4" />
-                                                    {Array.isArray(load.details.equipment) ? load.details.equipment.join(', ') : load.details.equipment}
-                                                </div>
-                                                {(load.details.weight || load.details.truck_weight_lb) && (
-                                                    <div className="flex items-center gap-1.5">
-                                                        <Weight className="h-4 w-4" />
-                                                        {load.details.weight || load.details.truck_weight_lb} lbs
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
 
-                                        <div className="flex md:flex-col items-center justify-center p-5 bg-muted/30 border-t md:border-t-0 md:border-l min-w-[180px]">
+                                        <div className="flex md:flex-col items-center justify-center p-3 bg-muted/30 border-t md:border-t-0 md:border-l min-w-[160px]">
                                             <div className="text-center">
-                                                <div className="text-3xl font-bold text-green-600 flex items-center justify-center">
+                                                <div className="text-xl font-bold text-green-600 flex items-center justify-center">
                                                     <span className="text-lg mr-0.5">$</span>
                                                     {rate?.toFixed(0) || '---'}
                                                 </div>
@@ -519,14 +527,14 @@ export default function InterestedPage() {
                                                     </Badge>
                                                 )}
                                                 {load.details.total_deadhead_mi && (
-                                                    <div className="text-xs text-muted-foreground mt-1">
+                                                    <div className="text-[11px] text-muted-foreground mt-1">
                                                         {load.details.total_deadhead_mi} mi deadhead
                                                     </div>
                                                 )}
                                             </div>
 
                                             <Button
-                                                className="w-full mt-3 bg-blue-600 hover:bg-blue-700 font-bold"
+                                                className="w-full mt-2 bg-blue-600 hover:bg-blue-700 font-semibold"
                                                 size="sm"
                                                 asChild
                                             >
@@ -539,29 +547,37 @@ export default function InterestedPage() {
                                                 </a>
                                             </Button>
 
-                                            <div className="grid grid-cols-2 gap-2 w-full mt-3">
+                                            <div className="flex flex-col gap-2 w-full mt-2">
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => setSelectedLoadForMap(load)}
-                                                    className="gap-1"
+                                                    className="w-full justify-between"
                                                     title="View Route Intelligence"
                                                 >
-                                                    <Map className="h-4 w-4" />
-                                                    Route
+                                                    <span className="flex items-center gap-1">
+                                                        <Map className="h-4 w-4" />
+                                                        Route
+                                                    </span>
+                                                    <Navigation className="h-3.5 w-3.5 opacity-60" />
                                                 </Button>
                                                 <Button
-                                                    className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm gap-1"
+                                                    variant="outline"
                                                     size="sm"
                                                     onClick={() => openBackhaulDialog(load)}
                                                     disabled={backhaulingId === load.id}
+                                                    className="w-full justify-between border-indigo-500/40 text-indigo-200 hover:text-white hover:bg-indigo-600/20"
                                                     title="Search Return Trip (Swap Origin/Dest)"
                                                 >
-                                                    {backhaulingId === load.id ? (
-                                                        <RefreshCw className="h-4 w-4 animate-spin" />
-                                                    ) : (
-                                                        <ArrowLeftRight className="h-4 w-4" />
-                                                    )}
+                                                    <span className="flex items-center gap-1">
+                                                        {backhaulingId === load.id ? (
+                                                            <RefreshCw className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <ArrowLeftRight className="h-4 w-4" />
+                                                        )}
+                                                        Backhaul
+                                                    </span>
+                                                    <span className="text-[10px] uppercase tracking-widest opacity-70">New</span>
                                                 </Button>
                                             </div>
 
