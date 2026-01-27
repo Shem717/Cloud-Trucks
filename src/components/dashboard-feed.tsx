@@ -30,12 +30,7 @@ interface SavedLoad {
     created_at: string;
     status: string;
     details: CloudTrucksLoad & Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
-    search_criteria?: {
-        id: string;
-        origin_city: string;
-        min_rate?: number | null;
-        min_rpm?: number | null;
-    };
+    search_criteria?: EnrichedCriteria;
 }
 
 interface EnrichedCriteria extends SearchCriteria {
