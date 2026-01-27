@@ -710,18 +710,28 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     <ThemeToggle />
                     <div className="bg-muted/50 p-1 rounded-lg border border-border inline-flex">
                         <Button
-                            variant={viewMode === 'feed' ? "secondary" : "ghost"}
+                            variant="ghost"
                             size="sm"
                             onClick={() => setViewMode('feed')}
-                            className={cn(viewMode === 'feed' && "bg-white shadow-sm dark:bg-slate-800")}
+                            className={cn(
+                                "transition-all",
+                                viewMode === 'feed'
+                                    ? "bg-background text-foreground shadow-sm"
+                                    : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
+                            )}
                         >
                             Live Feed
                         </Button>
                         <Button
-                            variant={viewMode === 'trash' ? "secondary" : "ghost"}
+                            variant="ghost"
                             size="sm"
                             onClick={() => setViewMode('trash')}
-                            className={cn(viewMode === 'trash' && "bg-white shadow-sm dark:bg-slate-800")}
+                            className={cn(
+                                "transition-all",
+                                viewMode === 'trash'
+                                    ? "bg-background text-foreground shadow-sm"
+                                    : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
+                            )}
                         >
                             Trash ({loads.filter(l => l.status === 'deleted').length})
                         </Button>
@@ -733,7 +743,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                         }}
                         disabled={scanning}
                         className={cn(
-                            "glass-panel hover:bg-primary/90 text-primary-foreground font-semibold px-6 shadow-lg transition-all hover:scale-105",
+                            "bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6 shadow-lg transition-all hover:scale-105",
                             scanning && "animate-pulse"
                         )}
                     >
