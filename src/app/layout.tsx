@@ -18,29 +18,18 @@ export const metadata: Metadata = {
   description: "Automated load scanning and booking for CloudTrucks",
 };
 
-import { ThemeProvider } from "@/components/theme-provider";
-
-// ... existing imports
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background text-foreground font-sans`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background text-foreground`}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-          <Toaster theme="system" richColors position="top-right" />
-        </ThemeProvider>
+        {children}
+        <Toaster theme="dark" richColors position="top-right" />
       </body>
     </html>
   );
