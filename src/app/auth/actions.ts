@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 
 export async function login(formData: FormData) {
@@ -18,6 +19,10 @@ export async function login(formData: FormData) {
     if (error) {
         redirect('/login?error=Invalid credentials')
     }
+
+    // Clear guest session to ensure isolation
+    const cookieStore = await cookies()
+    cookieStore.delete('guest_session')
 
     revalidatePath('/', 'layout')
     redirect('/dashboard')
@@ -37,6 +42,10 @@ export async function signup(formData: FormData) {
     if (error) {
         redirect('/login?message=Could not authenticate user')
     }
+
+    // Clear guest session to ensure isolation
+    const cookieStore = await cookies()
+    cookieStore.delete('guest_session')
 
     revalidatePath('/', 'layout')
     redirect('/dashboard')

@@ -3,9 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
-    Dialog,
-    DialogContent,
     DialogHeader,
     DialogTitle,
     DialogFooter,
@@ -41,8 +40,16 @@ const inputStyles = "bg-slate-900/50 border-slate-600 h-10 text-slate-200 focus:
 export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess }: EditCriteriaDialogProps) {
     const [submitting, setSubmitting] = useState(false);
 
-    // State for controlled inputs
-    const [originState, setOriginState] = useState(criteria.origin_state || "");
+    // State for controlled inputs - both origin and destination use arrays for multi-state select
+    const [originStates, setOriginStates] = useState<string[]>(
+        Array.isArray(criteria.origin_states)
+            ? criteria.origin_states
+            : typeof criteria.origin_states === 'string'
+                ? [criteria.origin_states]
+                : criteria.origin_state
+                    ? [criteria.origin_state]
+                    : []
+    );
     const [destStates, setDestStates] = useState<string[]>(
         Array.isArray(criteria.destination_states)
             ? criteria.destination_states
@@ -55,14 +62,18 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess }: 
 
     useEffect(() => {
         if (!open) return;
-        const originFallback = Array.isArray(criteria.origin_states)
-            ? criteria.origin_states[0]
+
+        // Initialize origin states array
+        const nextOriginStates = Array.isArray(criteria.origin_states)
+            ? criteria.origin_states
             : typeof criteria.origin_states === 'string'
-                ? criteria.origin_states
-                : "";
+                ? [criteria.origin_states]
+                : criteria.origin_state
+                    ? [criteria.origin_state]
+                    : [];
+        setOriginStates(nextOriginStates);
 
-        setOriginState((criteria.origin_state || originFallback || "").toUpperCase().slice(0, 2));
-
+        // Initialize destination states array
         const nextDestStates = Array.isArray(criteria.destination_states)
             ? criteria.destination_states
             : typeof criteria.destination_states === 'string'
@@ -85,7 +96,12 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess }: 
         // Parse form data
         // Origin
         updates.origin_city = formData.get('origin_city');
-        updates.origin_state = formData.get('origin_state');
+        updates.origin_states = originStates.length > 0 ? originStates : null;
+        if (originStates.length === 1) {
+            updates.origin_state = originStates[0];
+        } else {
+            updates.origin_state = null;
+        }
 
         // Dest
         updates.dest_city = formData.get('dest_city');
@@ -156,36 +172,52 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess }: 
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] bg-slate-900 border-slate-800 text-slate-200">
+        <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={false}>
+            {/* Manual backdrop */}
+            <DialogPrimitive.Overlay className="fixed inset-0 bg-black/80 z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+
+            {/* Content without portal wrapping */}
+            <DialogPrimitive.Content
+                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] w-full max-w-[600px] bg-slate-900 border border-slate-800 text-slate-200 rounded-lg shadow-lg p-6 max-h-[90vh] overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+                onEscapeKeyDown={() => onOpenChange(false)}
+            >
+                {/* Close button */}
+                <DialogPrimitive.Close className="absolute top-4 right-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
+                    </svg>
+                    <span className="sr-only">Close</span>
+                </DialogPrimitive.Close>
+
                 <DialogHeader>
                     <DialogTitle>{criteria.is_backhaul ? 'Edit Backhaul' : 'Edit Fronthaul'}</DialogTitle>
                 </DialogHeader>
 
-                <form onSubmit={handleFormSubmit} className="grid gap-6 py-4">
+                <form onSubmit={handleFormSubmit} className="grid gap-6 py-4 overflow-y-auto pr-2 max-h-[calc(90vh-12rem)]">
                     <div className="grid grid-cols-2 gap-4">
                         {/* Origin Group */}
                         <div className="flex-1">
                             <FieldLabel>Pickup (City & State)</FieldLabel>
                             <div className="flex gap-2">
-                                    <CityAutocomplete
-                                        name="origin_city"
-                                        defaultValue={criteria.origin_city}
-                                        required
-                                        onStateChange={(st) => setOriginState(st.toUpperCase().slice(0, 2))}
-                                        className="flex-[2]"
-                                    />
-                                    <div className="flex-1 w-[60px]">
-                                        <Input
-                                            type="text"
-                                            name="origin_state"
-                                            value={originState}
-                                            onChange={(e) => setOriginState(e.currentTarget.value.toUpperCase().slice(0, 2))}
-                                            placeholder="ST"
-                                            maxLength={2}
-                                            className={cn(inputStyles, "text-center font-bold uppercase")}
-                                        />
-                                    </div>
+                                <CityAutocomplete
+                                    name="origin_city"
+                                    defaultValue={criteria.origin_city}
+                                    required
+                                    onStateChange={(st) => {
+                                        if (st && !originStates.includes(st)) {
+                                            setOriginStates([st]);
+                                        }
+                                    }}
+                                    className="flex-[1.5]"
+                                />
+                                <MultiStateSelect
+                                    name="origin_states"
+                                    placeholder="States"
+                                    className={cn(inputStyles, "flex-1 min-w-[100px] px-3")}
+                                    value={originStates}
+                                    onChange={setOriginStates}
+                                />
                             </div>
                         </div>
 
@@ -334,7 +366,7 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess }: 
                         </Button>
                     </DialogFooter>
                 </form>
-            </DialogContent>
-        </Dialog>
+            </DialogPrimitive.Content>
+        </DialogPrimitive.Root>
     );
 }

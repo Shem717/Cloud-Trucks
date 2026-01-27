@@ -296,5 +296,23 @@ export const US_CITIES: City[] = [
     { value: "Staten Island", label: "Staten Island, NY", state: "NY" },
     { value: "Jersey City", label: "Jersey City, NJ", state: "NJ" },
     { value: "Long Beach", label: "Long Beach, CA", state: "CA" },
-    { value: "Oakland", label: "Oakland, CA", state: "CA" }
+    { value: "Oakland", label: "Oakland, CA", state: "CA" },
+    // Additional trucking hub cities
+    { value: "Gilroy", label: "Gilroy, CA", state: "CA" },
+    { value: "Lodi", label: "Lodi, CA", state: "CA" },
+    { value: "Manteca", label: "Manteca, CA", state: "CA" },
+    { value: "Tracy", label: "Tracy, CA", state: "CA" },
+    { value: "Turlock", label: "Turlock, CA", state: "CA" },
+    { value: "Merced", label: "Merced, CA", state: "CA" },
+    { value: "Madera", label: "Madera, CA", state: "CA" },
+    { value: "Clovis", label: "Clovis, CA", state: "CA" },
+    { value: "San Luis Obispo", label: "San Luis Obispo, CA", state: "CA" },
+    { value: "Santa Cruz", label: "Santa Cruz, CA", state: "CA" },
+    { value: "Watsonville", label: "Watsonville, CA", state: "CA" },
+    { value: "Hollister", label: "Hollister, CA", state: "CA" },
+    { value: "Morgan Hill", label: "Morgan Hill, CA", state: "CA" },
+    { value: "Walnut", label: "Walnut, CA", state: "CA" },
+    { value: "Eureka", label: "Eureka, CA", state: "CA" },
+    { value: "Redding", label: "Redding, CA", state: "CA" },
+    { value: "Chico", label: "Chico, CA", state: "CA" }
 ];

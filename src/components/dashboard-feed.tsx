@@ -584,19 +584,42 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
         return createdAt > twentyFourHoursAgo;
     });
 
-    // --- Deduplicate loads by cloudtrucks_load_id (keep most recent) ---
+    // --- Deduplicate loads by ID AND Content (aggressive) ---
     const deduplicatedLoads: SavedLoad[] = (() => {
-        const loadMap: Record<string, SavedLoad> = {};
-        for (const load of freshLoads) {
-            const loadId = load.details?.id || load.cloudtrucks_load_id;
-            if (!loadId) continue;
+        const uniqueLoads: SavedLoad[] = [];
+        const seenIds = new Set<string>();
+        const seenContentHashes = new Set<string>();
 
-            const existing = loadMap[loadId];
-            if (!existing || new Date(load.created_at) > new Date(existing.created_at)) {
-                loadMap[loadId] = load;
+        // Sort by created_at DESC so we keep the newest one
+        const sorted = [...freshLoads].sort((a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+
+        for (const load of sorted) {
+            const loadId = load.details?.id || load.cloudtrucks_load_id;
+
+            // 1. Dedup by ID
+            if (loadId && seenIds.has(loadId)) continue;
+            if (loadId) seenIds.add(loadId);
+
+            // 2. Dedup by Content Hash (Origin + Dest + Rate + Pickup)
+            // This catches cases where CloudTrucks issues new IDs for identical loads (noise)
+            const d = load.details;
+            const origin = d.origin_city || d.origin;
+            const dest = d.dest_city || d.destination;
+            const rate = d.rate || d.trip_rate;
+            const pickup = d.pickup_date || d.origin_pickup_date;
+
+            // Only use content hash if we have enough data points
+            if (origin && dest && rate) {
+                const contentHash = `${origin}|${dest}|${rate}|${pickup}`; // e.g. "Las Vegas|Ridgecrest|820|2026-01-26..."
+                if (seenContentHashes.has(contentHash)) continue;
+                seenContentHashes.add(contentHash);
             }
+
+            uniqueLoads.push(load);
         }
-        return Object.values(loadMap);
+        return uniqueLoads;
     })();
 
     const scoutMissions = generateStats(scoutCriteria, scoutMissionLoads);
@@ -615,7 +638,24 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
             return bookingTypeFilter === 'instant' ? isInstant : !isInstant;
         });
 
-    const filteredLoads = sortLoads(bookingFilteredLoads);
+    // Apply strict date filter - remove loads with pickup before criteria's pickup_date
+    const dateFilteredLoads = bookingFilteredLoads.filter(load => {
+        const criteria = load.search_criteria;
+        if (!criteria?.pickup_date) return true; // No date filter = show all
+
+        const pickupDate = load.details.pickup_date || load.details.origin_pickup_date;
+        if (!pickupDate) return true; // No pickup date on load = show it
+
+        // Normalize both dates to YYYY-MM-DD for comparison (ignore time)
+        const criteriaDateStr = (criteria.pickup_date as string).slice(0, 10); // Get YYYY-MM-DD
+        const loadDateObj = new Date(pickupDate as string);
+        const loadDateStr = loadDateObj.toISOString().slice(0, 10); // Get YYYY-MM-DD
+
+        // Only show loads with pickup on or after the criteria date
+        return loadDateStr >= criteriaDateStr;
+    });
+
+    const filteredLoads = sortLoads(dateFilteredLoads);
 
 
 

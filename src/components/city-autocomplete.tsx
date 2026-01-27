@@ -29,6 +29,18 @@ export function CityAutocomplete({
     const [suggestions, setSuggestions] = React.useState<City[]>([])
     const containerRef = React.useRef<HTMLDivElement>(null)
 
+    // On initial load, look up city state and call onStateChange
+    React.useEffect(() => {
+        if (defaultValue && onStateChange) {
+            const matchedCity = US_CITIES.find(
+                city => city.value.toLowerCase() === defaultValue.toLowerCase()
+            );
+            if (matchedCity) {
+                onStateChange(matchedCity.state);
+            }
+        }
+    }, [defaultValue, onStateChange]);
+
     // Handle outside click to close suggestions
     React.useEffect(() => {
         function handleClickOutside(event: MouseEvent) {

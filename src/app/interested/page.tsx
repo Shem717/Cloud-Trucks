@@ -67,6 +67,13 @@ export default function InterestedPage() {
 
     useEffect(() => {
         fetchInterested()
+
+        // Auto-refresh every 5 minutes to get updated load data from scans
+        const interval = setInterval(() => {
+            fetchInterested()
+        }, 5 * 60 * 1000) // 5 minutes
+
+        return () => clearInterval(interval)
     }, [viewMode])
 
     useEffect(() => {
@@ -329,7 +336,7 @@ export default function InterestedPage() {
                     {loads.map(load => {
                         // Extract addresses from stops
                         const addresses = extractLoadAddresses(load.details);
-                        
+
                         const origin = load.details.origin_city
                             ? `${load.details.origin_city}, ${load.details.origin_state}`
                             : load.details.origin;
@@ -636,7 +643,7 @@ export default function InterestedPage() {
                         if (!open) setBackhaulDraft(null)
                     }}
                 >
-                    <DialogContent className="sm:max-w-[600px] bg-slate-900 border-slate-800 text-slate-200">
+                    <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-slate-900 border-slate-800 text-slate-200">
                         <DialogHeader>
                             <DialogTitle>Create Backhaul Search</DialogTitle>
                         </DialogHeader>

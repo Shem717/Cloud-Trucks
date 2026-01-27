@@ -152,7 +152,7 @@ export async function fetchLoadsFromCloudTrucks(
 }
 
 /**
- * Save newly found loads to database (avoiding duplicates)
+ * Save newly found loads to database (updating latest + preserving history)
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function saveNewLoads(criteriaId: string, loads: CloudTrucksLoad[], supabaseClient?: any) {
@@ -160,46 +160,91 @@ export async function saveNewLoads(criteriaId: string, loads: CloudTrucksLoad[],
 
     const supabase = supabaseClient || getSupabaseClient();
 
-    // Write-path optimization:
-    // - Avoid per-criteria "select existing IDs" round trips.
-    // - Rely on the UNIQUE(cloudtrucks_load_id, criteria_id) constraint.
+    // Prepare rows with update tracking
     const rows = loads.map((load) => ({
         criteria_id: criteriaId,
         cloudtrucks_load_id: load.id,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         details: (load.raw || load) as any,
         status: 'found',
+        updated_at: new Date().toISOString(),
     }));
 
     const BATCH_SIZE = 500;
-    let inserted = 0;
+    let totalUpserted = 0;
+    let totalUpdated = 0;
 
     for (let i = 0; i < rows.length; i += BATCH_SIZE) {
         const batch = rows.slice(i, i + BATCH_SIZE);
 
+        // Fetch existing IDs to determine which are updates vs inserts
+        const loadIds = batch.map(b => b.cloudtrucks_load_id);
+        const { data: existing } = await supabase
+            .from(USER_FOUND_TABLE)
+            .select('cloudtrucks_load_id')
+            .eq('criteria_id', criteriaId)
+            .in('cloudtrucks_load_id', loadIds);
+
+        const existingIds = new Set((existing || []).map((e: any) => e.cloudtrucks_load_id));
+
+        // Step 1: Insert into load_history to preserve all scan data
+        const historyRows = batch.map(row => ({
+            criteria_id: row.criteria_id,
+            cloudtrucks_load_id: row.cloudtrucks_load_id,
+            details: row.details,
+            status: row.status,
+            scanned_at: row.updated_at,
+        }));
+
+        const { error: historyError } = await supabase
+            .from('load_history')
+            .insert(historyRows);
+
+        if (historyError) {
+            console.error('Error saving load history:', historyError);
+            // Non-fatal: continue with upsert even if history fails
+        }
+
+        // Step 2: Upsert into found_loads (latest version)
         const { data, error } = await supabase
             .from(USER_FOUND_TABLE)
             .upsert(batch, {
                 onConflict: 'cloudtrucks_load_id,criteria_id',
-                ignoreDuplicates: true,
+                // Removed: ignoreDuplicates: true
             })
             .select('cloudtrucks_load_id');
 
         if (error) {
-            console.error('Error saving loads:', error);
+            console.error('Error upserting loads:', error);
             throw error;
         }
 
-        inserted += data?.length ?? 0;
+        const upsertedCount = data?.length ?? 0;
+        totalUpserted += upsertedCount;
+
+        // Increment scan_count for loads that already existed (were updated)
+        const updatedIds = loadIds.filter(id => existingIds.has(id));
+        if (updatedIds.length > 0) {
+            try {
+                await supabase.rpc('increment_scan_count', {
+                    load_ids: updatedIds,
+                    criteria_id_param: criteriaId
+                });
+                totalUpdated += updatedIds.length;
+            } catch (rpcError) {
+                console.error('Error incrementing scan count:', rpcError);
+                // Non-fatal: continue even if RPC fails
+            }
+        }
     }
 
-    if (inserted === 0) {
-        console.log(`No new loads for criteria ${criteriaId}`);
+    if (totalUpserted === 0) {
+        console.log(`No loads upserted for criteria ${criteriaId}`);
         return 0;
     }
 
-    console.log(`Saved ${inserted} new loads for criteria ${criteriaId}`);
-    return inserted;
+    console.log(`✓ Upserted ${totalUpserted} loads for criteria ${criteriaId} (${totalUpdated} updated, ${totalUpserted - totalUpdated} new)`);
+    return totalUpserted;
 }
 
 /**
@@ -313,13 +358,12 @@ async function getGuestAdminCredentials(supabase: any): Promise<GuestAdminCreden
     return { cookie, csrfToken };
 }
 
-// Save guest loads in guest_found_loads, avoiding duplicates.
+// Save guest loads in guest_found_loads, updating latest + preserving history.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function saveNewGuestLoads(criteriaId: string, loads: CloudTrucksLoad[], supabaseClient: any) {
     if (loads.length === 0) return 0;
 
     // Cap guest storage per criteria to reduce abuse.
-    // Note: duplicates are ignored via the unique constraint.
     const uniqueLoads = Array.from(new Map(loads.map((l) => [l.id, l])).values());
     const capped = uniqueLoads.slice(0, 200);
 
@@ -329,18 +373,65 @@ async function saveNewGuestLoads(criteriaId: string, loads: CloudTrucksLoad[], s
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         details: (load.raw || load) as any,
         status: 'found',
+        updated_at: new Date().toISOString(),
     }));
 
+    // Fetch existing IDs to determine updates vs inserts
+    const loadIds = rows.map(r => r.cloudtrucks_load_id);
+    const { data: existing } = await supabaseClient
+        .from(GUEST_FOUND_TABLE)
+        .select('cloudtrucks_load_id')
+        .eq('criteria_id', criteriaId)
+        .in('cloudtrucks_load_id', loadIds);
+
+    const existingIds = new Set((existing || []).map((e: any) => e.cloudtrucks_load_id));
+
+    // Step 1: Insert into guest_load_history to preserve all scan data
+    const historyRows = rows.map(row => ({
+        criteria_id: row.criteria_id,
+        cloudtrucks_load_id: row.cloudtrucks_load_id,
+        details: row.details,
+        status: row.status,
+        scanned_at: row.updated_at,
+    }));
+
+    const { error: historyError } = await supabaseClient
+        .from('guest_load_history')
+        .insert(historyRows);
+
+    if (historyError) {
+        console.error('Error saving guest load history:', historyError);
+        // Non-fatal
+    }
+
+    // Step 2: Upsert into guest_found_loads (latest version)
     const { data, error } = await supabaseClient
         .from(GUEST_FOUND_TABLE)
         .upsert(rows, {
             onConflict: 'cloudtrucks_load_id,criteria_id',
-            ignoreDuplicates: true,
+            // Removed: ignoreDuplicates: true
         })
         .select('cloudtrucks_load_id');
 
     if (error) throw error;
-    return data?.length ?? 0;
+
+    const upsertedCount = data?.length ?? 0;
+
+    // Increment scan_count for existing loads
+    const updatedIds = loadIds.filter(id => existingIds.has(id));
+    if (updatedIds.length > 0) {
+        try {
+            await supabaseClient.rpc('increment_guest_scan_count', {
+                load_ids: updatedIds,
+                criteria_id_param: criteriaId
+            });
+        } catch (rpcError) {
+            console.error('Error incrementing guest scan count:', rpcError);
+            // Non-fatal
+        }
+    }
+
+    return upsertedCount;
 }
 
 export async function scanLoadsForGuestSession(guestSession: string): Promise<{

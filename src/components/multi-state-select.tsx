@@ -123,7 +123,7 @@ export function MultiStateSelect({
     };
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={open} onOpenChange={setOpen} modal={false}>
             <input type="hidden" name={name} value={Array.from(selectedStates).join(',')} />
             <PopoverTrigger asChild>
                 <Button
@@ -148,10 +148,15 @@ export function MultiStateSelect({
                 </Button>
             </PopoverTrigger>
             <PopoverContent
-                className="w-[400px] p-0 border-slate-700/50 bg-slate-900/40 backdrop-blur-xl shadow-2xl"
+                style={{ pointerEvents: 'auto' }}
+                className="w-[400px] p-0 border-slate-700/50 bg-slate-900/40 backdrop-blur-xl shadow-2xl z-[200]"
                 align="start"
                 side="bottom"
-                sideOffset={4}
+                sideOffset={8}
+                avoidCollisions={true}
+                onOpenAutoFocus={(e) => e.preventDefault()}
+                onInteractOutside={(e) => e.preventDefault()}
+                onPointerDownOutside={(e) => e.preventDefault()}
             >
                 <div>
                     {/* Region Quick Select */}
@@ -223,7 +228,7 @@ export function MultiStateSelect({
                     )}
 
                     {/* Main State List */}
-                    <div className="h-[280px] overflow-y-auto p-2 bg-slate-950/30">
+                    <div className="h-[280px] overflow-y-auto p-2 bg-slate-950/30" style={{ pointerEvents: 'auto' }}>
                         <div className="grid grid-cols-2 gap-1">
                             {US_STATES.map(state => {
                                 const isSelected = selectedStates.has(state.value);

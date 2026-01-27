@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Zap, Map, Star, ChevronDown, ChevronUp, ArrowRight,
-    Calendar, Weight, Truck, DollarSign, Users, User
+    Calendar, Weight, Truck, DollarSign, Users, User, RefreshCw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CloudTrucksLoad, CloudTrucksLoadStop } from "@/workers/cloudtrucks-api-client";
@@ -19,6 +19,8 @@ interface LoadCardProps {
     load: {
         id: string;
         created_at: string;
+        updated_at?: string;
+        scan_count?: number;
         details: CloudTrucksLoad & Record<string, any>;
     };
     isSaved: boolean;
@@ -94,9 +96,16 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap }: LoadCardPr
                                 </span>
                             </div>
                         )}
-                        <span className="text-xs font-mono text-muted-foreground">
-                            {new Date(load.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
+                        {load.updated_at && load.scan_count && load.scan_count > 1 ? (
+                            <div className="flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400 font-medium">
+                                <RefreshCw className="h-3 w-3" />
+                                <span>{load.scan_count}x</span>
+                            </div>
+                        ) : (
+                            <span className="text-xs font-mono text-muted-foreground">
+                                {new Date(load.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                        )}
                     </div>
                 </div>
 
