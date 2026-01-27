@@ -78,3 +78,25 @@ function OriginFieldGroup() {
 2. Updated Supabase Types: Synced `src/types/supabase.ts` with the new schema.
 
 **Prevention:** Ensure database migrations are created and applied when adding new fields to the schema. Run type generation to catch mismatches during development.
+
+---
+
+## 2026-01-27: Tailwind CSS v4 Build Failure
+
+**Failure Signature #5:** "Cannot apply unknown utility class `border-border`" during production build.
+
+**Root Cause:** In Tailwind CSS v4, custom CSS variables defined in `@layer base` (like `--border`) are not automatically available as utility classes (like `border-border`) for use with `@apply` unless they are explicitly registered in a `@theme` block.
+
+**Fix:**
+Added a `@theme` block to `src/app/globals.css` that maps CSS variable-based design tokens to Tailwind-compatible utilities:
+```css
+@theme {
+  --color-border: hsl(var(--border));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  /* ... other mappings ... */
+}
+```
+
+**Prevention:** When using Tailwind CSS v4, always register custom design tokens in a `@theme` block in your global CSS to ensure they are available for both JIT usage and `@apply` directives.
+
