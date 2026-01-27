@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    Zap, Map, Star, ChevronDown, ChevronUp, ArrowRight,
+    Zap, Map, Star, ChevronDown, ChevronUp,
     Calendar, Weight, Truck, DollarSign, Users, User, RefreshCw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -61,169 +61,170 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap }: LoadCardPr
     const isTeam = details.is_team_load === true;
     const hasAutoBid = details.has_auto_bid === true;
 
+    // Helper to get equipment string safely
+    const getEquipmentString = () => {
+        if (Array.isArray(details.equipment)) {
+            return details.equipment[0] || 'UNK';
+        }
+        return details.equipment || 'UNK';
+    };
+
+    const equipmentType = getEquipmentString();
+
     return (
-        <Card
-            className={cn(
-                "group overflow-hidden transition-all border bg-card/50 backdrop-blur-sm flex flex-col h-fit cursor-pointer",
-                isExpanded ? "ring-2 ring-primary/20 shadow-2xl scale-[1.01] z-10" : "hover:scale-[1.02] hover:shadow-xl"
-            )}
-            onClick={() => setIsExpanded(!isExpanded)}
-        >
+        <Card className={cn(
+            "overflow-hidden transition-all duration-200 bg-card border-border",
+            isExpanded && "ring-1 ring-primary/30"
+        )}>
+            {/* Main Content */}
             <div className="p-4 space-y-3">
-                {/* --- Row 1: Badges & Time --- */}
-                <div className="flex justify-between items-start gap-2 flex-wrap">
+                {/* --- Row 1: Badges & Deadhead --- */}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[10px]">
-                            {details.equipment}
+                        <Badge variant="outline" className="text-[10px] font-mono uppercase tracking-wide bg-muted/50">
+                            {equipmentType.toUpperCase().replace(/[^A-Z_]/g, '')}
                         </Badge>
-                        {isInstantBook ? (
-                            <Badge className="bg-amber-500/10 text-amber-600 border-amber-200 text-[10px] gap-1 px-1.5">
-                                <Zap className="h-3 w-3" />Instant
-                            </Badge>
-                        ) : (
-                            <Badge variant="secondary" className="text-[10px] px-1.5">Standard</Badge>
-                        )}
-                        {/* New Freshness Badge */}
-                        <FreshnessBadge ageMin={details.age_min} />
+                        <Badge variant="secondary" className="text-[10px] font-mono uppercase tracking-wide">
+                            {isInstantBook ? 'Instant' : 'Standard'}
+                        </Badge>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        {details.broker_name && (
-                            <div className="flex items-center gap-1">
-                                <BrokerLogo name={details.broker_name} size="sm" />
-                                <span className="text-[10px] text-muted-foreground truncate max-w-[60px]">
-                                    {details.broker_name}
-                                </span>
-                            </div>
-                        )}
-                        {load.updated_at && load.scan_count && load.scan_count > 1 ? (
-                            <div className="flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400 font-medium">
-                                <RefreshCw className="h-3 w-3" />
-                                <span>{load.scan_count}x</span>
-                            </div>
-                        ) : (
-                            <span className="text-xs font-mono text-muted-foreground">
-                                {new Date(load.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                        )}
+                    {/* Deadhead Display */}
+                    <div className="flex items-center gap-1 text-[10px] font-mono font-medium text-muted-foreground bg-muted/30 px-2 py-0.5 rounded-sm border border-border/50">
+                        <span className="text-emerald-500/80">DH-O: {details.origin_deadhead_mi || 0}</span>
+                        <span className="text-muted-foreground/30">|</span>
+                        <span className="text-rose-500/80">DH-D: {details.dest_deadhead_mi || 0}</span>
                     </div>
                 </div>
 
-                {/* --- Row 2: Route --- */}
-                <div className="space-y-1 my-2">
-                    <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0 animate-pulse"></div>
-                        <div className="font-semibold text-sm truncate flex-1" title={origin}>{origin}</div>
+                {/* --- Row 2: Broker & Time (mono style) --- */}
+                <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
+                    {details.broker_name && (
+                        <>
+                            <BrokerLogo name={details.broker_name} size="sm" />
+                            <span className="truncate max-w-[100px] uppercase">{details.broker_name}</span>
+                        </>
+                    )}
+                    <span className="ml-auto">
+                        {new Date(load.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase()}
+                    </span>
+                </div>
+
+                {/* --- Row 3: Route (Vertical with dotted line) --- */}
+                <div className="space-y-1 py-2">
+                    {/* Origin */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                            <span className="font-semibold text-foreground">{origin}</span>
+                        </div>
                         <WeatherBadge lat={details.origin_lat} lon={details.origin_lon} city={details.origin_city} state={details.origin_state} size="sm" />
                     </div>
-                    <div className="pl-1 border-l-2 border-dashed border-muted h-3 ml-0.5"></div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"></div>
-                        <div className="font-semibold text-sm truncate flex-1" title={dest}>{dest}</div>
+
+                    {/* Dotted connector */}
+                    <div className="flex items-center pl-[3px]">
+                        <div className="w-px h-4 border-l border-dashed border-muted-foreground/40 ml-[3px]" />
+                    </div>
+
+                    {/* Destination */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-rose-500" />
+                            <span className="font-semibold text-foreground">{dest}</span>
+                        </div>
                         <WeatherBadge lat={details.dest_lat} lon={details.dest_lon} city={details.dest_city} state={details.dest_state} size="sm" />
                     </div>
                 </div>
 
-                {/* --- Row 3: Key Metrics (Collapsed View) --- */}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground pt-2 border-t border-dashed">
-                    {/* Price - Green & Bold */}
-                    <div className="flex items-center gap-1 text-emerald-500 dark:text-emerald-400 font-extrabold text-lg drop-shadow-sm">
+                {/* --- Row 4: Rate, Profit, Miles (inline) --- */}
+                <div className="flex items-center gap-3 flex-wrap border-t border-dashed border-border/50 pt-3">
+                    <span className="text-2xl font-bold text-emerald-500 tracking-tight">
                         ${rate?.toLocaleString()}
-                    </div>
-
-                    {/* Profit Badge (New) */}
+                    </span>
                     <ProfitBadge revenuePerHour={details.estimated_revenue_per_hour} />
-
-                    {/* Miles - Bold White */}
-                    <div className="flex items-center gap-1 text-white font-bold text-sm">
-                        <Truck className="h-3.5 w-3.5 text-slate-400" />
-                        {dist}mi
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Truck className="h-4 w-4" />
+                        <span className="font-semibold text-foreground">{dist}mi</span>
                     </div>
-
-                    {rpm && (
-                        <div className="flex items-center gap-1 text-slate-300 font-medium">
-                            <DollarSign className="h-3 w-3" />
-                            ${rpm}/mi
-                        </div>
-                    )}
-
-                    {/* Team/Solo Indicator */}
-                    {isTeam ? (
-                        <Badge variant="secondary" className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-[10px] gap-1 px-1.5">
-                            <Users className="h-3 w-3" /> Team
-                        </Badge>
-                    ) : (
-                        <Badge variant="secondary" className="bg-slate-500/20 text-slate-400 border-slate-500/30 text-[10px] gap-1 px-1.5">
-                            <User className="h-3 w-3" /> Solo
-                        </Badge>
-                    )}
                 </div>
 
-                {/* --- Row 4: Dates & Weight --- */}
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+                {/* --- Row 5: RPM & Solo/Team --- */}
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    {rpm && <span className="flex items-center gap-1"><DollarSign className="h-3 w-3" />${rpm}/mi</span>}
+                    <Badge variant="secondary" className="text-[10px] font-mono uppercase gap-1">
+                        {isTeam ? <Users className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                        {isTeam ? 'Team' : 'Solo'}
+                    </Badge>
+                </div>
+
+                {/* --- Row 6: Dates & Weight --- */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                     {pickupDate && (
-                        <div className="flex items-center gap-1 text-green-700 dark:text-green-400">
+                        <span className="flex items-center gap-1.5 text-emerald-600">
                             <Calendar className="h-3 w-3" />
-                            Pick: {new Date(pickupDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, {new Date(pickupDate).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                        </div>
+                            Pick: {new Date(pickupDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, {new Date(pickupDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                        </span>
                     )}
                     {deliveryDate && (
-                        <div className="flex items-center gap-1 text-red-700 dark:text-red-400">
+                        <span className="flex items-center gap-1.5 text-rose-600">
                             <Calendar className="h-3 w-3" />
-                            Drop: {new Date(deliveryDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, {new Date(deliveryDate).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                        </div>
+                            Drop: {new Date(deliveryDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, {new Date(deliveryDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                        </span>
                     )}
                     {weight && (
-                        <div className="flex items-center gap-1">
+                        <span className="flex items-center gap-1 text-muted-foreground ml-auto">
                             <Weight className="h-3 w-3" />
                             {(weight / 1000).toFixed(1)}k lbs
-                        </div>
+                        </span>
                     )}
                 </div>
             </div>
 
-            {/* --- Buttons (Always Visible) --- */}
-            <div className="bg-slate-50/50 dark:bg-slate-900/50 border-t" onClick={(e) => e.stopPropagation()}>
-                {/* Action Buttons Row */}
-                <div className="p-3 pb-2 flex justify-end items-center gap-2">
-                    <Button variant="outline" size="sm" className="h-7 px-2 gap-1" onClick={onViewMap}>
-                        <Map className="h-3 w-3" /> Route
-                    </Button>
-                    <Button
-                        size="sm"
-                        className={cn(
-                            "h-7 px-3 gap-1 text-white",
-                            isSaved ? "bg-green-600 hover:bg-green-700" : "bg-green-600/60 hover:bg-green-600"
-                        )}
-                        onClick={onToggleSaved}
-                        title={isSaved ? "Saved" : "Save Load"}
-                    >
-                        <Star className={cn("h-3 w-3", isSaved && "fill-current")} />
-                        {isSaved ? "Saved" : "Save"}
-                    </Button>
-                </div>
-                {/* Expand Toggle Row */}
-                <div
-                    className="px-3 pb-2 flex justify-center items-center gap-1 text-xs text-muted-foreground cursor-pointer hover:text-primary transition-colors"
-                    onClick={() => setIsExpanded(!isExpanded)}
+            {/* --- Action Bar (Always visible, centered) --- */}
+            <div className="border-t border-border bg-muted/30 p-3 flex justify-center gap-3" onClick={(e) => e.stopPropagation()}>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 bg-card hover:bg-muted border-border"
+                    onClick={onViewMap}
                 >
-                    {isExpanded ? "Less Details" : "More Data"}
-                    {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                </div>
+                    <Map className="h-4 w-4" />
+                    Route
+                </Button>
+                <Button
+                    size="sm"
+                    className={cn(
+                        "gap-2",
+                        isSaved ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                    )}
+                    onClick={onToggleSaved}
+                >
+                    <Star className={cn("h-4 w-4", isSaved && "fill-current")} />
+                    Save
+                </Button>
             </div>
 
-            {/* --- EXPANDED "COCKPIT" VIEW --- */}
+            {/* --- More Data Toggle --- */}
+            <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="w-full py-2 text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 transition-colors border-t border-border/50 bg-background hover:bg-muted/20"
+            >
+                More Data
+                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+
+            {/* --- EXPANDED DETAILS --- */}
             <AnimatePresence>
                 {isExpanded && (
                     <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.3, ease: "easeInOut" }}
-                        className="overflow-hidden bg-slate-50/80 dark:bg-slate-950/50 backdrop-blur-sm border-t border-dashed"
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="overflow-hidden bg-muted/20 border-t border-border/50"
                     >
-                        <div className="p-4 grid gap-5" onClick={(e) => e.stopPropagation()}>
-                            {/* Financials */}
+                        <div className="p-4 grid gap-4" onClick={(e) => e.stopPropagation()}>
+                            {/* Detailed Modules */}
                             <FinancialsModule
                                 fuelCost={details.estimated_fuel_cost}
                                 tollCost={details.estimated_toll_cost}
@@ -231,7 +232,6 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap }: LoadCardPr
                                 tripRate={rate}
                             />
 
-                            {/* Logistics */}
                             <LogisticsModule
                                 originDeadhead={details.origin_deadhead_mi}
                                 destDeadhead={details.dest_deadhead_mi}
@@ -242,7 +242,6 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap }: LoadCardPr
                                 hasAutoBid={hasAutoBid}
                             />
 
-                            {/* Trust */}
                             <TrustModule
                                 brokerName={details.broker_name}
                                 mcNumber={details.broker_mc_number}
@@ -250,7 +249,6 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap }: LoadCardPr
                                 email={details.contact_email}
                             />
 
-                            {/* Addresses */}
                             <AddressModule
                                 originAddress={details.origin_address}
                                 destAddress={details.dest_address}
@@ -267,3 +265,4 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap }: LoadCardPr
         </Card>
     );
 }
+

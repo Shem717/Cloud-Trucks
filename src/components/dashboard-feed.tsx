@@ -21,8 +21,9 @@ import { MapboxIntelligenceModal } from "./mapbox-intelligence-modal"
 import { EditCriteriaDialog } from "@/components/edit-criteria-dialog"
 import { BentoGrid, BentoGridItem } from "@/components/ui/bento-grid";
 import { LoadCard } from "@/components/load-card";
+import { ThemeToggle } from "@/components/theme-toggle"; // Added import
 
-type SortOption = 'newest' | 'price_high' | 'price_low' | 'pickup_soonest' | 'pickup_latest' | 'delivery_soonest' | 'delivery_latest' | 'distance_short' | 'deadhead_low' | 'rpm_high' | 'rpm_low';
+type SortOption = 'newest' | 'price_high' | 'price_low' | 'rpm_high' | 'rpm_low' | 'deadhead_low' | 'deadhead_high' | 'pickup_soonest' | 'pickup_latest' | 'distance_short' | 'distance_long' | 'weight_light' | 'weight_heavy';
 
 interface SavedLoad {
     id: string;
@@ -82,6 +83,11 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
 
 
     const checkCredentials = useCallback(async () => {
+        if (isPublic) {
+            setCredentialWarning(null);
+            return;
+        }
+
         try {
             const res = await fetch('/api/credentials/status');
             const result = await res.json();
@@ -95,7 +101,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
         } catch (error) {
             console.error('Failed to check credentials:', error);
         }
-    }, []);
+    }, [isPublic]);
 
     const fetchData = useCallback(async () => {
         setLoading(true)
@@ -489,18 +495,32 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     return getRPM(b) - getRPM(a);
                 case 'rpm_low':
                     return getRPM(a) - getRPM(b);
+                case 'deadhead_low':
+                    return getDeadhead(a) - getDeadhead(b);
+                case 'deadhead_high':
+                    return getDeadhead(b) - getDeadhead(a);
                 case 'pickup_soonest':
                     return getPickupDate(a) - getPickupDate(b);
                 case 'pickup_latest':
                     return getPickupDate(b) - getPickupDate(a);
-                case 'delivery_soonest':
-                    return getDeliveryDate(a) - getDeliveryDate(b);
-                case 'delivery_latest':
-                    return getDeliveryDate(b) - getDeliveryDate(a);
                 case 'distance_short':
                     return getDistance(a) - getDistance(b);
-                case 'deadhead_low':
-                    return getDeadhead(a) - getDeadhead(b);
+                case 'distance_long':
+                    return getDistance(b) - getDistance(a);
+                case 'weight_light': {
+                    const getWeight = (l: SavedLoad) => {
+                        const weight = l.details.weight || l.details.truck_weight_lb || 0;
+                        return typeof weight === 'string' ? parseFloat(weight) : weight;
+                    };
+                    return getWeight(a) - getWeight(b);
+                }
+                case 'weight_heavy': {
+                    const getWeight = (l: SavedLoad) => {
+                        const weight = l.details.weight || l.details.truck_weight_lb || 0;
+                        return typeof weight === 'string' ? parseFloat(weight) : weight;
+                    };
+                    return getWeight(b) - getWeight(a);
+                }
                 case 'newest':
                 default:
                     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -557,9 +577,19 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
         const dist = typeof rawDist === 'string' ? parseFloat(rawDist) : rawDist;
         const rpm = rate && dist ? rate / dist : null;
 
+        // Weight Check
+        const weight = load.details.weight || load.details.truck_weight_lb;
+        const loadWeight = typeof weight === 'string' ? parseFloat(weight) : weight;
+
+        // Rate & RPM Filters
         if (criteria.min_rate != null && rate < criteria.min_rate) return false;
         if (criteria.min_rpm != null) {
             if (!rpm || rpm < criteria.min_rpm) return false;
+        }
+
+        // Weight Filter (Instant)
+        if (criteria.max_weight != null && loadWeight != null && loadWeight > criteria.max_weight) {
+            return false;
         }
 
         return true;
@@ -661,68 +691,109 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-            {/* Header / Connection Pulpit */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
+            {/* Header Section */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-8 pb-6 border-b border-white/10">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                    <h2 className="text-4xl font-bold tracking-tight text-foreground/90">
                         {viewMode === 'trash' ? 'Trash Bin' : 'Mission Control'}
                     </h2>
-                    <p className="text-muted-foreground text-sm flex items-center gap-2 mt-1">
-                        {viewMode === 'trash'
-                            ? 'Recover deleted scouts or remove them permanently.'
-                            : <><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span></span> Live Feed • Updated {lastUpdated ? lastUpdated.toLocaleTimeString() : 'Syncing...'}</>
-                        }
+                    <p className="text-muted-foreground mt-1 text-sm font-medium flex items-center gap-2">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                        </span>
+                        Live Feed • Updated {lastUpdated ? lastUpdated.toLocaleTimeString() : '...'}
                     </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex bg-muted/50 p-1 rounded-lg border glass-panel">
-                        <button
+
+                <div className="flex items-center gap-3">
+                    <ThemeToggle />
+                    <div className="bg-muted/50 p-1 rounded-lg border border-border inline-flex">
+                        <Button
+                            variant={viewMode === 'feed' ? "secondary" : "ghost"}
+                            size="sm"
                             onClick={() => setViewMode('feed')}
-                            className={cn("px-4 py-2 text-sm font-medium rounded-md transition-all", viewMode === 'feed' ? "bg-white text-primary shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                            className={cn(viewMode === 'feed' && "bg-white shadow-sm dark:bg-slate-800")}
                         >
-                            Active
-                        </button>
-                        <button
+                            Live Feed
+                        </Button>
+                        <Button
+                            variant={viewMode === 'trash' ? "secondary" : "ghost"}
+                            size="sm"
                             onClick={() => setViewMode('trash')}
-                            className={cn("px-4 py-2 text-sm font-medium rounded-md transition-all", viewMode === 'trash' ? "bg-white text-primary shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                            className={cn(viewMode === 'trash' && "bg-white shadow-sm dark:bg-slate-800")}
                         >
-                            Trash
-                        </button>
+                            Trash ({loads.filter(l => l.status === 'deleted').length})
+                        </Button>
                     </div>
 
                     <Button
-                        variant="default"
-                        size="sm"
-                        onClick={handleScan}
-                        disabled={scanning || criteriaList.length === 0 || viewMode === 'trash'}
-                        className="gap-2 bg-primary hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20"
+                        onClick={() => {
+                            setScanning(true);
+                        }}
+                        disabled={scanning}
+                        className={cn(
+                            "glass-panel hover:bg-primary/90 text-primary-foreground font-semibold px-6 shadow-lg transition-all hover:scale-105",
+                            scanning && "animate-pulse"
+                        )}
                     >
                         {scanning ? (
-                            <RefreshCw className="h-4 w-4 animate-spin" />
+                            <>
+                                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                Scanning...
+                            </>
                         ) : (
-                            <Zap className="h-4 w-4" />
+                            <>
+                                <Zap className="mr-2 h-4 w-4 fill-current" />
+                                Scan Market
+                            </>
                         )}
-                        {scanning ? 'Scanning...' : 'Scan Now'}
                     </Button>
+
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="gap-2 glass-panel border-white/20" suppressHydrationWarning>
-                                <ArrowUpDown className="h-4 w-4" />
+                            <Button variant="outline" className="glass-panel border-white/20">
+                                <ArrowUpDown className="mr-2 h-4 w-4" />
                                 Sort
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="glass-panel">
-                            <DropdownMenuItem onClick={() => setSortBy('rpm_high')} className={sortBy === 'rpm_high' ? 'bg-primary/10' : ''}>RPM: High to Low</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('rpm_low')} className={sortBy === 'rpm_low' ? 'bg-primary/10' : ''}>RPM: Low to High</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('newest')} className={sortBy === 'newest' ? 'bg-primary/10' : ''}>Newest First</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('price_high')} className={sortBy === 'price_high' ? 'bg-primary/10' : ''}>Price: High to Low</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('price_low')} className={sortBy === 'price_low' ? 'bg-primary/10' : ''}>Price: Low to High</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('pickup_soonest')} className={sortBy === 'pickup_soonest' ? 'bg-primary/10' : ''}>Pickup: Soonest</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('pickup_latest')} className={sortBy === 'pickup_latest' ? 'bg-primary/10' : ''}>Pickup: Latest</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('delivery_soonest')} className={sortBy === 'delivery_soonest' ? 'bg-primary/10' : ''}>Delivery: Soonest</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('delivery_latest')} className={sortBy === 'delivery_latest' ? 'bg-primary/10' : ''}>Delivery: Latest</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('distance_short')} className={sortBy === 'distance_short' ? 'bg-primary/10' : ''}>Distance: Shortest</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('deadhead_low')} className={sortBy === 'deadhead_low' ? 'bg-primary/10' : ''}>Deadhead: Lowest</DropdownMenuItem>
+                        <DropdownMenuContent align="end" className="w-56 glass-panel max-h-[400px] overflow-y-auto">
+                            <DropdownMenuItem onClick={() => setSortBy('price_high')}>
+                                Price: High to Low
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('price_low')}>
+                                Price: Low to High
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('rpm_high')}>
+                                RPM: High to Low
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('rpm_low')}>
+                                RPM: Low to High
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('deadhead_low')}>
+                                Deadhead: Shortest
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('deadhead_high')}>
+                                Deadhead: Longest
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('pickup_soonest')}>
+                                Pickup: Earliest
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('pickup_latest')}>
+                                Pickup: Latest
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('distance_short')}>
+                                Loaded miles: Lowest
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('distance_long')}>
+                                Loaded miles: Highest
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('weight_light')}>
+                                Weight: Lightest
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSortBy('weight_heavy')}>
+                                Weight: Heaviest
+                            </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -741,60 +812,59 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
 
             {/* --- COMMAND CENTER (Stats) --- */}
             <div className="space-y-4 mb-10">
-                <div>
-                    <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Command Center</p>
-                    <h2 className="text-xl font-semibold tracking-tight">Overview</h2>
-                </div>
-                <BentoGrid className="gap-4 md:gap-5">
+                {/* KPI Cards */}
+                <BentoGrid className="mb-8">
                     <BentoGridItem
                         title="System Status"
                         description="Operational"
-                        header={<div className={cn("text-3xl font-bold font-mono", loading ? "text-yellow-500" : "text-green-500")}>Online</div>}
+                        header={<div className={cn("text-3xl font-bold", loading ? "text-yellow-500" : "text-emerald-500")}>{loading ? 'Syncing...' : 'Online'}</div>}
                         icon={<Activity className="h-4 w-4 text-muted-foreground" />}
-                        className="md:col-span-1 border-l-4 border-l-green-500"
+                        className="md:col-span-1 glass-panel hover:bg-card/50"
                     />
                     <BentoGridItem
                         title="Active Fronthauls"
-                        description="Monitoring criteria"
-                        header={<div className="text-3xl font-bold font-mono text-primary">{activeScoutsCount}</div>}
-                        icon={<Search className="h-4 w-4 text-muted-foreground" />}
-                        className="md:col-span-1 border-l-4 border-l-primary"
-                    />
-                    <BentoGridItem
-                        title="Loads Found"
                         description={
                             <span>
-                                Matching Criteria
-                                <a href="/routes" className="block text-xs text-muted-foreground underline decoration-dotted underline-offset-4 hover:text-foreground">
-                                    Backhauls: {backhaulLoadsCount}
+                                Monitoring
+                                <a href="/routes" className="block text-xs text-muted-foreground hover:text-primary mt-1 underline decoration-dotted">
+                                    View {backhaulLoadsCount} Backhauls
                                 </a>
                             </span>
                         }
-                        header={<div className="text-3xl font-bold font-mono text-indigo-500">{totalLoadsCount}</div>}
-                        icon={<Truck className="h-4 w-4 text-muted-foreground" />}
-                        className="md:col-span-1 border-l-4 border-l-indigo-500"
+                        header={<div className="text-3xl font-bold text-primary">{totalLoadsCount}</div>}
+                        icon={<Search className="h-4 w-4 text-muted-foreground" />}
+                        className="md:col-span-1 glass-panel hover:bg-card/50"
                     />
                     <BentoGridItem
-                        title="Saved Loads"
-                        description="Interested"
-                        header={<div className="text-3xl font-bold font-mono text-orange-500">{interestedCount}</div>}
+                        title="Loads Acquired"
+                        description="Since last reset"
+                        header={<div className="text-3xl font-bold text-foreground">{totalLoadsCount}</div>}
+                        icon={<Truck className="h-4 w-4 text-muted-foreground" />}
+                        className="md:col-span-1 glass-panel hover:bg-card/50"
+                    />
+                    <BentoGridItem
+                        title="Saved Targets"
+                        description="High interest"
+                        header={<div className="text-3xl font-bold text-orange-500">{interestedCount}</div>}
                         icon={<Star className="h-4 w-4 text-muted-foreground" />}
-                        className="md:col-span-1 border-l-4 border-l-orange-500"
+                        className="md:col-span-1 glass-panel hover:bg-card/50"
                     />
                 </BentoGrid>
             </div>
 
             {/* --- FRONTHAULS DECK --- */}
-            <div className="space-y-4 rounded-2xl border border-slate-800/60 bg-slate-900/30 p-4">
+            <div className="space-y-4 rounded-sm border border-dashed border-border/50 bg-muted/30 p-4">
                 <div className="flex items-center justify-between">
                     <div className="space-y-1">
-                        <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Fronthauls</p>
-                        <h3 className="text-lg font-semibold flex items-center gap-2">
-                            <Map className="h-5 w-5 text-primary" />
+                        <div className="flex items-center gap-2">
+                            <div className="h-1.5 w-1.5 bg-primary rounded-full" />
+                            <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Logistics Feed</p>
+                        </div>
+                        <h3 className="text-lg font-bold font-mono uppercase text-foreground flex items-center gap-2">
                             Route Fronthauls
                         </h3>
                     </div>
-                    <span className="text-xs text-muted-foreground">{scoutMissions.length} routes</span>
+                    <span className="text-[10px] font-mono bg-background border border-border px-2 py-1 rounded-sm text-foreground/70">{scoutMissions.length} ROUTES ACTIVE</span>
                 </div>
 
                 {/* Batch Action Bar for Scouts */}

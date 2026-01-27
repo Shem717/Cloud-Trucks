@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { RoutePlanningBoard } from '@/components/route-planning-board';
+import { ThemeToggle } from "@/components/theme-toggle"
 
 export default async function RoutePlanningPage() {
     const supabase = await createClient();
@@ -46,11 +47,14 @@ export default async function RoutePlanningPage() {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Route Planning</h1>
-                <p className="text-muted-foreground">
-                    Connect your interested loads with backhaul searches to build profitable round trips.
-                </p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Route Planning</h1>
+                    <p className="text-muted-foreground">
+                        Connect your interested loads with backhaul searches to build profitable round trips.
+                    </p>
+                </div>
+                <ThemeToggle />
             </div>
 
             <RoutePlanningBoard

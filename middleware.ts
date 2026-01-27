@@ -65,13 +65,12 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/dashboard', request.url))
     }
 
-    // Redirect from home page based on auth status
+    // Redirect authenticated users from home to dashboard
     if (request.nextUrl.pathname === '/') {
         if (user) {
             return NextResponse.redirect(new URL('/dashboard', request.url))
-        } else {
-            return NextResponse.redirect(new URL('/login', request.url))
         }
+        // Allow unauthenticated users to see the landing page
     }
 
     return response

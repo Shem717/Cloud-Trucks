@@ -9,12 +9,12 @@ import Link from "next/link"
 export default function LoginPage() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-black text-white relative overflow-hidden">
-             {/* Background Effects */}
+            {/* Background Effects */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-black to-black pointer-events-none" />
 
             {/* Back Button / Nav */}
             <div className="absolute top-8 left-8">
-                 <Link href="/" className="flex items-center gap-2 font-bold text-lg tracking-tighter text-white/80 hover:text-white transition-colors">
+                <Link href="/" className="flex items-center gap-2 font-bold text-lg tracking-tighter text-white/80 hover:text-white transition-colors">
                     <Truck className="h-5 w-5 text-blue-500" />
                     <span>CloudTrucks<span className="text-blue-500">Scout</span></span>
                 </Link>
@@ -23,7 +23,7 @@ export default function LoginPage() {
             <Card className="w-full max-w-[400px] border-white/10 bg-black/50 backdrop-blur-xl shadow-2xl relative z-10 m-4">
                 <CardHeader className="space-y-3 text-center">
                     <div className="mx-auto w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center mb-2 ring-1 ring-blue-500/20">
-                         <Truck className="h-6 w-6 text-blue-500" />
+                        <Truck className="h-6 w-6 text-blue-500" />
                     </div>
                     <CardTitle className="text-2xl font-bold tracking-tight text-white">Welcome back</CardTitle>
                     <CardDescription className="text-gray-400">
