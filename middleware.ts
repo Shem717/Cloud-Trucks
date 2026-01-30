@@ -1,6 +1,30 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Security headers configuration
+const securityHeaders = {
+    'X-DNS-Prefetch-Control': 'on',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+    'X-Frame-Options': 'SAMEORIGIN',
+    'X-Content-Type-Options': 'nosniff',
+    'X-XSS-Protection': '1; mode=block',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+    // Content Security Policy
+    'Content-Security-Policy': [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://api.mapbox.com",
+        "style-src 'self' 'unsafe-inline' https://api.mapbox.com",
+        "img-src 'self' data: https: blob:",
+        "font-src 'self' data:",
+        "connect-src 'self' https://*.supabase.co https://api.mapbox.com https://api.open-meteo.com wss://*.supabase.co wss://ws-us3.pusher.com",
+        "worker-src 'self' blob:",
+        "frame-ancestors 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+    ].join('; '),
+};
+
 export async function middleware(request: NextRequest) {
     let response = NextResponse.next({
         request: {
@@ -72,6 +96,11 @@ export async function middleware(request: NextRequest) {
         }
         // Allow unauthenticated users to see the landing page
     }
+
+    // Apply security headers to all responses
+    Object.entries(securityHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+    });
 
     return response
 }

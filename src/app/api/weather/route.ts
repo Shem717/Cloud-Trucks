@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { weatherQuerySchema } from '@/lib/validators/api-validators';
+import { validateAndSanitize } from '@/lib/validators/common';
 
 // Open-Meteo weather codes to icons/descriptions
 const weatherCodes: Record<number, { icon: string; description: string }> = {
@@ -58,15 +60,21 @@ const cleanupCache = () => {
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
-    const lat = searchParams.get('lat');
-    const lon = searchParams.get('lon');
 
-    if (!lat || !lon) {
+    // Validate and sanitize coordinates
+    const validation = validateAndSanitize(weatherQuerySchema, {
+        lat: searchParams.get('lat'),
+        lon: searchParams.get('lon'),
+    });
+
+    if (!validation.success) {
         return NextResponse.json(
-            { error: 'Missing required parameters: lat, lon' },
+            { error: validation.error },
             { status: 400 }
         );
     }
+
+    const { lat, lon } = validation.data;
 
     const cacheKey = `${lat},${lon}`;
     const cached = cache.get(cacheKey);

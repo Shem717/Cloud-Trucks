@@ -2,6 +2,8 @@ import { NextResponse, NextRequest } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { getRequestContext } from '@/lib/request-context';
+import { paginationSchema } from '@/lib/validators/common';
+import { validateAndSanitize } from '@/lib/validators/common';
 
 const USER_LOADS_TABLE = 'found_loads';
 const USER_CRITERIA_TABLE = 'search_criteria';
@@ -9,10 +11,27 @@ const GUEST_LOADS_TABLE = 'guest_found_loads';
 const GUEST_CRITERIA_TABLE = 'guest_search_criteria';
 
 /**
- * GET /api/loads - Get user's found loads
+ * GET /api/loads - Get user's found loads with pagination
  */
 export async function GET(request: NextRequest) {
     try {
+        const { searchParams } = new URL(request.url);
+
+        // Validate pagination parameters
+        const paginationValidation = validateAndSanitize(paginationSchema, {
+            limit: searchParams.get('limit'),
+            offset: searchParams.get('offset'),
+        });
+
+        if (!paginationValidation.success) {
+            return NextResponse.json(
+                { error: paginationValidation.error },
+                { status: 400 }
+            );
+        }
+
+        const { limit, offset } = paginationValidation.data;
+
         const supabase = await createClient();
         const { userId, guestSession, isGuest } = await getRequestContext(request, supabase);
 
@@ -27,7 +46,7 @@ export async function GET(request: NextRequest) {
 
         // Fetch loads where the criteria belongs to the current user or guest session.
         // For guest mode, we store loads in guest_found_loads and join guest_search_criteria.
-        const { data, error } = await db
+        const { data, error, count } = await db
             .from(loadsTable)
             .select(`
                 *,
@@ -40,16 +59,25 @@ export async function GET(request: NextRequest) {
                     equipment_type,
                     ${isGuest ? 'guest_session' : 'user_id'}
                 )
-            `)
+            `, { count: 'exact' })
             .eq(`${criteriaJoin}.${isGuest ? 'guest_session' : 'user_id'}`, isGuest ? guestSession : userId)
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
 
         if (error) {
             console.error('Error fetching loads:', error);
             return NextResponse.json({ error: 'Failed to fetch loads' }, { status: 500 });
         }
 
-        return NextResponse.json({ data });
+        return NextResponse.json({
+            data,
+            pagination: {
+                total: count || 0,
+                limit,
+                offset,
+                hasMore: (count || 0) > offset + limit,
+            },
+        });
 
     } catch (error) {
         console.error('API error:', error);

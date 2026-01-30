@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run security audit before push
+npm run security:audit
+
+# Run tests if they exist
+npm run test:ci 2>/dev/null || true
