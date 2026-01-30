@@ -33,10 +33,10 @@ export async function logAudit(entry: AuditLogEntry): Promise<void> {
       user_id: entry.userId || null,
       action: entry.action,
       resource_type: entry.resourceType,
-      resource_id: entry.resourceId,
-      details: entry.details || {},
-      ip_address: entry.ipAddress,
-      user_agent: entry.userAgent,
+      resource_id: entry.resourceId || null,
+      details: (entry.details as any) || null,
+      ip_address: entry.ipAddress || null,
+      user_agent: entry.userAgent || null,
     });
 
     if (error) {

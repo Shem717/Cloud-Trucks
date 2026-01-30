@@ -37,6 +37,12 @@
     "**/*.mts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/__tests__/**",
+    "src/test/**",
+    "jest.config.js",
+    "jest.setup.js"
   ]
 }

@@ -14,6 +14,7 @@ export const paginationSchema = z.object({
   offset: z.coerce.number().min(0).default(0),
 });
 
+// Simple sanitization function - use in preprocess, not transform
 export const sanitizeString = (str: string, maxLength: number = 1000): string => {
   return str.slice(0, maxLength).trim();
 };
@@ -29,7 +30,7 @@ export const validateAndSanitize = <T>(
     if (error instanceof z.ZodError) {
       return {
         success: false,
-        error: error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
+        error: error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', '),
       };
     }
     return { success: false, error: 'Validation failed' };

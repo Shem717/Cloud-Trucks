@@ -25,9 +25,9 @@ export function validateEnv() {
   } catch (error) {
     if (error instanceof z.ZodError) {
       console.error('❌ Invalid environment variables:');
-      console.error(error.errors);
+      console.error(error.issues);
       throw new Error(
-        `Environment validation failed:\n${error.errors
+        `Environment validation failed:\n${error.issues
           .map((e) => `  - ${e.path.join('.')}: ${e.message}`)
           .join('\n')}`
       );
