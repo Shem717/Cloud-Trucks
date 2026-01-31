@@ -28,6 +28,8 @@ interface EditCriteriaDialogProps {
     onOpenChange: (open: boolean) => void;
     criteria: EnrichedCriteria;
     onSuccess: () => void;
+    onScanStart?: (id: string) => void;
+    onScanComplete?: (id: string) => void;
 }
 
 // Reused styles
@@ -37,7 +39,7 @@ const FieldLabel = ({ children }: { children: React.ReactNode }) => (
 
 const inputStyles = "bg-slate-900/50 border-slate-600 h-10 text-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium text-sm rounded-md placeholder:text-slate-600";
 
-export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess }: EditCriteriaDialogProps) {
+export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess, onScanStart, onScanComplete }: EditCriteriaDialogProps) {
     const [submitting, setSubmitting] = useState(false);
 
     // State for controlled inputs - both origin and destination use arrays for multi-state select
@@ -157,14 +159,17 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess }: 
 
             // Trigger background scan to fetch fresh loads matching new criteria (fire-and-forget)
             console.log('[EDIT DIALOG] Triggering scan for criteria:', criteria.id);
+            if (onScanStart) onScanStart(criteria.id);
             fetch('/api/scan', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ criteriaId: criteria.id })
             }).then(res => {
                 console.log('[EDIT DIALOG] Scan response:', res.status, res.ok);
+                if (onScanComplete) onScanComplete(criteria.id);
             }).catch(err => {
                 console.error('[EDIT DIALOG] Scan failed:', err);
+                if (onScanComplete) onScanComplete(criteria.id);
             });
 
         } catch (error) {

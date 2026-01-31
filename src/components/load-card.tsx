@@ -26,9 +26,12 @@ interface LoadCardProps {
     isSaved: boolean;
     onToggleSaved: (e: React.MouseEvent) => void;
     onViewMap: (e: React.MouseEvent) => void;
+    cabbieMode?: boolean;
+    mpg?: number;
+    fuelPrice?: number;
 }
 
-export function LoadCard({ load, isSaved, onToggleSaved, onViewMap }: LoadCardProps) {
+export function LoadCard({ load, isSaved, onToggleSaved, onViewMap, cabbieMode, mpg = 6.5, fuelPrice = 3.80 }: LoadCardProps) {
     const [isExpanded, setIsExpanded] = useState(false);
 
     // --- Derived Data ---
@@ -42,6 +45,11 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap }: LoadCardPr
     const rawDist = details.distance || details.trip_distance_mi;
     const dist = typeof rawDist === 'string' ? parseFloat(rawDist) : rawDist;
     const rpm = (rate && dist) ? (rate / dist).toFixed(2) : null;
+
+    // Fuel & Net Calculations
+    const estimatedFuelCost = (dist / mpg) * fuelPrice;
+    const netProfit = rate ? rate - estimatedFuelCost : 0;
+    const netRpm = (netProfit && dist) ? (netProfit / dist).toFixed(2) : null;
 
     // Dates
     const pickupDate = details.pickup_date || details.origin_pickup_date;
@@ -98,17 +106,19 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap }: LoadCardPr
                 </div>
 
                 {/* --- Row 2: Broker & Time (mono style) --- */}
-                <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
-                    {details.broker_name && (
-                        <>
-                            <BrokerLogo name={details.broker_name} size="sm" />
-                            <span className="truncate max-w-[100px] uppercase">{details.broker_name}</span>
-                        </>
-                    )}
-                    <span className="ml-auto">
-                        {new Date(load.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase()}
-                    </span>
-                </div>
+                {!cabbieMode && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
+                        {details.broker_name && (
+                            <>
+                                <BrokerLogo name={details.broker_name} size="sm" />
+                                <span className="truncate max-w-[100px] uppercase">{details.broker_name}</span>
+                            </>
+                        )}
+                        <span className="ml-auto">
+                            {new Date(load.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase()}
+                        </span>
+                    </div>
+                )}
 
                 {/* --- Row 3: Route (Vertical with dotted line) --- */}
                 <div className="space-y-1 py-2">
@@ -132,25 +142,58 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap }: LoadCardPr
                             <div className="w-2 h-2 rounded-full bg-rose-500" />
                             <span className="font-semibold text-foreground">{dest}</span>
                         </div>
-                        <WeatherBadge lat={details.dest_lat} lon={details.dest_lon} city={details.dest_city} state={details.dest_state} size="sm" />
+                        <WeatherBadge
+                            lat={details.dest_lat}
+                            lon={details.dest_lon}
+                            city={details.dest_city}
+                            state={details.dest_state}
+                            size="sm"
+                            etaHours={dist ? dist / 50 : undefined}
+                        />
                     </div>
                 </div>
 
                 {/* --- Row 4: Rate, Profit, Miles (inline) --- */}
-                <div className="flex items-center gap-3 flex-wrap border-t border-dashed border-border/50 pt-3">
-                    <span className="text-2xl font-bold text-emerald-500 tracking-tight">
-                        ${rate?.toLocaleString()}
-                    </span>
+                <div className={cn(
+                    "flex items-center gap-3 flex-wrap pt-3",
+                    cabbieMode ? "border-t-2 border-dashed border-border/50 justify-between" : "border-t border-dashed border-border/50"
+                )}>
+                    <div className="flex flex-col">
+                        <span className={cn(
+                            "font-bold text-emerald-500 tracking-tight leading-none",
+                            cabbieMode ? "text-4xl" : "text-2xl"
+                        )}>
+                            ${rate?.toLocaleString()}
+                        </span>
+                        {/* Net Profit Subtext */}
+                        {netProfit > 0 && (
+                            <span className="text-[10px] uppercase font-mono text-muted-foreground mt-0.5">
+                                Net: <span className="text-emerald-400 font-bold">${Math.round(netProfit).toLocaleString()}</span>
+                            </span>
+                        )}
+                    </div>
                     <ProfitBadge revenuePerHour={details.estimated_revenue_per_hour} />
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Truck className="h-4 w-4" />
+                    <div className={cn(
+                        "flex items-center gap-1 text-muted-foreground",
+                        cabbieMode ? "text-lg" : "text-sm"
+                    )}>
+                        <Truck className={cn(cabbieMode ? "h-6 w-6" : "h-4 w-4")} />
                         <span className="font-semibold text-foreground">{dist}mi</span>
                     </div>
                 </div>
 
                 {/* --- Row 5: RPM & Solo/Team --- */}
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                    {rpm && <span className="flex items-center gap-1"><DollarSign className="h-3 w-3" />${rpm}/mi</span>}
+                    {rpm && (
+                        <div className="flex items-center gap-2">
+                            <span className="flex items-center gap-1"><DollarSign className="h-3 w-3" />${rpm}/mi</span>
+                            {netRpm && (
+                                <span className={cn("text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/30 text-emerald-400 border border-emerald-500/20", cabbieMode && "text-xs px-2")}>
+                                    Net: ${netRpm}
+                                </span>
+                            )}
+                        </div>
+                    )}
                     <Badge variant="secondary" className="text-[10px] font-mono uppercase gap-1">
                         {isTeam ? <Users className="h-3 w-3" /> : <User className="h-3 w-3" />}
                         {isTeam ? 'Team' : 'Solo'}
@@ -184,22 +227,26 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap }: LoadCardPr
             <div className="border-t border-border bg-muted/30 p-3 flex justify-center gap-3" onClick={(e) => e.stopPropagation()}>
                 <Button
                     variant="outline"
-                    size="sm"
-                    className="gap-2 bg-card hover:bg-muted border-border"
+                    size={cabbieMode ? "lg" : "sm"}
+                    className={cn(
+                        "gap-2 bg-card hover:bg-muted border-border",
+                        cabbieMode ? "flex-1 h-12 text-lg" : ""
+                    )}
                     onClick={onViewMap}
                 >
-                    <Map className="h-4 w-4" />
+                    <Map className={cn("h-4 w-4", cabbieMode && "h-6 w-6")} />
                     Route
                 </Button>
                 <Button
-                    size="sm"
+                    size={cabbieMode ? "lg" : "sm"}
                     className={cn(
                         "gap-2",
-                        isSaved ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                        isSaved ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white",
+                        cabbieMode ? "flex-1 h-12 text-lg" : ""
                     )}
                     onClick={onToggleSaved}
                 >
-                    <Star className={cn("h-4 w-4", isSaved && "fill-current")} />
+                    <Star className={cn("h-4 w-4", isSaved && "fill-current", cabbieMode && "h-6 w-6")} />
                     Save
                 </Button>
             </div>

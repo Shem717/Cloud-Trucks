@@ -30,6 +30,7 @@ export const BentoGridItem = ({
     children,
     onClick,
     span = 1,
+    isLoading,
 }: {
     className?: string;
     title?: string | React.ReactNode;
@@ -39,6 +40,7 @@ export const BentoGridItem = ({
     children?: ReactNode;
     onClick?: () => void;
     span?: 1 | 2 | 3 | 4; // Span columns
+    isLoading?: boolean;
 }) => {
     return (
         <motion.div
@@ -47,7 +49,7 @@ export const BentoGridItem = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
             className={cn(
-                "row-span-1 rounded-xl group/bento hover:shadow-xl transition duration-200 shadow-input glass-panel p-4 justify-between flex flex-col space-y-4",
+                "row-span-1 rounded-xl group/bento hover:shadow-xl transition duration-200 shadow-input glass-panel p-4 justify-between flex flex-col space-y-4 overflow-hidden relative",
                 span === 2 && "md:col-span-2",
                 span === 3 && "md:col-span-3",
                 span === 4 && "md:col-span-4",
@@ -57,6 +59,11 @@ export const BentoGridItem = ({
             )}
             onClick={onClick}
         >
+            {isLoading && (
+                <div className="absolute inset-0 z-50 bg-white/10 dark:bg-black/10 backdrop-blur-[1px]">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 animate-shimmer" />
+                </div>
+            )}
             {header}
             <div className="group-hover/bento:translate-x-2 transition duration-200">
                 {icon}

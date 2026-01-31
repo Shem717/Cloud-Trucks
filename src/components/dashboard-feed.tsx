@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useInView } from 'react-intersection-observer';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, DollarSign, Weight, Calendar, Truck, Activity, Filter, RefreshCw, Trash2, Zap, Star, ArrowUpDown, AlertTriangle, ArrowLeftRight, Search, Map, Pencil, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react'
+import { MapPin, DollarSign, Weight, Calendar, Truck, Activity, Filter, RefreshCw, Trash2, Zap, Star, ArrowUpDown, AlertTriangle, ArrowLeftRight, Search, Map, Pencil, ChevronDown, ChevronUp, ArrowRight, Fuel, Bell } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -21,6 +22,7 @@ import { MapboxIntelligenceModal } from "./mapbox-intelligence-modal"
 import { EditCriteriaDialog } from "@/components/edit-criteria-dialog"
 import { BentoGrid, BentoGridItem } from "@/components/ui/bento-grid";
 import { LoadCard } from "@/components/load-card";
+import { FuelSettingsDialog } from "@/components/fuel-settings-dialog";
 import { ThemeToggle } from "@/components/theme-toggle"; // Added import
 
 type SortOption = 'newest' | 'price_high' | 'price_low' | 'rpm_high' | 'rpm_low' | 'deadhead_low' | 'deadhead_high' | 'pickup_soonest' | 'pickup_latest' | 'distance_short' | 'distance_long' | 'weight_light' | 'weight_heavy';
@@ -80,7 +82,67 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
     const [editingCriteria, setEditingCriteria] = useState<EnrichedCriteria | null>(null) // Edit Modal State
     const [expandedLoadId, setExpandedLoadId] = useState<string | null>(null) // Expandable Details State
     const [bookingTypeFilter, setBookingTypeFilter] = useState<'all' | 'instant' | 'standard'>('all') // Booking type filter
+    const [scanningCriteriaIds, setScanningCriteriaIds] = useState<Set<string>>(new Set()) // Track active scans for progressive feedback
+    const [cabbieMode, setCabbieMode] = useState(false) // Toggle for high-contrast driver mode
+    const [showFuelSettings, setShowFuelSettings] = useState(false)
+    const [fuelMpg, setFuelMpg] = useState(6.5)
+    const [fuelPrice, setFuelPrice] = useState(3.80)
+    const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+    const [visibleCount, setVisibleCount] = useState(20)
+    const { ref: loadMoreRef, inView } = useInView()
 
+    useEffect(() => {
+        if (inView) {
+            setVisibleCount(prev => prev + 20);
+        }
+    }, [inView]);
+
+    useEffect(() => {
+        if ('Notification' in window) {
+            setNotificationsEnabled(Notification.permission === 'granted');
+        }
+    }, []);
+
+    const requestNotificationPermission = useCallback(async () => {
+        if (!('Notification' in window)) return;
+        const permission = await Notification.requestPermission();
+        setNotificationsEnabled(permission === 'granted');
+        if (permission === 'granted') {
+            new Notification('CloudTrucks Scout', { body: 'Hot Load Alerts Enabled!' });
+        }
+    }, []);
+
+    const checkForHotLoads = useCallback((newLoads: SavedLoad[]) => {
+        if (!notificationsEnabled) return;
+        const hotLoads = newLoads.filter(l => {
+            const rate = typeof l.details.rate === 'string' ? parseFloat(l.details.rate) : l.details.rate;
+            const dist = typeof l.details.distance === 'string' ? parseFloat(l.details.distance) : l.details.distance;
+            if (!rate || !dist) return false;
+            const rpm = rate / dist;
+            return rpm >= 3.0;
+        });
+
+        if (hotLoads.length > 0) {
+            new Notification('High Value Loads Found!', {
+                body: `${hotLoads.length} loads found showing > $3.00/mi. Top: $${hotLoads[0].details.rate}`,
+                icon: '/icon-192x192.png'
+            });
+        }
+    }, [notificationsEnabled]);
+
+    useEffect(() => {
+        const savedMpg = localStorage.getItem('cloudtrucks_mpg');
+        const savedPrice = localStorage.getItem('cloudtrucks_fuel_price');
+        if (savedMpg) setFuelMpg(parseFloat(savedMpg));
+        if (savedPrice) setFuelPrice(parseFloat(savedPrice));
+    }, []);
+
+    const handleSaveFuelSettings = (mpg: number, price: number) => {
+        setFuelMpg(mpg);
+        setFuelPrice(price);
+        localStorage.setItem('cloudtrucks_mpg', mpg.toString());
+        localStorage.setItem('cloudtrucks_fuel_price', price.toString());
+    };
 
     const checkCredentials = useCallback(async () => {
         if (isPublic) {
@@ -123,6 +185,10 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
             const criteriaData: EnrichedCriteria[] = criteriaResult.data || [];
 
             setLoads(loadsData);
+
+            // Check for hot loads
+            checkForHotLoads(loadsData);
+
             setCriteriaList(criteriaData);
 
             // Stats: in "trash" view, criteriaData is deleted criteria; fetch active criteria count once.
@@ -155,6 +221,20 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
             setLoading(false)
         }
     }, [viewMode]);
+
+    const handleScanStart = useCallback((id: string) => {
+        setScanningCriteriaIds(prev => new Set(prev).add(id));
+    }, []);
+
+    const handleScanComplete = useCallback((id: string) => {
+        setScanningCriteriaIds(prev => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+        });
+        // Also refresh data to show new results
+        fetchData();
+    }, [fetchData]);
 
     useEffect(() => {
         // Set initial date on mount to avoid hydration mismatch
@@ -748,6 +828,42 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     </div>
 
                     <Button
+                        variant={cabbieMode ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCabbieMode(!cabbieMode)}
+                        className={cn(
+                            "transition-all font-bold uppercase tracking-wider",
+                            cabbieMode ? "bg-yellow-500 hover:bg-yellow-600 text-black border-yellow-500" : "text-muted-foreground border-dashed"
+                        )}
+                    >
+                        <Truck className="mr-2 h-4 w-4" />
+                        {cabbieMode ? "Cabbie Mode: ON" : "Cabbie Mode"}
+                    </Button>
+
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowFuelSettings(true)}
+                        className="glass-panel border-white/20 text-amber-500 hover:text-amber-400"
+                    >
+                        <Fuel className="mr-2 h-4 w-4" />
+                        Settings
+                    </Button>
+
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={requestNotificationPermission}
+                        className={cn(
+                            "glass-panel border-white/20",
+                            notificationsEnabled ? "text-green-500 hover:text-green-400" : "text-slate-500 hover:text-slate-400"
+                        )}
+                        title={notificationsEnabled ? "Alerts Active" : "Enable Alerts"}
+                    >
+                        <Bell className={cn("h-4 w-4", notificationsEnabled && "fill-current")} />
+                    </Button>
+
+                    <Button
                         onClick={handleScan}
                         disabled={scanning}
                         className={cn(
@@ -935,6 +1051,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                         return (
                             <BentoGridItem
                                 key={mission.criteria.id}
+                                isLoading={scanningCriteriaIds.has(mission.criteria.id)}
                                 className={cn(
                                     "cursor-pointer border-l-4 relative",
                                     isSelected ? "border-l-blue-500 ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-950/20" :
@@ -1148,7 +1265,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     </div>
                 ) : (
                     <BentoGrid>
-                        {filteredLoads.map((load) => {
+                        {filteredLoads.slice(0, visibleCount).map((load) => {
                             const isSaved = savedLoadIds.has(load.details.id);
 
                             return (
@@ -1158,9 +1275,17 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                     isSaved={isSaved}
                                     onToggleSaved={(e) => { e.stopPropagation(); handleToggleSaved(load); }}
                                     onViewMap={(e) => { e.stopPropagation(); setSelectedLoadForMap(load); }}
+                                    cabbieMode={cabbieMode}
+                                    mpg={fuelMpg}
+                                    fuelPrice={fuelPrice}
                                 />
                             );
                         })}
+                        {filteredLoads.length > visibleCount && (
+                            <div ref={loadMoreRef} className="col-span-full h-24 flex items-center justify-center">
+                                <Activity className="h-6 w-6 animate-spin text-muted-foreground" />
+                            </div>
+                        )}
                     </BentoGrid>
                 )}
             </div>
@@ -1184,6 +1309,13 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     }}
                 />
             )}
+            <FuelSettingsDialog
+                open={showFuelSettings}
+                onOpenChange={setShowFuelSettings}
+                currentMpg={fuelMpg}
+                currentFuelPrice={fuelPrice}
+                onSave={handleSaveFuelSettings}
+            />
         </div>
     )
 }

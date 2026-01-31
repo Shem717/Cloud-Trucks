@@ -34,6 +34,7 @@ interface WeatherBadgeProps {
     className?: string;
     size?: "sm" | "md";
     showForecast?: boolean;
+    etaHours?: number;
 }
 
 // Simple geocoding cache
@@ -67,7 +68,7 @@ async function geocodeCity(city: string, state: string): Promise<{ lat: number; 
     }
 }
 
-export function WeatherBadge({ lat, lon, city, state, className, size = "sm", showForecast = true }: WeatherBadgeProps) {
+export function WeatherBadge({ lat, lon, city, state, className, size = "sm", showForecast = true, etaHours }: WeatherBadgeProps) {
 
     const [weather, setWeather] = useState<WeatherData | null>(null);
     const [loading, setLoading] = useState(false);
@@ -132,6 +133,9 @@ export function WeatherBadge({ lat, lon, city, state, className, size = "sm", sh
                     )}>
                         <span>{weather.current.icon}</span>
                         <span className="font-medium">{weather.current.temperature}°</span>
+                        {etaHours && etaHours > 4 && (
+                            <span className="text-[10px] uppercase font-bold text-amber-500 ml-1 border border-amber-500/50 px-1 rounded bg-amber-500/10">Forecast</span>
+                        )}
                     </span>
                 </TooltipTrigger>
                 <TooltipContent className="w-64 p-3" side="top">
@@ -147,7 +151,7 @@ export function WeatherBadge({ lat, lon, city, state, className, size = "sm", sh
                         </div>
 
                         <div className="flex justify-between text-xs">
-                            <span>Current: {weather.current.temperature}°F</span>
+                            <span>{etaHours && etaHours > 4 ? `Forecast (ETA +${Math.round(etaHours)}h):` : 'Current:'} {weather.current.temperature}°F</span>
                             <span>Wind: {weather.current.windSpeed} mph</span>
                         </div>
 

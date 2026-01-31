@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-    Phone, Mail, ShieldCheck, Truck, Scale, AlertTriangle, 
+import {
+    Phone, Mail, ShieldCheck, Truck, Scale, AlertTriangle,
     Droplets, HandCoins, Receipt, Castle, Calculator, MapPin, Navigation
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
@@ -30,6 +30,7 @@ interface TrustModuleProps {
     mcNumber?: string;
     phone?: string;
     email?: string;
+    score?: number; // 0-100
 }
 
 interface AddressModuleProps {
@@ -59,7 +60,7 @@ const safeFloat = (val: number | string | undefined): number | null => {
 
 export function FinancialsModule({ fuelCost, tollCost, tripRate }: FinancialsModuleProps) {
     const [showProfit, setShowProfit] = useState(false);
-    
+
     const safeTripRate = safeFloat(tripRate) || 0;
     const safeFuel = safeFloat(fuelCost) || 0;
     const safeTolls = safeFloat(tollCost) || 0;
@@ -99,16 +100,16 @@ export function FinancialsModule({ fuelCost, tollCost, tripRate }: FinancialsMod
                                 </div>
                             </div>
                             <div className="text-right">
-                                 <div className="text-xs text-muted-foreground">Margin</div>
-                                 <div className="font-mono text-sm font-medium">{margin.toFixed(0)}%</div>
+                                <div className="text-xs text-muted-foreground">Margin</div>
+                                <div className="font-mono text-sm font-medium">{margin.toFixed(0)}%</div>
                             </div>
                         </div>
                     </div>
                 ) : (
                     <div className="col-span-2">
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
+                        <Button
+                            variant="outline"
+                            size="sm"
                             className="w-full gap-2 text-muted-foreground hover:text-foreground"
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -131,20 +132,20 @@ export function LogisticsModule({ originDeadhead, destDeadhead, truckLength, wei
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                 <Truck className="h-3 w-3" /> Logistics
             </h4>
-            
+
             <div className="grid grid-cols-2 gap-2">
-                 <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1">
                     <div className="text-xs text-muted-foreground">Deadhead (Org/Dst)</div>
                     <div className="font-mono text-sm">
                         {originDeadhead ?? '?'}mi / {destDeadhead ?? '?'}mi
                     </div>
-                 </div>
-                 <div className="flex flex-col gap-1">
+                </div>
+                <div className="flex flex-col gap-1">
                     <div className="text-xs text-muted-foreground">Truck Req</div>
-                     <div className="font-mono text-sm">
+                    <div className="font-mono text-sm">
                         {truckLength ? `${truckLength}ft` : 'Any'} • {(weight / 1000).toFixed(1)}k lbs
                     </div>
-                 </div>
+                </div>
             </div>
 
             <div className="flex flex-wrap gap-2 mt-2">
@@ -166,17 +167,39 @@ export function LogisticsModule({ originDeadhead, destDeadhead, truckLength, wei
     );
 }
 
-export function TrustModule({ brokerName, mcNumber, phone, email }: TrustModuleProps) {
+export function TrustModule({ brokerName, mcNumber, phone, email, score = 95 }: TrustModuleProps) {
+    // Mock score logic if not provided
+    const displayScore = score;
+    let scoreColor = "bg-emerald-500";
+    let scoreLabel = "Excellent";
+    if (displayScore < 70) {
+        scoreColor = "bg-rose-500";
+        scoreLabel = "Risk";
+    } else if (displayScore < 90) {
+        scoreColor = "bg-amber-500";
+        scoreLabel = "Good";
+    }
+
     return (
         <div className="space-y-3">
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                 <ShieldCheck className="h-3 w-3" /> Trust & Contact
             </h4>
-            
+
             <div className="bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 p-3">
-                <div className="font-medium text-sm mb-1">{brokerName}</div>
+                <div className="flex justify-between items-start mb-2">
+                    <div className="font-medium text-sm">{brokerName}</div>
+                    <div className="text-right">
+                        <div className="text-[10px] text-muted-foreground uppercase">Credit Score</div>
+                        <div className="flex items-center gap-1 justify-end">
+                            <div className={`w-2 h-2 rounded-full ${scoreColor}`} />
+                            <span className="font-mono font-bold text-sm">{displayScore}</span>
+                        </div>
+                    </div>
+                </div>
+
                 {mcNumber && (
-                    <a 
+                    <a
                         href={`https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=MC_MX&query_string=${mcNumber}`}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -186,12 +209,12 @@ export function TrustModule({ brokerName, mcNumber, phone, email }: TrustModuleP
                         <Castle className="h-3 w-3" /> MC#{mcNumber} (Verify on SAFER)
                     </a>
                 )}
-                
+
                 <Separator className="my-2" />
-                
+
                 <div className="grid grid-cols-2 gap-2 mt-2">
                     {phone ? (
-                         <Button variant="outline" size="sm" className="h-8 gap-2 w-full" onClick={(e) => { e.stopPropagation(); window.open(`tel:${phone}`); }}>
+                        <Button variant="outline" size="sm" className="h-8 gap-2 w-full" onClick={(e) => { e.stopPropagation(); window.open(`tel:${phone}`); }}>
                             <Phone className="h-3 w-3" /> Call
                         </Button>
                     ) : (
@@ -199,13 +222,13 @@ export function TrustModule({ brokerName, mcNumber, phone, email }: TrustModuleP
                             <Phone className="h-3 w-3" /> No Phone
                         </Button>
                     )}
-                    
+
                     {email ? (
                         <Button variant="outline" size="sm" className="h-8 gap-2 w-full" onClick={(e) => { e.stopPropagation(); window.open(`mailto:${email}`); }}>
                             <Mail className="h-3 w-3" /> Email
                         </Button>
                     ) : (
-                         <Button variant="outline" size="sm" className="h-8 gap-2 w-full" disabled>
+                        <Button variant="outline" size="sm" className="h-8 gap-2 w-full" disabled>
                             <Mail className="h-3 w-3" /> No Email
                         </Button>
                     )}
@@ -226,10 +249,10 @@ export function AddressModule({ originAddress, destAddress, originCity, originSt
         const zip = stop?.location_zip || stop?.zip || '';
         const lat = stop?.location_lat;
         const lon = stop?.location_long || stop?.location_lon;
-        
+
         const fullAddress = [addr1, addr2].filter(Boolean).join(', ');
         const cityStateZip = [city, state].filter(Boolean).join(', ') + (zip ? ` ${zip}` : '');
-        
+
         return {
             address: fullAddress,
             cityStateZip,
@@ -242,13 +265,13 @@ export function AddressModule({ originAddress, destAddress, originCity, originSt
             type: stop?.type || stop?.type_detail || '',
         };
     };
-    
+
     // Find origin and destination stops
     const originStop = (stops || []).find((s: any) => s.type === 'ORIGIN' || s.type_detail === 'PICKUP');
     const destStop = (stops || []).find((s: any) => s.type === 'DESTINATION' || s.type_detail === 'DELIVERY');
-    
-    const origin = originStop ? extractStopAddress(originStop) : { 
-        address: originAddress || '', 
+
+    const origin = originStop ? extractStopAddress(originStop) : {
+        address: originAddress || '',
         cityStateZip: `${originCity}, ${originState}`,
         city: originCity,
         state: originState,
@@ -256,9 +279,9 @@ export function AddressModule({ originAddress, destAddress, originCity, originSt
         lat: null,
         lon: null,
     };
-    
-    const dest = destStop ? extractStopAddress(destStop) : { 
-        address: destAddress || '', 
+
+    const dest = destStop ? extractStopAddress(destStop) : {
+        address: destAddress || '',
         cityStateZip: `${destCity}, ${destState}`,
         city: destCity,
         state: destState,
@@ -266,15 +289,15 @@ export function AddressModule({ originAddress, destAddress, originCity, originSt
         lat: null,
         lon: null,
     };
-    
+
     // Get any additional stops (not origin/destination)
     const additionalStops = (stops || [])
         .filter((s: any) => s.type !== 'ORIGIN' && s.type !== 'DESTINATION')
         .map(extractStopAddress)
         .filter(s => s.hasAddress);
-    
+
     const hasAnyAddressData = origin.hasAddress || dest.hasAddress || additionalStops.length > 0;
-    
+
     const openInMaps = (address: string, city: string, state: string, lat?: number, lon?: number) => {
         if (lat && lon) {
             window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`, '_blank');
@@ -282,7 +305,7 @@ export function AddressModule({ originAddress, destAddress, originCity, originSt
             window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address + ', ' + city + ', ' + state)}`, '_blank');
         }
     };
-    
+
     if (!hasAnyAddressData) {
         return (
             <div className="space-y-3">
@@ -300,13 +323,13 @@ export function AddressModule({ originAddress, destAddress, originCity, originSt
             </div>
         );
     }
-    
+
     return (
         <div className="space-y-3">
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                 <MapPin className="h-3 w-3" /> Addresses
             </h4>
-            
+
             <div className="space-y-2">
                 {/* Origin Address */}
                 <div className="p-3 rounded-md bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/50">
@@ -324,9 +347,9 @@ export function AddressModule({ originAddress, destAddress, originCity, originSt
                             )}
                         </div>
                         {origin.hasAddress && (
-                            <Button 
-                                variant="ghost" 
-                                size="sm" 
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 className="h-7 px-2 text-xs"
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -338,7 +361,7 @@ export function AddressModule({ originAddress, destAddress, originCity, originSt
                         )}
                     </div>
                 </div>
-                
+
                 {/* Destination Address */}
                 <div className="p-3 rounded-md bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/50">
                     <div className="flex items-start gap-2">
@@ -355,9 +378,9 @@ export function AddressModule({ originAddress, destAddress, originCity, originSt
                             )}
                         </div>
                         {dest.hasAddress && (
-                            <Button 
-                                variant="ghost" 
-                                size="sm" 
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 className="h-7 px-2 text-xs"
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -369,7 +392,7 @@ export function AddressModule({ originAddress, destAddress, originCity, originSt
                         )}
                     </div>
                 </div>
-                
+
                 {/* Additional stops with addresses */}
                 {additionalStops.length > 0 && (
                     <div className="space-y-2 pt-2 border-t border-dashed">
@@ -383,9 +406,9 @@ export function AddressModule({ originAddress, destAddress, originCity, originSt
                                         <div className="text-sm font-medium mt-0.5">{stop.address}</div>
                                         <div className="text-xs text-muted-foreground">{stop.cityStateZip}</div>
                                     </div>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="sm" 
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
                                         className="h-7 px-2 text-xs"
                                         onClick={(e) => {
                                             e.stopPropagation();
