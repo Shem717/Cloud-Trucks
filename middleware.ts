@@ -89,14 +89,6 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/dashboard', request.url))
     }
 
-    // Redirect authenticated users from home to dashboard
-    if (request.nextUrl.pathname === '/') {
-        if (user) {
-            return NextResponse.redirect(new URL('/dashboard', request.url))
-        }
-        // Allow unauthenticated users to see the landing page
-    }
-
     // Apply security headers to all responses
     Object.entries(securityHeaders).forEach(([key, value]) => {
         response.headers.set(key, value);
