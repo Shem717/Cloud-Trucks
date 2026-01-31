@@ -153,7 +153,11 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess }: 
 
             // Trigger background scan to fetch fresh loads matching new criteria
             try {
-                fetch('/api/scan', { method: 'POST' }).catch(err => {
+                fetch('/api/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ criteriaId: criteria.id })
+                }).catch(err => {
                     console.warn('Background scan failed:', err);
                     // Non-fatal - user can manually scan later
                 });

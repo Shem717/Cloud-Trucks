@@ -582,9 +582,15 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
         const loadWeight = typeof weight === 'string' ? parseFloat(weight) : weight;
 
         // Rate & RPM Filters
-        if (criteria.min_rate != null && rate < criteria.min_rate) return false;
+        if (criteria.min_rate != null && rate < criteria.min_rate) {
+            // console.log(`[FILTER] Load ${load.id} filtered by rate: ${rate} < ${criteria.min_rate}`);
+            return false;
+        }
         if (criteria.min_rpm != null) {
-            if (!rpm || rpm < criteria.min_rpm) return false;
+            if (!rpm || rpm < criteria.min_rpm) {
+                // console.log(`[FILTER] Load ${load.id} filtered by RPM: ${rpm?.toFixed(2)} < ${criteria.min_rpm}`);
+                return false;
+            }
         }
 
         // Weight Filter (Instant)
@@ -738,9 +744,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     </div>
 
                     <Button
-                        onClick={() => {
-                            setScanning(true);
-                        }}
+                        onClick={handleScan}
                         disabled={scanning}
                         className={cn(
                             "bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6 shadow-lg transition-all hover:scale-105",

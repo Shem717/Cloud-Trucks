@@ -127,7 +127,12 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
 
                     // Trigger a scan explicitly (more reliable on Vercel than background fire-and-forget).
                     try {
-                        await fetch('/api/scan', { method: 'POST' })
+                        const criteriaId = result.criteria?.id;
+                        await fetch('/api/scan', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: criteriaId ? JSON.stringify({ criteriaId }) : undefined
+                        })
                     } catch {
                         // Non-fatal; user can still click "Scan Now".
                     }
@@ -163,7 +168,7 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
             <form onSubmit={handleSubmit}>
                 {/* Control Bar Container */}
                 <div className="relative p-1 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-700/50 shadow-2xl">
-                    <div className="relative z-10 bg-slate-900/60 backdrop-blur-md rounded-xl p-4 gap-4 flex flex-col xl:flex-row xl:items-end">
+                    <div className="relative z-10 bg-slate-900/60 backdrop-blur-md rounded-t-xl p-4 gap-4 flex flex-col xl:flex-row xl:items-end">
 
                         <div className="flex flex-1 flex-wrap gap-4 items-end">
                             {/* Origin */}
@@ -204,25 +209,6 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
 
                             {/* Destination */}
                             <DestinationFieldGroup />
-                        </div>
-
-                        {/* Action Group */}
-                        <div className="flex items-center gap-2 mt-2 xl:mt-0 w-full xl:w-auto">
-                            {/* Submit */}
-                            <Button
-                                type="submit"
-                                disabled={isPending}
-                                className="flex-1 xl:flex-none h-10 px-8 bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)] transition-all duration-300 font-semibold"
-                            >
-                                {isPending ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <>
-                                        <Search className="h-4 w-4 mr-2" />
-                                        Add Criteria
-                                    </>
-                                )}
-                            </Button>
                         </div>
                     </div>
 
@@ -288,6 +274,24 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                                 />
                             </div>
                         </div>
+                    </div>
+
+                    {/* Action Group */}
+                    <div className="p-4 bg-slate-900/60 backdrop-blur-md rounded-b-xl border-t border-slate-800/50">
+                        <Button
+                            type="submit"
+                            disabled={isPending}
+                            className="w-full h-10 bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)] transition-all duration-300 font-semibold"
+                        >
+                            {isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <>
+                                    <Search className="h-4 w-4 mr-2" />
+                                    Add Criteria
+                                </>
+                            )}
+                        </Button>
                     </div>
                 </div>
             </form>

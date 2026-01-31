@@ -16,10 +16,19 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        // Try to parse criteriaId from body if available
+        let criteriaId: string | undefined;
+        try {
+            const body = await request.json();
+            criteriaId = body.criteriaId;
+        } catch (e) {
+            // Body is optional/empty
+        }
+
         // Run the scan
         const result = isGuest
             ? await scanLoadsForGuestSession(guestSession as string)
-            : await scanLoadsForUser(userId as string, supabase);
+            : await scanLoadsForUser(userId as string, supabase, criteriaId);
 
         if (result.success) {
             return NextResponse.json({

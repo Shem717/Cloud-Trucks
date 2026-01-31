@@ -17,10 +17,10 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
 
-        // Validate pagination parameters
+        // Validate pagination parameters - use undefined for missing params so defaults apply
         const paginationValidation = validateAndSanitize(paginationSchema, {
-            limit: searchParams.get('limit'),
-            offset: searchParams.get('offset'),
+            limit: searchParams.get('limit') ?? undefined,
+            offset: searchParams.get('offset') ?? undefined,
         });
 
         if (!paginationValidation.success) {

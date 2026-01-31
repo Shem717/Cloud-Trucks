@@ -89,19 +89,19 @@ export function CityAutocomplete({
                 placeholder={placeholder}
                 required={required}
                 autoComplete="off"
-                className={cn("w-full bg-slate-900/50 border-slate-600 focus:border-blue-500 h-10", className)}
+                className={cn("w-full bg-white dark:bg-slate-900/50 border-slate-300 dark:border-slate-600 focus:border-blue-500 h-10 text-slate-900 dark:text-slate-200", className)}
             />
 
             {open && suggestions.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-slate-700 rounded-md shadow-lg max-h-60 overflow-auto">
+                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md shadow-lg max-h-60 overflow-auto">
                     {suggestions.map((city, index) => (
                         <div
                             key={`${city.value}-${city.state}-${index}`}
-                            className="px-3 py-2 cursor-pointer hover:bg-slate-700 text-sm text-slate-200 flex justify-between items-center"
+                            className="px-3 py-2 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 text-sm text-slate-900 dark:text-slate-200 flex justify-between items-center"
                             onClick={() => selectCity(city)}
                         >
                             <span>{city.value}</span>
-                            <span className="text-slate-500 text-xs">{city.state}</span>
+                            <span className="text-slate-500 dark:text-slate-500 text-xs">{city.state}</span>
                         </div>
                     ))}
                 </div>

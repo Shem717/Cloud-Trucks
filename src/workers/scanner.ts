@@ -251,7 +251,7 @@ export async function saveNewLoads(criteriaId: string, loads: CloudTrucksLoad[],
  * Main scan function - scans loads for a specific user
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function scanLoadsForUser(userId: string, supabaseClient?: any): Promise<{
+export async function scanLoadsForUser(userId: string, supabaseClient?: any, specificCriteriaId?: string): Promise<{
     success: boolean;
     loadsFound: number;
     error?: string;
@@ -264,11 +264,17 @@ export async function scanLoadsForUser(userId: string, supabaseClient?: any): Pr
 
         // 2. Get user's active search criteria
         const supabase = supabaseClient || getSupabaseClient();
-        const { data: criteriaList, error: criteriaError } = await supabase
+        let query = supabase
             .from(USER_CRITERIA_TABLE)
             .select('*')
             .eq('user_id', userId)
             .eq('active', true);
+
+        if (specificCriteriaId) {
+            query = query.eq('id', specificCriteriaId);
+        }
+
+        const { data: criteriaList, error: criteriaError } = await query;
 
         if (criteriaError) {
             console.error(`[SCANNER] Criteria fetch error for ${userId}:`, criteriaError);
@@ -294,7 +300,8 @@ export async function scanLoadsForUser(userId: string, supabaseClient?: any): Pr
                 const allLoads = await fetchLoadsFromCloudTrucks(credentials, criteria);
 
                 if (allLoads && allLoads.length > 0) {
-                    const savedCount = await saveNewLoads(criteria.id, allLoads, supabaseClient);
+                    // ALWAYS use the Service Role client for saving to bypass RLS
+                    const savedCount = await saveNewLoads(criteria.id, allLoads, getSupabaseClient());
                     totalLoadsFound += savedCount;
                 } else {
                     console.log(`[SCANNER] No loads found for criteria ${criteria.id}`);
