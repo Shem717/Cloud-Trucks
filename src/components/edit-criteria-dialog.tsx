@@ -151,22 +151,22 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess }: 
                 throw new Error(err.error || 'Failed to update');
             }
 
-            // Trigger background scan to fetch fresh loads matching new criteria
-            try {
-                fetch('/api/scan', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ criteriaId: criteria.id })
-                }).catch(err => {
-                    console.warn('Background scan failed:', err);
-                    // Non-fatal - user can manually scan later
-                });
-            } catch {
-                // Ignore scan errors - non-critical
-            }
 
             onSuccess();
             onOpenChange(false);
+
+            // Trigger background scan to fetch fresh loads matching new criteria (fire-and-forget)
+            console.log('[EDIT DIALOG] Triggering scan for criteria:', criteria.id);
+            fetch('/api/scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ criteriaId: criteria.id })
+            }).then(res => {
+                console.log('[EDIT DIALOG] Scan response:', res.status, res.ok);
+            }).catch(err => {
+                console.error('[EDIT DIALOG] Scan failed:', err);
+            });
+
         } catch (error) {
             console.error('Update failed:', error);
             alert('Failed to update scout');

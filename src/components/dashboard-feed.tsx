@@ -583,12 +583,12 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
 
         // Rate & RPM Filters
         if (criteria.min_rate != null && rate < criteria.min_rate) {
-            // console.log(`[FILTER] Load ${load.id} filtered by rate: ${rate} < ${criteria.min_rate}`);
+            console.log(`[FILTER] Load ${load.id} filtered by rate: ${rate} < ${criteria.min_rate}`);
             return false;
         }
         if (criteria.min_rpm != null) {
             if (!rpm || rpm < criteria.min_rpm) {
-                // console.log(`[FILTER] Load ${load.id} filtered by RPM: ${rpm?.toFixed(2)} < ${criteria.min_rpm}`);
+                console.log(`[FILTER] Load ${load.id} filtered by RPM: ${rpm?.toFixed(2)} < ${criteria.min_rpm}`);
                 return false;
             }
         }
@@ -603,6 +603,10 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
 
     const scoutMissionLoads = loads.filter(l => l.search_criteria && scoutCriteriaIds.has(l.search_criteria.id) && matchesCriteriaFilters(l));
     const backhaulMissionLoads = loads.filter(l => l.search_criteria && backhaulCriteriaIds.has(l.search_criteria.id) && matchesCriteriaFilters(l));
+
+    console.log('[DASHBOARD] Total loads:', loads.length);
+    console.log('[DASHBOARD] Scout loads after filter:', scoutMissionLoads.length);
+    console.log('[DASHBOARD] Backhaul loads after filter:', backhaulMissionLoads.length);
 
     // --- Filter loads to only include those belonging to current criteria ---
     const criteriaIdsSet = new Set(criteriaList.map(c => c.id));
@@ -958,17 +962,28 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                     </div>
                                 }
                                 description={
-                                    <div className="flex justify-between items-end mt-2">
-                                        <span>{mission.count} Loads</span>
-                                        {/* Action Buttons */}
-                                        <div className="flex gap-1">
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleDelete(mission.criteria.id); }}>
-                                                <Trash2 className="h-3 w-3" />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-blue-500" onClick={(e) => { e.stopPropagation(); setEditingCriteria(mission.criteria); }}>
-                                                <Pencil className="h-3 w-3" />
-                                            </Button>
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between items-center">
+                                            <span>{mission.count} Loads</span>
+                                            {/* Action Buttons */}
+                                            <div className="flex gap-1">
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleDelete(mission.criteria.id); }}>
+                                                    <Trash2 className="h-3 w-3" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-blue-500" onClick={(e) => { e.stopPropagation(); setEditingCriteria(mission.criteria); }}>
+                                                    <Pencil className="h-3 w-3" />
+                                                </Button>
+                                            </div>
                                         </div>
+                                        {mission.criteria.last_scanned_at && (
+                                            <div className="text-[10px] text-muted-foreground">
+                                                Last scanned: {new Date(mission.criteria.last_scanned_at).toLocaleTimeString('en-US', {
+                                                    hour: 'numeric',
+                                                    minute: '2-digit',
+                                                    hour12: true
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
                                 }
                             />
@@ -1067,16 +1082,27 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                     </div>
                                 }
                                 description={
-                                    <div className="flex justify-between items-end mt-2">
-                                        <span>{mission.count} Loads</span>
-                                        <div className="flex gap-1">
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleDelete(mission.criteria.id); }}>
-                                                <Trash2 className="h-3 w-3" />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-blue-500" onClick={(e) => { e.stopPropagation(); setEditingCriteria(mission.criteria); }}>
-                                                <Pencil className="h-3 w-3" />
-                                            </Button>
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between items-center">
+                                            <span>{mission.count} Loads</span>
+                                            <div className="flex gap-1">
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleDelete(mission.criteria.id); }}>
+                                                    <Trash2 className="h-3 w-3" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-blue-500" onClick={(e) => { e.stopPropagation(); setEditingCriteria(mission.criteria); }}>
+                                                    <Pencil className="h-3 w-3" />
+                                                </Button>
+                                            </div>
                                         </div>
+                                        {mission.criteria.last_scanned_at && (
+                                            <div className="text-[10px] text-muted-foreground">
+                                                Last scanned: {new Date(mission.criteria.last_scanned_at).toLocaleTimeString('en-US', {
+                                                    hour: 'numeric',
+                                                    minute: '2-digit',
+                                                    hour12: true
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
                                 }
                             />
