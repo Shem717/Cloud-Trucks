@@ -296,6 +296,16 @@ export async function scanLoadsForUser(userId: string, supabaseClient?: any, spe
         // but we ensure failure in one doesn't kill the whole thing and errors are reported.
         for (const criteria of criteriaList) {
             try {
+                // Update status to scanning
+                await supabase
+                    .from(USER_CRITERIA_TABLE)
+                    .update({
+                        last_scanned_at: new Date().toISOString(),
+                        scan_status: 'scanning',
+                        scan_error: null,
+                    })
+                    .eq('id', criteria.id);
+
                 console.log(`[SCANNER] Processing criteria: ${criteria.origin_city} -> ${criteria.dest_city || 'Any'}`);
                 const allLoads = await fetchLoadsFromCloudTrucks(credentials, criteria);
 
@@ -303,14 +313,44 @@ export async function scanLoadsForUser(userId: string, supabaseClient?: any, spe
                     // ALWAYS use the Service Role client for saving to bypass RLS
                     const savedCount = await saveNewLoads(criteria.id, allLoads, getSupabaseClient());
                     totalLoadsFound += savedCount;
+
+                    // Update status to success
+                    await supabase
+                        .from(USER_CRITERIA_TABLE)
+                        .update({
+                            scan_status: 'success',
+                            last_scan_loads_found: savedCount,
+                            scan_error: null,
+                        })
+                        .eq('id', criteria.id);
                 } else {
                     console.log(`[SCANNER] No loads found for criteria ${criteria.id}`);
+
+                    // Update status to success (but 0 loads)
+                    await supabase
+                        .from(USER_CRITERIA_TABLE)
+                        .update({
+                            scan_status: 'success',
+                            last_scan_loads_found: 0,
+                            scan_error: null,
+                        })
+                        .eq('id', criteria.id);
                 }
 
             } catch (error: unknown) {
                 const message = error instanceof Error ? error.message : String(error);
                 console.error(`[SCANNER] Error processing criteria ${criteria.id}:`, message);
                 scanErrors.push(message);
+
+                // Update status to error
+                await supabase
+                    .from(USER_CRITERIA_TABLE)
+                    .update({
+                        scan_status: 'error',
+                        scan_error: message,
+                        last_scan_loads_found: 0,
+                    })
+                    .eq('id', criteria.id);
             }
         }
 

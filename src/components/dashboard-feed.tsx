@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useInView } from 'react-intersection-observer';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, DollarSign, Weight, Calendar, Truck, Activity, Filter, RefreshCw, Trash2, Zap, Star, ArrowUpDown, AlertTriangle, ArrowLeftRight, Search, Map, Pencil, ChevronDown, ChevronUp, ArrowRight, Fuel, Bell, Flame } from 'lucide-react'
+import { MapPin, DollarSign, Weight, Calendar, Truck, Activity, Filter, RefreshCw, Trash2, Zap, Star, ArrowUpDown, AlertTriangle, ArrowLeftRight, Search, Map, Pencil, ChevronDown, ChevronUp, ArrowRight, Fuel, Bell, Flame, Clock } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -25,12 +25,11 @@ import { LoadCard } from "@/components/load-card";
 import { FuelSettingsDialog } from "@/components/fuel-settings-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useRouteBuilder } from "@/components/route-builder";
-import { CompareLoadsModal } from "@/components/compare-loads-modal";
 import { useHOS, HOSSettingsButton } from "@/components/hos-tracker";
 import { SmartSuggestions } from "@/components/smart-suggestions";
 import { CalendarToggle } from "@/components/load-calendar";
-import { VoiceCommands } from "@/components/voice-commands";
 import { MarketRateTrends } from "@/components/market-rate-trends";
+import { MarketInsights } from "@/components/market-insights";
 
 type SortOption = 'newest' | 'price_high' | 'price_low' | 'rpm_high' | 'rpm_low' | 'deadhead_low' | 'deadhead_high' | 'pickup_soonest' | 'pickup_latest' | 'distance_short' | 'distance_long' | 'weight_light' | 'weight_heavy';
 
@@ -104,23 +103,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
     // HOS (Hours of Service) tracking
     const hos = useHOS()
 
-    // Compare Loads feature
-    const [compareLoads, setCompareLoads] = useState<SavedLoad[]>([])
-    const [showCompareModal, setShowCompareModal] = useState(false)
-
-    const toggleCompareLoad = useCallback((load: SavedLoad) => {
-        setCompareLoads(prev => {
-            const exists = prev.some(l => l.id === load.id)
-            if (exists) {
-                return prev.filter(l => l.id !== load.id)
-            }
-            if (prev.length >= 3) {
-                // Max 3 loads to compare
-                return prev
-            }
-            return [...prev, load]
-        })
-    }, [])
+    // Compare Loads feature - removed per user request
 
     useEffect(() => {
         if (inView) {
@@ -820,9 +803,9 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
     const backhaulLoadsCount = backhaulMissionLoads.length;
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+        <div className="space-y-6 animate-in fade-in duration-500 pb-20 w-full overflow-x-hidden">
             {/* Header Section */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-8 pb-6 border-b border-white/10">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-8 pb-6 border-b border-white/10 flex-wrap">
                 <div>
                     <h2 className="text-4xl font-bold tracking-tight text-foreground/90">
                         {viewMode === 'trash' ? 'Trash Bin' : 'Mission Control'}
@@ -836,43 +819,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     </p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <VoiceCommands
-                        onCommand={(cmd) => {
-                            switch (cmd) {
-                                case 'scan_market':
-                                    handleScan();
-                                    break;
-                                case 'show_hot_loads':
-                                    setBookingTypeFilter('hot');
-                                    break;
-                                case 'show_instant':
-                                    setBookingTypeFilter('instant');
-                                    break;
-                                case 'filter_all':
-                                    setBookingTypeFilter('all');
-                                    break;
-                                case 'show_settings':
-                                    setShowFuelSettings(true);
-                                    break;
-                                case 'sort_price_high':
-                                    setSortBy('price_high');
-                                    break;
-                                case 'sort_price_low':
-                                    setSortBy('price_low');
-                                    break;
-                                case 'sort_rpm':
-                                    setSortBy('rpm_high');
-                                    break;
-                                case 'scroll_down':
-                                    window.scrollBy({ top: 500, behavior: 'smooth' });
-                                    break;
-                                case 'scroll_up':
-                                    window.scrollBy({ top: -500, behavior: 'smooth' });
-                                    break;
-                            }
-                        }}
-                    />
+                <div className="flex items-center gap-2 flex-wrap">
                     <CalendarToggle
                         loads={filteredLoads}
                         onSelectLoad={(load) => setSelectedLoadForMap(load as SavedLoad)}
@@ -1025,18 +972,42 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                 </div>
             )}
 
-            {/* --- SMART SUGGESTIONS & MARKET TRENDS --- */}
-            {filteredLoads.length > 0 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                    <SmartSuggestions
-                        loads={filteredLoads}
-                        savedLoadIds={savedLoadIds}
-                        onSelectLoad={(load) => setSelectedLoadForMap(load as SavedLoad)}
-                        onFilterInstant={() => setBookingTypeFilter('instant')}
-                    />
-                    <MarketRateTrends loads={filteredLoads} />
-                </div>
-            )}
+            {/* --- SMART SUGGESTIONS & MARKET INSIGHTS --- */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+                <SmartSuggestions
+                    loads={filteredLoads}
+                    savedLoadIds={savedLoadIds}
+                    onSelectLoad={(load) => setSelectedLoadForMap(load as SavedLoad)}
+                    onFilterInstant={() => setBookingTypeFilter('instant')}
+                    onAddBackhaul={async (destCity, destState) => {
+                        // Create a backhaul search criteria
+                        try {
+                            const formData = new FormData();
+                            formData.append('origin_city', destCity);
+                            formData.append('origin_state', destState);
+                            formData.append('is_backhaul', 'true');
+                            formData.append('pickup_distance', '50');
+                            formData.append('booking_type', 'Any');
+                            formData.append('equipment_type', 'Any');
+
+                            const res = await fetch('/api/criteria', {
+                                method: 'POST',
+                                body: formData
+                            });
+
+                            if (res.ok) {
+                                // Trigger scan
+                                await fetch('/api/scan', { method: 'POST' });
+                                fetchData();
+                            }
+                        } catch (error) {
+                            console.error('Failed to create backhaul:', error);
+                        }
+                    }}
+                />
+                <MarketInsights />
+                <MarketRateTrends loads={filteredLoads} />
+            </div>
 
             {/* --- COMMAND CENTER (Stats) --- */}
             <div className="space-y-4 mb-10">
@@ -1187,12 +1158,11 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                             </div>
                                         </div>
                                         {mission.criteria.last_scanned_at && (
-                                            <div className="text-[10px] text-muted-foreground">
-                                                Last scanned: {new Date(mission.criteria.last_scanned_at).toLocaleTimeString('en-US', {
-                                                    hour: 'numeric',
-                                                    minute: '2-digit',
-                                                    hour12: true
-                                                })}
+                                            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-1 bg-muted/50 px-2 py-1 rounded inline-flex">
+                                                <Clock className="h-3 w-3 opacity-70" />
+                                                <span>
+                                                    {new Date(mission.criteria.last_scanned_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                                </span>
                                             </div>
                                         )}
                                     </div>
@@ -1306,12 +1276,11 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                             </div>
                                         </div>
                                         {mission.criteria.last_scanned_at && (
-                                            <div className="text-[10px] text-muted-foreground">
-                                                Last scanned: {new Date(mission.criteria.last_scanned_at).toLocaleTimeString('en-US', {
-                                                    hour: 'numeric',
-                                                    minute: '2-digit',
-                                                    hour12: true
-                                                })}
+                                            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-1 bg-muted/50 px-2 py-1 rounded inline-flex">
+                                                <Clock className="h-3 w-3 opacity-70" />
+                                                <span>
+                                                    {new Date(mission.criteria.last_scanned_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                                </span>
                                             </div>
                                         )}
                                     </div>
@@ -1355,18 +1324,6 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                             Standard
                         </button>
                     </div>
-
-                    {/* Compare Button */}
-                    {compareLoads.length > 0 && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2 border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
-                            onClick={() => setShowCompareModal(true)}
-                        >
-                            Compare ({compareLoads.length})
-                        </Button>
-                    )}
                 </div>
 
                 {filteredLoads.length === 0 ? (
@@ -1380,7 +1337,6 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                         {filteredLoads.slice(0, visibleCount).map((load) => {
                             const isSaved = savedLoadIds.has(load.details.id);
                             const isInRouteBuilder = routeBuilder.isLoadInBuilder(load.details.id);
-                            const isSelectedForCompare = compareLoads.some(l => l.id === load.id);
 
                             return (
                                 <LoadCard
@@ -1398,9 +1354,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                             created_at: load.created_at
                                         });
                                     }}
-                                    onCompare={(e) => { e.stopPropagation(); toggleCompareLoad(load); }}
                                     isInRouteBuilder={isInRouteBuilder}
-                                    isSelected={isSelectedForCompare}
                                     cabbieMode={cabbieMode}
                                     mpg={fuelMpg}
                                     fuelPrice={fuelPrice}
@@ -1441,16 +1395,6 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                 currentMpg={fuelMpg}
                 currentFuelPrice={fuelPrice}
                 onSave={handleSaveFuelSettings}
-            />
-            <CompareLoadsModal
-                isOpen={showCompareModal}
-                onClose={() => {
-                    setShowCompareModal(false);
-                    setCompareLoads([]);
-                }}
-                loads={compareLoads}
-                mpg={fuelMpg}
-                fuelPrice={fuelPrice}
             />
 
             {/* Mobile Floating Action Button (FAB) for Scan */}
