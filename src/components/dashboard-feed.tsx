@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useInView } from 'react-intersection-observer';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, DollarSign, Weight, Calendar, Truck, Activity, Filter, RefreshCw, Trash2, Zap, Star, ArrowUpDown, AlertTriangle, ArrowLeftRight, Search, Map, Pencil, ChevronDown, ChevronUp, ArrowRight, Fuel, Bell } from 'lucide-react'
+import { MapPin, DollarSign, Weight, Calendar, Truck, Activity, Filter, RefreshCw, Trash2, Zap, Star, ArrowUpDown, AlertTriangle, ArrowLeftRight, Search, Map, Pencil, ChevronDown, ChevronUp, ArrowRight, Fuel, Bell, Flame } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -23,7 +23,14 @@ import { EditCriteriaDialog } from "@/components/edit-criteria-dialog"
 import { BentoGrid, BentoGridItem } from "@/components/ui/bento-grid";
 import { LoadCard } from "@/components/load-card";
 import { FuelSettingsDialog } from "@/components/fuel-settings-dialog";
-import { ThemeToggle } from "@/components/theme-toggle"; // Added import
+import { ThemeToggle } from "@/components/theme-toggle";
+import { useRouteBuilder } from "@/components/route-builder";
+import { CompareLoadsModal } from "@/components/compare-loads-modal";
+import { useHOS, HOSSettingsButton } from "@/components/hos-tracker";
+import { SmartSuggestions } from "@/components/smart-suggestions";
+import { CalendarToggle } from "@/components/load-calendar";
+import { VoiceCommands } from "@/components/voice-commands";
+import { MarketRateTrends } from "@/components/market-rate-trends";
 
 type SortOption = 'newest' | 'price_high' | 'price_low' | 'rpm_high' | 'rpm_low' | 'deadhead_low' | 'deadhead_high' | 'pickup_soonest' | 'pickup_latest' | 'distance_short' | 'distance_long' | 'weight_light' | 'weight_heavy';
 
@@ -81,7 +88,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
     const [selectedLoadForMap, setSelectedLoadForMap] = useState<SavedLoad | null>(null) // Route Intelligence Modal
     const [editingCriteria, setEditingCriteria] = useState<EnrichedCriteria | null>(null) // Edit Modal State
     const [expandedLoadId, setExpandedLoadId] = useState<string | null>(null) // Expandable Details State
-    const [bookingTypeFilter, setBookingTypeFilter] = useState<'all' | 'instant' | 'standard'>('all') // Booking type filter
+    const [bookingTypeFilter, setBookingTypeFilter] = useState<'all' | 'instant' | 'standard' | 'hot'>('all') // Booking type filter
     const [scanningCriteriaIds, setScanningCriteriaIds] = useState<Set<string>>(new Set()) // Track active scans for progressive feedback
     const [cabbieMode, setCabbieMode] = useState(false) // Toggle for high-contrast driver mode
     const [showFuelSettings, setShowFuelSettings] = useState(false)
@@ -90,6 +97,30 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
     const [notificationsEnabled, setNotificationsEnabled] = useState(false)
     const [visibleCount, setVisibleCount] = useState(20)
     const { ref: loadMoreRef, inView } = useInView()
+
+    // Route Builder integration
+    const routeBuilder = useRouteBuilder()
+
+    // HOS (Hours of Service) tracking
+    const hos = useHOS()
+
+    // Compare Loads feature
+    const [compareLoads, setCompareLoads] = useState<SavedLoad[]>([])
+    const [showCompareModal, setShowCompareModal] = useState(false)
+
+    const toggleCompareLoad = useCallback((load: SavedLoad) => {
+        setCompareLoads(prev => {
+            const exists = prev.some(l => l.id === load.id)
+            if (exists) {
+                return prev.filter(l => l.id !== load.id)
+            }
+            if (prev.length >= 3) {
+                // Max 3 loads to compare
+                return prev
+            }
+            return [...prev, load]
+        })
+    }, [])
 
     useEffect(() => {
         if (inView) {
@@ -749,6 +780,15 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
     const bookingFilteredLoads = bookingTypeFilter === 'all'
         ? baseFilteredLoads
         : baseFilteredLoads.filter(l => {
+            if (bookingTypeFilter === 'hot') {
+                // Hot loads are >$3/mi RPM
+                const rawRate = l.details.rate || l.details.trip_rate || 0;
+                const rate = typeof rawRate === 'string' ? parseFloat(rawRate) : rawRate;
+                const rawDist = l.details.distance || l.details.trip_distance_mi || 1;
+                const dist = typeof rawDist === 'string' ? parseFloat(rawDist) : rawDist;
+                const rpm = dist > 0 ? rate / dist : 0;
+                return rpm >= 3.0;
+            }
             const isInstant = l.details.instant_book === true;
             return bookingTypeFilter === 'instant' ? isInstant : !isInstant;
         });
@@ -797,6 +837,47 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                 </div>
 
                 <div className="flex items-center gap-3">
+                    <VoiceCommands
+                        onCommand={(cmd) => {
+                            switch (cmd) {
+                                case 'scan_market':
+                                    handleScan();
+                                    break;
+                                case 'show_hot_loads':
+                                    setBookingTypeFilter('hot');
+                                    break;
+                                case 'show_instant':
+                                    setBookingTypeFilter('instant');
+                                    break;
+                                case 'filter_all':
+                                    setBookingTypeFilter('all');
+                                    break;
+                                case 'show_settings':
+                                    setShowFuelSettings(true);
+                                    break;
+                                case 'sort_price_high':
+                                    setSortBy('price_high');
+                                    break;
+                                case 'sort_price_low':
+                                    setSortBy('price_low');
+                                    break;
+                                case 'sort_rpm':
+                                    setSortBy('rpm_high');
+                                    break;
+                                case 'scroll_down':
+                                    window.scrollBy({ top: 500, behavior: 'smooth' });
+                                    break;
+                                case 'scroll_up':
+                                    window.scrollBy({ top: -500, behavior: 'smooth' });
+                                    break;
+                            }
+                        }}
+                    />
+                    <CalendarToggle
+                        loads={filteredLoads}
+                        onSelectLoad={(load) => setSelectedLoadForMap(load as SavedLoad)}
+                    />
+                    <HOSSettingsButton />
                     <ThemeToggle />
                     <div className="bg-muted/50 p-1 rounded-lg border border-border inline-flex">
                         <Button
@@ -941,6 +1022,19 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     <a href="/dashboard/settings" className="ml-auto text-sm underline hover:no-underline font-semibold">
                         Reconnect
                     </a>
+                </div>
+            )}
+
+            {/* --- SMART SUGGESTIONS & MARKET TRENDS --- */}
+            {filteredLoads.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <SmartSuggestions
+                        loads={filteredLoads}
+                        savedLoadIds={savedLoadIds}
+                        onSelectLoad={(load) => setSelectedLoadForMap(load as SavedLoad)}
+                        onFilterInstant={() => setBookingTypeFilter('instant')}
+                    />
+                    <MarketRateTrends loads={filteredLoads} />
                 </div>
             )}
 
@@ -1243,6 +1337,12 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                             All
                         </button>
                         <button
+                            onClick={() => setBookingTypeFilter('hot')}
+                            className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1", bookingTypeFilter === 'hot' ? "bg-orange-500/20 text-orange-500 shadow-sm border border-orange-500/30" : "text-muted-foreground hover:text-foreground hover:text-orange-400")}
+                        >
+                            <Flame className="h-3 w-3" /> Hot
+                        </button>
+                        <button
                             onClick={() => setBookingTypeFilter('instant')}
                             className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1", bookingTypeFilter === 'instant' ? "bg-white dark:bg-slate-800 text-amber-600 shadow-sm" : "text-muted-foreground hover:text-foreground")}
                         >
@@ -1255,6 +1355,18 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                             Standard
                         </button>
                     </div>
+
+                    {/* Compare Button */}
+                    {compareLoads.length > 0 && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2 border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+                            onClick={() => setShowCompareModal(true)}
+                        >
+                            Compare ({compareLoads.length})
+                        </Button>
+                    )}
                 </div>
 
                 {filteredLoads.length === 0 ? (
@@ -1267,6 +1379,8 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     <BentoGrid>
                         {filteredLoads.slice(0, visibleCount).map((load) => {
                             const isSaved = savedLoadIds.has(load.details.id);
+                            const isInRouteBuilder = routeBuilder.isLoadInBuilder(load.details.id);
+                            const isSelectedForCompare = compareLoads.some(l => l.id === load.id);
 
                             return (
                                 <LoadCard
@@ -1275,6 +1389,18 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                     isSaved={isSaved}
                                     onToggleSaved={(e) => { e.stopPropagation(); handleToggleSaved(load); }}
                                     onViewMap={(e) => { e.stopPropagation(); setSelectedLoadForMap(load); }}
+                                    onAddToRoute={(e) => {
+                                        e.stopPropagation();
+                                        routeBuilder.addLoad({
+                                            id: load.id,
+                                            cloudtrucks_load_id: load.cloudtrucks_load_id || load.details.id,
+                                            details: load.details,
+                                            created_at: load.created_at
+                                        });
+                                    }}
+                                    onCompare={(e) => { e.stopPropagation(); toggleCompareLoad(load); }}
+                                    isInRouteBuilder={isInRouteBuilder}
+                                    isSelected={isSelectedForCompare}
                                     cabbieMode={cabbieMode}
                                     mpg={fuelMpg}
                                     fuelPrice={fuelPrice}
@@ -1316,6 +1442,35 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                 currentFuelPrice={fuelPrice}
                 onSave={handleSaveFuelSettings}
             />
+            <CompareLoadsModal
+                isOpen={showCompareModal}
+                onClose={() => {
+                    setShowCompareModal(false);
+                    setCompareLoads([]);
+                }}
+                loads={compareLoads}
+                mpg={fuelMpg}
+                fuelPrice={fuelPrice}
+            />
+
+            {/* Mobile Floating Action Button (FAB) for Scan */}
+            <div className="fixed bottom-6 right-6 z-50 md:hidden">
+                <Button
+                    onClick={handleScan}
+                    disabled={scanning}
+                    size="lg"
+                    className={cn(
+                        "h-14 w-14 rounded-full shadow-2xl bg-primary hover:bg-primary/90",
+                        scanning && "animate-pulse"
+                    )}
+                >
+                    {scanning ? (
+                        <RefreshCw className="h-6 w-6 animate-spin" />
+                    ) : (
+                        <Zap className="h-6 w-6 fill-current" />
+                    )}
+                </Button>
+            </div>
         </div>
     )
 }

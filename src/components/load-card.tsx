@@ -5,15 +5,16 @@ import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Zap, Map, Star, ChevronDown, ChevronUp,
-    Calendar, Weight, Truck, DollarSign, Users, User, RefreshCw
+    Calendar, Weight, Truck, DollarSign, Users, User, ArrowRight, Flame, Route
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CloudTrucksLoad, CloudTrucksLoadStop } from "@/workers/cloudtrucks-api-client";
 import { BrokerLogo } from "./broker-logo";
 import { WeatherBadge } from "./weather-badge";
-import { FreshnessBadge } from "./freshness-badge";
-import { ProfitBadge } from "./profit-badge";
 import { FinancialsModule, LogisticsModule, TrustModule, AddressModule } from "./load-card-modules";
+import { HOSBadge } from "./hos-tracker";
+import { BrokerReliabilityBadge } from "./broker-reliability";
+import { FuelStopOptimizer, FuelCostBadge } from "./fuel-stop-optimizer";
 
 interface LoadCardProps {
     load: {
@@ -26,12 +27,16 @@ interface LoadCardProps {
     isSaved: boolean;
     onToggleSaved: (e: React.MouseEvent) => void;
     onViewMap: (e: React.MouseEvent) => void;
+    onCompare?: (e: React.MouseEvent) => void;
+    onAddToRoute?: (e: React.MouseEvent) => void;
+    isSelected?: boolean;
+    isInRouteBuilder?: boolean;
     cabbieMode?: boolean;
     mpg?: number;
     fuelPrice?: number;
 }
 
-export function LoadCard({ load, isSaved, onToggleSaved, onViewMap, cabbieMode, mpg = 6.5, fuelPrice = 3.80 }: LoadCardProps) {
+export function LoadCard({ load, isSaved, onToggleSaved, onViewMap, onCompare, onAddToRoute, isSelected, isInRouteBuilder, cabbieMode, mpg = 6.5, fuelPrice = 3.80 }: LoadCardProps) {
     const [isExpanded, setIsExpanded] = useState(false);
 
     // --- Derived Data ---
@@ -44,12 +49,17 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap, cabbieMode, 
     const rate = typeof rawRate === 'string' ? parseFloat(rawRate) : rawRate;
     const rawDist = details.distance || details.trip_distance_mi;
     const dist = typeof rawDist === 'string' ? parseFloat(rawDist) : rawDist;
-    const rpm = (rate && dist) ? (rate / dist).toFixed(2) : null;
+    const rpm = (rate && dist) ? (rate / dist) : null;
+    const rpmFormatted = rpm ? rpm.toFixed(2) : null;
 
     // Fuel & Net Calculations
-    const estimatedFuelCost = (dist / mpg) * fuelPrice;
+    const estimatedFuelCost = dist ? (dist / mpg) * fuelPrice : 0;
     const netProfit = rate ? rate - estimatedFuelCost : 0;
-    const netRpm = (netProfit && dist) ? (netProfit / dist).toFixed(2) : null;
+    const netRpm = (netProfit && dist) ? (netProfit / dist) : null;
+    const netRpmFormatted = netRpm ? netRpm.toFixed(2) : null;
+
+    // Is this a "hot" load? (>$3/mi gross or >$2.50/mi net)
+    const isHotLoad = rpm && rpm >= 3.0;
 
     // Dates
     const pickupDate = details.pickup_date || details.origin_pickup_date;
@@ -63,6 +73,7 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap, cabbieMode, 
 
     // Weight
     const weight = details.weight || details.truck_weight_lb;
+    const weightFormatted = weight ? `${(weight / 1000).toFixed(1)}k` : null;
 
     // Badges
     const isInstantBook = details.instant_book === true;
@@ -79,158 +90,217 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap, cabbieMode, 
 
     const equipmentType = getEquipmentString();
 
+    // Format date compactly
+    const formatDate = (date: string | number) => {
+        const d = new Date(date);
+        return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+    };
+
     return (
         <Card className={cn(
             "overflow-hidden transition-all duration-200 bg-card border-border",
-            isExpanded && "ring-1 ring-primary/30"
+            isExpanded && "ring-1 ring-primary/30",
+            isHotLoad && "border-l-4 border-l-orange-500",
+            isSelected && "ring-2 ring-blue-500",
+            cabbieMode && "border-amber-400/50 shadow-[0_0_15px_rgba(251,191,36,0.1)] dark:bg-slate-950"
         )}>
-            {/* Main Content */}
-            <div className="p-4 space-y-3">
-                {/* --- Row 1: Badges & Deadhead --- */}
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-[10px] font-mono uppercase tracking-wide bg-muted/50">
+            {/* ============================================ */}
+            {/* DECISION-FIRST LAYOUT                       */}
+            {/* ============================================ */}
+            <div className={cn("p-4", cabbieMode && "p-5")}>
+
+                {/* --- ROW 1: HERO - Rate & Net Profit (THE DECISION) --- */}
+                <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex flex-col">
+                        {/* Gross Rate - BIG */}
+                        <div className="flex items-baseline gap-2">
+                            <span className={cn(
+                                "font-bold text-emerald-500 tracking-tight",
+                                cabbieMode ? "text-5xl" : "text-3xl"
+                            )}>
+                                ${rate?.toLocaleString()}
+                            </span>
+                            {isHotLoad && (
+                                <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 gap-1">
+                                    <Flame className="h-3 w-3" /> HOT
+                                </Badge>
+                            )}
+                            {dist && <HOSBadge distanceMiles={dist} />}
+                        </div>
+                        {/* Net Profit - Secondary but visible */}
+                        {netProfit > 0 && (
+                            <div className={cn(
+                                "flex items-center gap-2 mt-1",
+                                cabbieMode ? "text-lg" : "text-sm"
+                            )}>
+                                <span className="text-muted-foreground">Net:</span>
+                                <span className="font-bold text-emerald-400">${Math.round(netProfit).toLocaleString()}</span>
+                                <span className="text-muted-foreground/60">after fuel</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Equipment & Booking Type Badges */}
+                    <div className="flex flex-col items-end gap-1.5">
+                        <Badge variant="outline" className={cn(
+                            "font-mono uppercase tracking-wide bg-muted/50",
+                            cabbieMode ? "text-sm px-3 py-1" : "text-[10px]"
+                        )}>
                             {equipmentType.toUpperCase().replace(/[^A-Z_]/g, '')}
                         </Badge>
-                        <Badge variant="secondary" className="text-[10px] font-mono uppercase tracking-wide">
+                        <Badge className={cn(
+                            "font-mono uppercase gap-1",
+                            isInstantBook
+                                ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                                : "bg-slate-500/20 text-slate-400 border-slate-500/30",
+                            cabbieMode ? "text-sm px-3 py-1" : "text-[10px]"
+                        )}>
+                            {isInstantBook && <Zap className="h-3 w-3" />}
                             {isInstantBook ? 'Instant' : 'Standard'}
                         </Badge>
                     </div>
-
-                    {/* Deadhead Display */}
-                    <div className="flex items-center gap-1 text-[10px] font-mono font-medium text-muted-foreground bg-muted/30 px-2 py-0.5 rounded-sm border border-border/50">
-                        <span className="text-emerald-500/80">DH-O: {details.origin_deadhead_mi || 0}</span>
-                        <span className="text-muted-foreground/30">|</span>
-                        <span className="text-rose-500/80">DH-D: {details.dest_deadhead_mi || 0}</span>
-                    </div>
                 </div>
 
-                {/* --- Row 2: Broker & Time (mono style) --- */}
-                {!cabbieMode && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
-                        {details.broker_name && (
-                            <>
-                                <BrokerLogo name={details.broker_name} size="sm" />
-                                <span className="truncate max-w-[100px] uppercase">{details.broker_name}</span>
-                            </>
-                        )}
-                        <span className="ml-auto">
-                            {new Date(load.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase()}
-                        </span>
-                    </div>
-                )}
-
-                {/* --- Row 3: Route (Vertical with dotted line) --- */}
-                <div className="space-y-1 py-2">
-                    {/* Origin */}
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                            <span className="font-semibold text-foreground">{origin}</span>
-                        </div>
-                        <WeatherBadge lat={details.origin_lat} lon={details.origin_lon} city={details.origin_city} state={details.origin_state} size="sm" />
-                    </div>
-
-                    {/* Dotted connector */}
-                    <div className="flex items-center pl-[3px]">
-                        <div className="w-px h-4 border-l border-dashed border-muted-foreground/40 ml-[3px]" />
-                    </div>
-
-                    {/* Destination */}
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-rose-500" />
-                            <span className="font-semibold text-foreground">{dest}</span>
-                        </div>
-                        <WeatherBadge
-                            lat={details.dest_lat}
-                            lon={details.dest_lon}
-                            city={details.dest_city}
-                            state={details.dest_state}
-                            size="sm"
-                            etaHours={dist ? dist / 50 : undefined}
-                        />
-                    </div>
-                </div>
-
-                {/* --- Row 4: Rate, Profit, Miles (inline) --- */}
+                {/* --- ROW 2: Route Summary (Single Line) --- */}
                 <div className={cn(
-                    "flex items-center gap-3 flex-wrap pt-3",
-                    cabbieMode ? "border-t-2 border-dashed border-border/50 justify-between" : "border-t border-dashed border-border/50"
+                    "flex items-center gap-2 py-2 px-3 bg-muted/30 rounded-lg mb-3",
+                    cabbieMode && "py-3 px-4"
                 )}>
-                    <div className="flex flex-col">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 flex-shrink-0" />
                         <span className={cn(
-                            "font-bold text-emerald-500 tracking-tight leading-none",
-                            cabbieMode ? "text-4xl" : "text-2xl"
+                            "font-semibold text-foreground truncate",
+                            cabbieMode ? "text-xl" : "text-base"
                         )}>
-                            ${rate?.toLocaleString()}
+                            {origin}
                         </span>
-                        {/* Net Profit Subtext */}
-                        {netProfit > 0 && (
-                            <span className="text-[10px] uppercase font-mono text-muted-foreground mt-0.5">
-                                Net: <span className="text-emerald-400 font-bold">${Math.round(netProfit).toLocaleString()}</span>
-                            </span>
-                        )}
+                        <ArrowRight className={cn("text-muted-foreground flex-shrink-0", cabbieMode ? "h-5 w-5" : "h-4 w-4")} />
+                        <span className={cn(
+                            "font-semibold text-foreground truncate",
+                            cabbieMode ? "text-xl" : "text-base"
+                        )}>
+                            {dest}
+                        </span>
+                        <div className="w-2.5 h-2.5 rounded-full bg-rose-500 flex-shrink-0" />
                     </div>
-                    <ProfitBadge revenuePerHour={details.estimated_revenue_per_hour} />
                     <div className={cn(
-                        "flex items-center gap-1 text-muted-foreground",
+                        "flex items-center gap-1 text-muted-foreground flex-shrink-0 font-mono",
                         cabbieMode ? "text-lg" : "text-sm"
                     )}>
-                        <Truck className={cn(cabbieMode ? "h-6 w-6" : "h-4 w-4")} />
-                        <span className="font-semibold text-foreground">{dist}mi</span>
+                        <Truck className={cn(cabbieMode ? "h-5 w-5" : "h-4 w-4")} />
+                        <span className="font-semibold text-foreground">{dist} mi</span>
                     </div>
                 </div>
 
-                {/* --- Row 5: RPM & Solo/Team --- */}
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                    {rpm && (
-                        <div className="flex items-center gap-2">
-                            <span className="flex items-center gap-1"><DollarSign className="h-3 w-3" />${rpm}/mi</span>
-                            {netRpm && (
-                                <span className={cn("text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/30 text-emerald-400 border border-emerald-500/20", cabbieMode && "text-xs px-2")}>
-                                    Net: ${netRpm}
-                                </span>
-                            )}
+                {/* --- ROW 3: RPM Comparison (Gross vs Net) + Weight --- */}
+                <div className={cn(
+                    "flex items-center justify-between gap-4 mb-3",
+                    cabbieMode && "mb-4"
+                )}>
+                    <div className="flex items-center gap-4">
+                        {/* Gross RPM */}
+                        {rpmFormatted && (
+                            <div className={cn("flex items-center gap-1", cabbieMode ? "text-lg" : "text-sm")}>
+                                <DollarSign className={cn("text-muted-foreground", cabbieMode ? "h-5 w-5" : "h-4 w-4")} />
+                                <span className="font-semibold">{rpmFormatted}</span>
+                                <span className="text-muted-foreground">/mi</span>
+                            </div>
+                        )}
+                        {/* Net RPM (highlighted) */}
+                        {netRpmFormatted && (
+                            <div className={cn(
+                                "flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-950/30 border border-emerald-500/20",
+                                cabbieMode ? "text-base px-3 py-1" : "text-xs"
+                            )}>
+                                <span className="text-emerald-400 font-bold">${netRpmFormatted}</span>
+                                <span className="text-emerald-400/70">/mi net</span>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        {/* Weight */}
+                        {weightFormatted && (
+                            <div className={cn(
+                                "flex items-center gap-1 text-muted-foreground",
+                                cabbieMode ? "text-base" : "text-xs"
+                            )}>
+                                <Weight className={cn(cabbieMode ? "h-4 w-4" : "h-3 w-3")} />
+                                <span>{weightFormatted} lbs</span>
+                            </div>
+                        )}
+                        {/* Solo/Team Badge */}
+                        <Badge variant="secondary" className={cn(
+                            "font-mono uppercase gap-1",
+                            cabbieMode ? "text-sm" : "text-[10px]"
+                        )}>
+                            {isTeam ? <Users className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                            {isTeam ? 'Team' : 'Solo'}
+                        </Badge>
+                    </div>
+                </div>
+
+                {/* --- ROW 4: Dates (Pickup → Delivery) --- */}
+                <div className={cn(
+                    "flex items-center gap-4 mb-3",
+                    cabbieMode ? "text-base" : "text-xs"
+                )}>
+                    {pickupDate && (
+                        <div className="flex items-center gap-1.5">
+                            <Calendar className={cn("text-emerald-500", cabbieMode ? "h-4 w-4" : "h-3 w-3")} />
+                            <span className="text-emerald-600 font-medium">Pick: {formatDate(pickupDate)}</span>
                         </div>
                     )}
-                    <Badge variant="secondary" className="text-[10px] font-mono uppercase gap-1">
-                        {isTeam ? <Users className="h-3 w-3" /> : <User className="h-3 w-3" />}
-                        {isTeam ? 'Team' : 'Solo'}
-                    </Badge>
-                </div>
-
-                {/* --- Row 6: Dates & Weight --- */}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                    {pickupDate && (
-                        <span className="flex items-center gap-1.5 text-emerald-600">
-                            <Calendar className="h-3 w-3" />
-                            Pick: {new Date(pickupDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, {new Date(pickupDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
-                        </span>
+                    {pickupDate && deliveryDate && (
+                        <ArrowRight className="h-3 w-3 text-muted-foreground/50" />
                     )}
                     {deliveryDate && (
-                        <span className="flex items-center gap-1.5 text-rose-600">
-                            <Calendar className="h-3 w-3" />
-                            Drop: {new Date(deliveryDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, {new Date(deliveryDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
-                        </span>
-                    )}
-                    {weight && (
-                        <span className="flex items-center gap-1 text-muted-foreground ml-auto">
-                            <Weight className="h-3 w-3" />
-                            {(weight / 1000).toFixed(1)}k lbs
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                            <Calendar className={cn("text-rose-500", cabbieMode ? "h-4 w-4" : "h-3 w-3")} />
+                            <span className="text-rose-600 font-medium">Drop: {formatDate(deliveryDate)}</span>
+                        </div>
                     )}
                 </div>
+
+                {/* --- ROW 5: Secondary Info (Deadhead, Broker, Weather) --- */}
+                {!cabbieMode && (
+                    <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground border-t border-border/30 pt-2">
+                        <div className="flex items-center gap-3">
+                            {/* Deadhead */}
+                            <div className="flex items-center gap-1 font-mono">
+                                <span className="text-emerald-500/70">DH-O: {details.origin_deadhead_mi || 0}</span>
+                                <span className="text-muted-foreground/30">|</span>
+                                <span className="text-rose-500/70">DH-D: {details.dest_deadhead_mi || 0}</span>
+                            </div>
+                            {/* Broker */}
+                            {details.broker_name && (
+                                <div className="flex items-center gap-1.5">
+                                    <BrokerLogo name={details.broker_name} size="sm" />
+                                    <span className="truncate max-w-[80px]">{details.broker_name}</span>
+                                    <BrokerReliabilityBadge brokerName={details.broker_name} size="sm" />
+                                </div>
+                            )}
+                        </div>
+                        {/* Weather badges */}
+                        <div className="flex items-center gap-2">
+                            <WeatherBadge lat={details.origin_lat} lon={details.origin_lon} city={details.origin_city} state={details.origin_state} size="sm" />
+                            <WeatherBadge lat={details.dest_lat} lon={details.dest_lon} city={details.dest_city} state={details.dest_state} size="sm" etaHours={dist ? dist / 50 : undefined} />
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {/* --- Action Bar (Always visible, centered) --- */}
-            <div className="border-t border-border bg-muted/30 p-3 flex justify-center gap-3" onClick={(e) => e.stopPropagation()}>
+            {/* --- ACTION BAR (Always Visible) --- */}
+            <div className={cn(
+                "border-t border-border bg-muted/30 p-3 flex justify-center gap-2",
+                cabbieMode && "p-4 gap-3"
+            )} onClick={(e) => e.stopPropagation()}>
                 <Button
                     variant="outline"
                     size={cabbieMode ? "lg" : "sm"}
                     className={cn(
                         "gap-2 bg-card hover:bg-muted border-border",
-                        cabbieMode ? "flex-1 h-12 text-lg" : ""
+                        cabbieMode ? "flex-1 h-14 text-lg" : ""
                     )}
                     onClick={onViewMap}
                 >
@@ -241,22 +311,56 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap, cabbieMode, 
                     size={cabbieMode ? "lg" : "sm"}
                     className={cn(
                         "gap-2",
-                        isSaved ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white",
-                        cabbieMode ? "flex-1 h-12 text-lg" : ""
+                        isSaved
+                            ? "bg-amber-500 hover:bg-amber-600 text-white"
+                            : "bg-emerald-600 hover:bg-emerald-700 text-white",
+                        cabbieMode ? "flex-1 h-14 text-lg" : ""
                     )}
                     onClick={onToggleSaved}
                 >
                     <Star className={cn("h-4 w-4", isSaved && "fill-current", cabbieMode && "h-6 w-6")} />
-                    Save
+                    {isSaved ? 'Saved' : 'Save'}
                 </Button>
+                {onAddToRoute && (
+                    <Button
+                        variant="outline"
+                        size={cabbieMode ? "lg" : "sm"}
+                        className={cn(
+                            "gap-2 border-border",
+                            isInRouteBuilder && "bg-indigo-500/20 border-indigo-500 text-indigo-400",
+                            cabbieMode ? "h-14 text-lg px-4" : ""
+                        )}
+                        onClick={onAddToRoute}
+                    >
+                        <Route className={cn("h-4 w-4", cabbieMode && "h-6 w-6")} />
+                        {isInRouteBuilder ? 'Added' : 'Route'}
+                    </Button>
+                )}
+                {onCompare && (
+                    <Button
+                        variant="outline"
+                        size={cabbieMode ? "lg" : "sm"}
+                        className={cn(
+                            "gap-2 border-border",
+                            isSelected && "bg-blue-500/20 border-blue-500",
+                            cabbieMode ? "h-14 text-lg px-4" : ""
+                        )}
+                        onClick={onCompare}
+                    >
+                        {isSelected ? '✓' : '+'}
+                    </Button>
+                )}
             </div>
 
             {/* --- More Data Toggle --- */}
             <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="w-full py-2 text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 transition-colors border-t border-border/50 bg-background hover:bg-muted/20"
+                className={cn(
+                    "w-full py-2 text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 transition-colors border-t border-border/50 bg-background hover:bg-muted/20",
+                    cabbieMode && "py-3 text-sm"
+                )}
             >
-                More Data
+                {isExpanded ? 'Less Details' : 'More Details'}
                 {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </button>
 
@@ -271,6 +375,22 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap, cabbieMode, 
                         className="overflow-hidden bg-muted/20 border-t border-border/50"
                     >
                         <div className="p-4 grid gap-4" onClick={(e) => e.stopPropagation()}>
+                            {/* Fuel Stop Optimizer */}
+                            {dist && (
+                                <div className="flex items-center gap-3 p-3 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+                                    <FuelCostBadge distance={dist} mpg={mpg} fuelPrice={fuelPrice} />
+                                    <FuelStopOptimizer
+                                        originCity={details.origin_city}
+                                        originState={details.origin_state}
+                                        destCity={details.dest_city}
+                                        destState={details.dest_state}
+                                        distance={dist}
+                                        mpg={mpg}
+                                    />
+                                    <span className="text-xs text-muted-foreground">Find optimal fuel stops along this route</span>
+                                </div>
+                            )}
+
                             {/* Detailed Modules */}
                             <FinancialsModule
                                 fuelCost={details.estimated_fuel_cost}
@@ -312,4 +432,3 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap, cabbieMode, 
         </Card>
     );
 }
-

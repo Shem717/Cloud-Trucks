@@ -80,7 +80,7 @@ function DestinationFieldGroup() {
                 />
                 <MultiStateSelect
                     name="destination_states"
-                    placeholder="Region/States"
+                    placeholder="Regions/States"
                     className={cn(inputStyles, "flex-1 min-w-[120px] px-3")}
                     value={selectedStates}
                     onChange={setSelectedStates}
