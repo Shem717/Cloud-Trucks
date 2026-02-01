@@ -331,6 +331,7 @@ export function CalendarToggle({ loads, onSelectLoad }: CalendarToggleProps) {
 
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
                 <DialogContent className="max-w-2xl p-0 overflow-hidden">
+                    <DialogTitle className="sr-only">Load Calendar</DialogTitle>
                     <LoadCalendar
                         loads={loads}
                         onSelectLoad={(load) => {
