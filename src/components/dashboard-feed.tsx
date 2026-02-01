@@ -49,6 +49,10 @@ interface EnrichedCriteria extends SearchCriteria {
     active?: boolean;
     origin_states?: string | string[]; // Allow string or array
     destination_states?: string | string[]; // Allow string or array
+    last_scanned_at?: string | null;
+    scan_status?: 'scanning' | 'success' | 'error' | null;
+    scan_error?: string | null;
+    last_scan_loads_found?: number | null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any;
 }
@@ -187,7 +191,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
 
             const [loadsRes, criteriaRes, interestedRes] = await Promise.all([
                 fetch('/api/loads'),
-                fetch(criteriaUrl),
+                fetch(criteriaUrl, { cache: 'no-store' }),
                 fetch('/api/interested')
             ])
 
@@ -1236,6 +1240,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                         return (
                             <BentoGridItem
                                 key={mission.criteria.id}
+                                isLoading={scanningCriteriaIds.has(mission.criteria.id)}
                                 className={cn(
                                     "cursor-pointer border-l-4 relative",
                                     isSelected ? "border-l-indigo-500 ring-2 ring-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20" :
@@ -1386,6 +1391,21 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                     onSuccess={() => {
                         fetchData();
                         setEditingCriteria(null);
+                    }}
+                    onScanStart={(id) => {
+                        setScanningCriteriaIds(prev => {
+                            const next = new Set(prev);
+                            next.add(id);
+                            return next;
+                        });
+                    }}
+                    onScanComplete={(id) => {
+                        setScanningCriteriaIds(prev => {
+                            const next = new Set(prev);
+                            next.delete(id);
+                            return next;
+                        });
+                        fetchData();
                     }}
                 />
             )}
