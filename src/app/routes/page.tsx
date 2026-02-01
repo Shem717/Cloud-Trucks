@@ -1,5 +1,5 @@
 import { createClient } from '@/utils/supabase/server';
-import { RouteBuilderFullView } from '@/components/route-builder-full-view';
+import { RouteBuilderStitch } from './stitch-layout';
 import { ThemeToggle } from "@/components/theme-toggle"
 
 export default async function RoutePlanningPage() {
@@ -22,7 +22,7 @@ export default async function RoutePlanningPage() {
                 </div>
             </div>
 
-            <RouteBuilderFullView />
+            <RouteBuilderStitch />
         </div>
     );
 }
