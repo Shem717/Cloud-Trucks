@@ -287,6 +287,12 @@ export function SmartSuggestions({
                                     onClick={() => {
                                         if (suggestion.type === 'timing' && onFilterInstant) {
                                             onFilterInstant()
+                                        } else if (suggestion.type === 'backhaul') {
+                                            // Extract destination from suggestion description
+                                            const match = suggestion.description.match(/going to ([^,]+), ([A-Z]{2})/)
+                                            if (match && onAddBackhaul) {
+                                                onAddBackhaul(match[1], match[2])
+                                            }
                                         } else if (suggestion.relatedLoads?.[0] && onSelectLoad) {
                                             onSelectLoad(suggestion.relatedLoads[0])
                                         }

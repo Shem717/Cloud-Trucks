@@ -28,10 +28,13 @@ export function FuelSettingsDialog({ open, onOpenChange, currentMpg, currentFuel
 
     useEffect(() => {
         if (open) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setMpg(currentMpg.toString());
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setPrice(currentFuelPrice.toString());
         }
-    }, [open, currentMpg, currentFuelPrice]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
 
     const handleSave = () => {
         const newMpg = parseFloat(mpg);

@@ -92,6 +92,32 @@ export function VoiceCommands({ onCommand, isEnabled = true }: VoiceCommandsProp
 
     const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
 
+    // Speak confirmation using Web Speech API
+    const speakConfirmation = useCallback((command: VoiceCommand) => {
+        if (!('speechSynthesis' in window)) return
+
+        const messages: Record<VoiceCommand, string> = {
+            scan_market: 'Scanning market for new loads',
+            show_hot_loads: 'Showing hot loads',
+            show_instant: 'Filtering to instant book loads',
+            filter_all: 'Showing all loads',
+            open_calendar: 'Opening calendar',
+            show_settings: 'Opening settings',
+            sort_price_high: 'Sorting by highest price',
+            sort_price_low: 'Sorting by lowest price',
+            sort_rpm: 'Sorting by rate per mile',
+            scroll_down: 'Scrolling down',
+            scroll_up: 'Scrolling up',
+            help: 'Showing available commands',
+            unknown: 'Command not recognized'
+        }
+
+        const utterance = new SpeechSynthesisUtterance(messages[command])
+        utterance.rate = 1.1
+        utterance.pitch = 1
+        window.speechSynthesis.speak(utterance)
+    }, [])
+
     // Check for browser support
     useEffect(() => {
         if (typeof window === 'undefined') return
@@ -164,33 +190,7 @@ export function VoiceCommands({ onCommand, isEnabled = true }: VoiceCommandsProp
         return () => {
             recognition.abort()
         }
-    }, [isListening, status, onCommand])
-
-    // Speak confirmation using Web Speech API
-    const speakConfirmation = useCallback((command: VoiceCommand) => {
-        if (!('speechSynthesis' in window)) return
-
-        const messages: Record<VoiceCommand, string> = {
-            scan_market: 'Scanning market for new loads',
-            show_hot_loads: 'Showing hot loads',
-            show_instant: 'Filtering to instant book loads',
-            filter_all: 'Showing all loads',
-            open_calendar: 'Opening calendar',
-            show_settings: 'Opening settings',
-            sort_price_high: 'Sorting by highest price',
-            sort_price_low: 'Sorting by lowest price',
-            sort_rpm: 'Sorting by rate per mile',
-            scroll_down: 'Scrolling down',
-            scroll_up: 'Scrolling up',
-            help: 'Showing available commands',
-            unknown: 'Command not recognized'
-        }
-
-        const utterance = new SpeechSynthesisUtterance(messages[command])
-        utterance.rate = 1.1
-        utterance.pitch = 1
-        window.speechSynthesis.speak(utterance)
-    }, [])
+    }, [isListening, status, onCommand, speakConfirmation])
 
     const toggleListening = useCallback(() => {
         if (!recognitionRef.current) return
@@ -268,7 +268,7 @@ export function VoiceCommands({ onCommand, isEnabled = true }: VoiceCommandsProp
                             </div>
                             {transcript && (
                                 <div className="text-xs text-muted-foreground mt-0.5">
-                                    "{transcript}"
+                                    &quot;{transcript}&quot;
                                 </div>
                             )}
                         </div>
@@ -277,12 +277,12 @@ export function VoiceCommands({ onCommand, isEnabled = true }: VoiceCommandsProp
                     {/* Voice Waveform Visualization */}
                     {status === 'listening' && (
                         <div className="flex items-center justify-center gap-1 h-8">
-                            {[...Array(5)].map((_, i) => (
+                            {[10, 20, 15, 25, 12].map((height, i) => (
                                 <div
                                     key={i}
                                     className="w-1 bg-rose-500 rounded-full animate-pulse"
                                     style={{
-                                        height: `${Math.random() * 20 + 10}px`,
+                                        height: `${height}px`,
                                         animationDelay: `${i * 0.1}s`
                                     }}
                                 />
@@ -291,7 +291,7 @@ export function VoiceCommands({ onCommand, isEnabled = true }: VoiceCommandsProp
                     )}
 
                     <p className="text-[10px] text-muted-foreground text-center mt-2">
-                        Try saying "Show hot loads" or "Scan market"
+                        Try saying &quot;Show hot loads&quot; or &quot;Scan market&quot;
                     </p>
                 </div>
             )}

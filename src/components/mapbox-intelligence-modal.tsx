@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { X, AlertTriangle, TrendingUp, Clock, MapPin } from 'lucide-react';
+import { X, AlertTriangle, TrendingUp, Clock, MapPin, Fuel } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -101,9 +101,11 @@ export function MapboxIntelligenceModal({
 }: MapboxIntelligenceModalProps) {
     const mapContainer = useRef<HTMLDivElement>(null);
     const map = useRef<mapboxgl.Map | null>(null);
+    const fuelMarkers = useRef<mapboxgl.Marker[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [metrics, setMetrics] = useState<CalculationResult | null>(null);
+    const [fuelStopsVisible, setFuelStopsVisible] = useState(false);
 
     // Extract coordinates from top-level or stops array
     const { originLat, originLon, destLat, destLon } = useMemo(
@@ -375,6 +377,80 @@ export function MapboxIntelligenceModal({
         };
     }, [isOpen, hasCoordinates, originLat, originLon, destLat, destLon, fetchRoute, fetchWeatherAlongRoute, fetchChainLaws, load.details]);
 
+    // Fuel stops toggle effect
+    useEffect(() => {
+        if (!map.current || !fuelStopsVisible || !hasCoordinates) {
+            // Remove existing fuel markers when toggled off
+            fuelMarkers.current.forEach(marker => marker.remove());
+            fuelMarkers.current = [];
+            return;
+        }
+
+        // Fetch and add fuel stop markers
+        async function addFuelStops() {
+            try {
+                const params = new URLSearchParams({
+                    originLat: originLat!.toString(),
+                    originLon: originLon!.toString(),
+                    destLat: destLat!.toString(),
+                    destLon: destLon!.toString(),
+                    maxStops: '5',
+                });
+
+                const fuelResponse = await fetch(`/api/fuel-stops?${params}`);
+                if (!fuelResponse.ok) {
+                    throw new Error('Failed to fetch fuel stops');
+                }
+
+                const fuelData = await fuelResponse.json();
+
+                // Clear existing markers
+                fuelMarkers.current.forEach(marker => marker.remove());
+                fuelMarkers.current = [];
+
+                // Add new markers
+                fuelData.fuelStops.forEach((stop: any) => {
+                    const el = document.createElement('div');
+                    el.className = 'fuel-marker';
+                    el.innerHTML = '⛽';
+                    el.style.fontSize = '24px';
+                    el.style.cursor = 'pointer';
+                    el.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
+
+                    const price = stop.price ? `$${stop.price.toFixed(2)}/gal` : 'Price N/A';
+                    const amenities = stop.amenities.slice(0, 3).join(', ');
+
+                    const marker = new mapboxgl.Marker({ element: el })
+                        .setLngLat([stop.lon, stop.lat])
+                        .setPopup(
+                            new mapboxgl.Popup({ offset: 25 }).setHTML(
+                                `<div style="min-width: 200px;">
+                                    <strong>${stop.name}</strong><br/>
+                                    <div style="margin-top: 4px; color: #10b981; font-weight: bold;">${price}</div>
+                                    <div style="margin-top: 4px; font-size: 12px; color: #9ca3af;">
+                                        ${stop.city}, ${stop.state}<br/>
+                                        ${stop.milesAlongRoute} mi from origin
+                                        ${stop.distanceFromRoute > 0 ? `<br/>(${stop.distanceFromRoute} mi off route)` : ''}
+                                    </div>
+                                    ${amenities ? `<div style="margin-top: 4px; font-size: 11px; color: #6b7280;">${amenities}</div>` : ''}
+                                    ${stop.rating > 0 ? `<div style="margin-top: 4px; color: #fbbf24;">★ ${stop.rating.toFixed(1)}</div>` : ''}
+                                </div>`
+                            )
+                        )
+                        .addTo(map.current!);
+
+                    fuelMarkers.current.push(marker);
+                });
+
+                console.log(`[MAPBOX] Added ${fuelData.fuelStops.length} fuel stop markers`);
+            } catch (err) {
+                console.error('[MAPBOX] Error fetching fuel stops:', err);
+            }
+        }
+
+        addFuelStops();
+    }, [fuelStopsVisible, hasCoordinates, originLat, originLon, destLat, destLon]);
+
     if (!isOpen) return null;
 
     return (
@@ -439,9 +515,24 @@ export function MapboxIntelligenceModal({
                                 )}
                             </div>
 
-                            <Button variant="ghost" size="icon" onClick={onClose} className="hover:bg-white/10 hover:text-red-500 transition-colors rounded-full">
-                                <X className="h-5 w-5" />
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant={fuelStopsVisible ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => setFuelStopsVisible(!fuelStopsVisible)}
+                                    className={cn(
+                                        "gap-2 transition-colors",
+                                        fuelStopsVisible && "bg-amber-500 hover:bg-amber-600 border-amber-400"
+                                    )}
+                                >
+                                    <Fuel className="h-4 w-4" />
+                                    {fuelStopsVisible ? 'Hide' : 'Show'} Fuel Stops
+                                </Button>
+
+                                <Button variant="ghost" size="icon" onClick={onClose} className="hover:bg-white/10 hover:text-red-500 transition-colors rounded-full">
+                                    <X className="h-5 w-5" />
+                                </Button>
+                            </div>
                         </div>
                     </div>
 

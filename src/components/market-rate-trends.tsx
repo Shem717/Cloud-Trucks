@@ -193,7 +193,21 @@ export function MarketRateTrends({ loads, className }: MarketRateTrendsProps) {
     const trends = useMemo(() => analyzeMarketTrends(loads), [loads])
 
     if (trends.length === 0) {
-        return null
+        // Show a placeholder when no trends available
+        return (
+            <Card className={cn("p-4", className)}>
+                <div className="flex items-center gap-2 mb-4">
+                    <BarChart3 className="h-5 w-5 text-blue-500" />
+                    <h3 className="font-semibold text-sm">Your Lane Trends</h3>
+                    <span className="text-[10px] text-muted-foreground">(from scanned loads)</span>
+                </div>
+                <div className="text-center py-6 text-muted-foreground">
+                    <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">Not enough data yet</p>
+                    <p className="text-xs mt-1">Trends appear when you have 2+ loads on the same lane</p>
+                </div>
+            </Card>
+        )
     }
 
     const topTrends = trends.slice(0, 3)
@@ -203,7 +217,8 @@ export function MarketRateTrends({ loads, className }: MarketRateTrendsProps) {
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                     <BarChart3 className="h-5 w-5 text-blue-500" />
-                    <h3 className="font-semibold text-sm">Market Rate Trends</h3>
+                    <h3 className="font-semibold text-sm">Your Lane Trends</h3>
+                    <span className="text-[10px] text-muted-foreground">(scanned)</span>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => setIsExpanded(true)}>
                     View All
@@ -223,10 +238,10 @@ export function MarketRateTrends({ loads, className }: MarketRateTrendsProps) {
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <BarChart3 className="h-5 w-5 text-blue-500" />
-                            Market Rate Trends
+                            Your Lane Trends
                         </DialogTitle>
                         <DialogDescription>
-                            Rate trends across your monitored lanes based on recent load data.
+                            Rate trends across your monitored lanes based on your scanned load data.
                         </DialogDescription>
                     </DialogHeader>
 

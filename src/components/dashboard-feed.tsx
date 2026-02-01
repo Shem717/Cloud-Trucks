@@ -1143,8 +1143,10 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                     </div>
                                 }
                                 title={
-                                    <div className="truncate text-sm flex items-center gap-1">
-                                        {mission.criteria.origin_city} <ArrowRight className="h-3 w-3 text-muted-foreground" /> {mission.criteria.dest_city || 'Any'}
+                                    <div className="text-sm flex flex-wrap items-center gap-1">
+                                        <span>{mission.criteria.origin_city}{mission.criteria.origin_state ? `, ${mission.criteria.origin_state}` : ''}</span>
+                                        <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                                        <span>{mission.criteria.dest_city ? `${mission.criteria.dest_city}${mission.criteria.destination_state ? `, ${mission.criteria.destination_state}` : ''}` : 'Any'}</span>
                                     </div>
                                 }
                                 description={
@@ -1263,8 +1265,10 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                     </div>
                                 }
                                 title={
-                                    <div className="truncate text-sm flex items-center gap-1">
-                                        {mission.criteria.origin_city} <ArrowRight className="h-3 w-3 text-muted-foreground" /> {mission.criteria.dest_city || 'Any'}
+                                    <div className="text-sm flex flex-wrap items-center gap-1">
+                                        <span>{mission.criteria.origin_city}{mission.criteria.origin_state ? `, ${mission.criteria.origin_state}` : ''}</span>
+                                        <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                                        <span>{mission.criteria.dest_city ? `${mission.criteria.dest_city}${mission.criteria.destination_state ? `, ${mission.criteria.destination_state}` : ''}` : 'Any'}</span>
                                     </div>
                                 }
                                 description={

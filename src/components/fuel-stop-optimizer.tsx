@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -15,7 +15,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover'
-import { Fuel, MapPin, DollarSign, TrendingDown, Navigation, ExternalLink, Info } from 'lucide-react'
+import { Fuel, MapPin, DollarSign, TrendingDown, Navigation, ExternalLink, Info, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // Fuel stop data structure
@@ -26,16 +26,39 @@ interface FuelStop {
     address: string
     city: string
     state: string
-    price: number // per gallon
+    lat: number
+    lon: number
+    price?: number // per gallon (optional from API)
+    priceLevel?: number // 1-4 scale from Google
     amenities: string[]
     distanceFromRoute: number // miles off route
     milesAlongRoute: number // miles from origin
     hasParking: boolean
     hasDiesel: boolean
     rating: number // 1-5
+    userRatingsTotal?: number
 }
 
-// Generate mock fuel stops along a route
+/**
+ * Estimate diesel price from Google's price level (1-4) and base price
+ */
+function estimatePriceFromPriceLevel(priceLevel: number | undefined, basePrice: number): number {
+    if (!priceLevel) return basePrice
+
+    // Price level mapping (Google's scale is relative, not absolute prices)
+    // 1 = Inexpensive, 2 = Moderate, 3 = Expensive, 4 = Very Expensive
+    const adjustments = {
+        1: -0.30, // $0.30 cheaper
+        2: -0.10, // $0.10 cheaper
+        3: 0.10,  // $0.10 more expensive
+        4: 0.30,  // $0.30 more expensive
+    }
+
+    const adjustment = adjustments[priceLevel as keyof typeof adjustments] || 0
+    return Math.round((basePrice + adjustment) * 100) / 100
+}
+
+// Generate mock fuel stops along a route (fallback when no coordinates)
 function generateFuelStops(
     originCity: string,
     destCity: string,
@@ -96,6 +119,8 @@ function generateFuelStops(
             address: `${100 + (seed * i) % 9000} Interstate Drive`,
             city: cityData.city,
             state: cityData.state,
+            lat: 0, // Mock data doesn't have real coordinates
+            lon: 0,
             price: Math.round(basePrice * 100) / 100,
             amenities: chain.amenities,
             distanceFromRoute: (seed + i) % 3, // 0-2 miles off route
@@ -103,11 +128,12 @@ function generateFuelStops(
             hasParking: true,
             hasDiesel: true,
             rating: 3.5 + ((seed + i) % 15) / 10, // 3.5-5.0
+            userRatingsTotal: 100 + (seed + i) % 500,
         })
     }
 
     // Sort by price to highlight cheapest
-    return stops.sort((a, b) => a.price - b.price)
+    return stops.sort((a, b) => (a.price || Infinity) - (b.price || Infinity))
 }
 
 // Calculate fuel needed and cost
@@ -142,31 +168,101 @@ function calculateFuelNeeds(
 interface FuelStopOptimizerProps {
     originCity?: string
     originState?: string
+    originLat?: number
+    originLon?: number
     destCity?: string
     destState?: string
+    destLat?: number
+    destLon?: number
     distance: number
     mpg?: number
+    fuelPrice?: number
     onSelectStop?: (stop: FuelStop) => void
 }
 
 export function FuelStopOptimizer({
     originCity = "Unknown",
     originState = "",
+    originLat,
+    originLon,
     destCity = "Unknown",
     destState = "",
+    destLat,
+    destLon,
     distance,
     mpg = 6.5,
+    fuelPrice = 3.80,
     onSelectStop
 }: FuelStopOptimizerProps) {
     const [isOpen, setIsOpen] = useState(false)
+    const [isLoading, setIsLoading] = useState(false)
+    const [fuelStops, setFuelStops] = useState<FuelStop[]>([])
+    const [error, setError] = useState<string | null>(null)
 
     const origin = `${originCity}${originState ? `, ${originState}` : ''}`
     const dest = `${destCity}${destState ? `, ${destState}` : ''}`
 
-    const fuelStops = useMemo(() =>
-        generateFuelStops(origin, dest, distance),
-        [origin, dest, distance]
-    )
+    // Fetch real fuel stops when dialog opens (if coordinates available)
+    useEffect(() => {
+        if (!isOpen) return;
+
+        // If no coordinates, fall back to mock data
+        if (!originLat || !originLon || !destLat || !destLon) {
+            console.log('[FUEL] No coordinates available, using mock data')
+            setFuelStops(generateFuelStops(origin, dest, distance))
+            return
+        }
+
+        // Fetch real data from API
+        async function fetchFuelStops() {
+            setIsLoading(true)
+            setError(null)
+
+            try {
+                const params = new URLSearchParams({
+                    originLat: originLat!.toString(),
+                    originLon: originLon!.toString(),
+                    destLat: destLat!.toString(),
+                    destLon: destLon!.toString(),
+                    maxStops: '5',
+                })
+
+                const response = await fetch(`/api/fuel-stops?${params}`)
+                const data = await response.json()
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to fetch fuel stops')
+                }
+
+                console.log(`[FUEL] Fetched ${data.fuelStops.length} real fuel stops`)
+
+                // Estimate prices if not provided (use fuelPrice prop as baseline)
+                const stopsWithPrices = data.fuelStops.map((stop: FuelStop) => ({
+                    ...stop,
+                    price: stop.price || estimatePriceFromPriceLevel(stop.priceLevel, fuelPrice),
+                }))
+
+                // Sort by price (cheapest first)
+                const sortedStops = stopsWithPrices.sort((a: FuelStop, b: FuelStop) => {
+                    const priceA = a.price || fuelPrice
+                    const priceB = b.price || fuelPrice
+                    return priceA - priceB
+                })
+
+                setFuelStops(sortedStops)
+            } catch (err) {
+                console.error('[FUEL] Error fetching fuel stops:', err)
+                setError(err instanceof Error ? err.message : 'Failed to load fuel stops')
+
+                // Fall back to mock data on error
+                setFuelStops(generateFuelStops(origin, dest, distance))
+            } finally {
+                setIsLoading(false)
+            }
+        }
+
+        fetchFuelStops()
+    }, [isOpen, originLat, originLon, destLat, destLon, origin, dest, distance, fuelPrice])
 
     const fuelNeeds = useMemo(() =>
         calculateFuelNeeds(distance, mpg),
@@ -174,8 +270,8 @@ export function FuelStopOptimizer({
     )
 
     const cheapestStop = fuelStops[0]
-    const potentialSavings = fuelStops.length > 1
-        ? ((fuelStops[fuelStops.length - 1].price - cheapestStop.price) * fuelNeeds.gallonsNeeded).toFixed(0)
+    const potentialSavings = fuelStops.length > 1 && cheapestStop?.price && fuelStops[1]?.price
+        ? (((fuelStops[1].price || 0) - (cheapestStop.price || 0)) * fuelNeeds.gallonsNeeded).toFixed(0)
         : 0
 
     return (
@@ -196,11 +292,25 @@ export function FuelStopOptimizer({
                         <DialogTitle className="flex items-center gap-2">
                             <Fuel className="h-5 w-5 text-amber-500" />
                             Fuel Stop Optimizer
+                            {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                         </DialogTitle>
                         <DialogDescription>
                             {origin} → {dest} • {distance} miles
+                            {!originLat && !isLoading && (
+                                <span className="text-amber-500 text-xs ml-2">
+                                    (Using estimated data)
+                                </span>
+                            )}
                         </DialogDescription>
                     </DialogHeader>
+
+                    {/* Error Message */}
+                    {error && (
+                        <div className="px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-sm text-amber-400">
+                            <Info className="h-4 w-4 inline mr-2" />
+                            {error}. Showing estimated data instead.
+                        </div>
+                    )}
 
                     {/* Summary Stats */}
                     <div className="grid grid-cols-3 gap-3 py-4 border-b border-border">
@@ -229,59 +339,76 @@ export function FuelStopOptimizer({
 
                     {/* Fuel Stops List */}
                     <div className="flex-1 overflow-y-auto space-y-2 py-4">
-                        {fuelStops.map((stop, index) => (
-                            <div
-                                key={stop.id}
-                                className={cn(
-                                    "p-3 rounded-lg border transition-all hover:bg-muted/50 cursor-pointer",
-                                    index === 0 && "border-emerald-500/30 bg-emerald-500/5"
-                                )}
-                                onClick={() => onSelectStop?.(stop)}
-                            >
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-semibold text-sm">{stop.name}</span>
-                                            {index === 0 && (
-                                                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">
-                                                    <TrendingDown className="h-2 w-2 mr-1" />
-                                                    CHEAPEST
-                                                </Badge>
+                        {isLoading ? (
+                            <div className="flex items-center justify-center py-12">
+                                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                                <span className="ml-3 text-muted-foreground">Finding fuel stops along your route...</span>
+                            </div>
+                        ) : fuelStops.length === 0 ? (
+                            <div className="flex items-center justify-center py-12 text-muted-foreground">
+                                No fuel stops found for this route
+                            </div>
+                        ) : (
+                            fuelStops.map((stop, index) => (
+                                <div
+                                    key={stop.id}
+                                    className={cn(
+                                        "p-3 rounded-lg border transition-all hover:bg-muted/50 cursor-pointer",
+                                        index === 0 && "border-emerald-500/30 bg-emerald-500/5"
+                                    )}
+                                    onClick={() => onSelectStop?.(stop)}
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-semibold text-sm">{stop.name}</span>
+                                                {index === 0 && (
+                                                    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">
+                                                        <TrendingDown className="h-2 w-2 mr-1" />
+                                                        CHEAPEST
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                                <MapPin className="h-3 w-3" />
+                                                {stop.city}, {stop.state} • {stop.milesAlongRoute} mi from origin
+                                                {stop.distanceFromRoute > 0 && (
+                                                    <span className="text-amber-500">
+                                                        ({stop.distanceFromRoute} mi off route)
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex flex-wrap gap-1 mt-2">
+                                                {stop.amenities.slice(0, 4).map((amenity) => (
+                                                    <Badge key={amenity} variant="secondary" className="text-[10px]">
+                                                        {amenity}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className={cn(
+                                                "text-lg font-bold",
+                                                index === 0 ? "text-emerald-500" : "text-foreground"
+                                            )}>
+                                                {stop.price ? `$${stop.price.toFixed(2)}` : 'N/A'}
+                                            </div>
+                                            <div className="text-[10px] text-muted-foreground">
+                                                {stop.price ? '/gallon' : 'Price unavailable'}
+                                            </div>
+                                            {stop.rating > 0 && (
+                                                <div className="flex items-center gap-1 mt-1 text-xs text-amber-500">
+                                                    {'★'.repeat(Math.floor(stop.rating))}
+                                                    <span className="text-muted-foreground">
+                                                        {stop.rating.toFixed(1)}
+                                                        {stop.userRatingsTotal && ` (${stop.userRatingsTotal})`}
+                                                    </span>
+                                                </div>
                                             )}
-                                        </div>
-                                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                                            <MapPin className="h-3 w-3" />
-                                            {stop.city}, {stop.state} • {stop.milesAlongRoute} mi from origin
-                                            {stop.distanceFromRoute > 0 && (
-                                                <span className="text-amber-500">
-                                                    ({stop.distanceFromRoute} mi off route)
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="flex flex-wrap gap-1 mt-2">
-                                            {stop.amenities.slice(0, 4).map((amenity) => (
-                                                <Badge key={amenity} variant="secondary" className="text-[10px]">
-                                                    {amenity}
-                                                </Badge>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className={cn(
-                                            "text-lg font-bold",
-                                            index === 0 ? "text-emerald-500" : "text-foreground"
-                                        )}>
-                                            ${stop.price.toFixed(2)}
-                                        </div>
-                                        <div className="text-[10px] text-muted-foreground">/gallon</div>
-                                        <div className="flex items-center gap-1 mt-1 text-xs text-amber-500">
-                                            {'★'.repeat(Math.floor(stop.rating))}
-                                            <span className="text-muted-foreground">{stop.rating.toFixed(1)}</span>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            )))}
                     </div>
 
                     {/* Footer */}

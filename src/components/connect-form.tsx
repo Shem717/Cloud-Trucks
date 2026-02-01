@@ -68,6 +68,7 @@ export function ConnectForm() {
                             id="ct-cookie"
                             name="cookie"
                             type="password"
+                            // eslint-disable-next-line no-secrets/no-secrets
                             placeholder="gini0370hov5bpb6xioxkrrnv58ppcqw"
                             required
                             className="pr-10 font-mono text-xs"
@@ -83,6 +84,7 @@ export function ConnectForm() {
                             id="ct-csrf"
                             name="csrf"
                             type="password"
+                            // eslint-disable-next-line no-secrets/no-secrets
                             placeholder="loNMSGdok4L7VkiqLLvuz9NY6v7VoCg7"
                             required
                             className="pr-10 font-mono text-xs"

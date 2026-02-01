@@ -111,7 +111,7 @@ function buildApiPayload(criteria: SearchCriteria): object {
 
     // For Instant Book loads, try requesting unmasked data to get addresses
     const isInstantOnly = normalizeBookingType(criteria.booking_type) === 'INSTANT';
-    
+
     return {
         origin_location: origin,
         origin_range_mi__max: criteria.pickup_distance || 50,
@@ -309,7 +309,7 @@ function collectLoadsFromPusher(channelName: string, timeoutMs: number, log: (ms
                 };
 
                 loads.push(load);
-                
+
                 // Always log address info for debugging (even without DEBUG flag)
                 const hasAddressData = loadData.origin_address || loadData.dest_address;
                 if (hasAddressData) {
@@ -319,9 +319,10 @@ function collectLoadsFromPusher(channelName: string, timeoutMs: number, log: (ms
                         dest_address: loadData.dest_address,
                     });
                 }
-                
+
                 // Check stops for address data
                 if (loadData.stops && Array.isArray(loadData.stops)) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     loadData.stops.forEach((stop: any, idx: number) => {
                         if (stop.address || stop.street || stop.full_address) {
                             console.log(`[CT API] STOP ADDRESS FOUND for load ${load.id}, stop ${idx}:`, {
@@ -334,7 +335,7 @@ function collectLoadsFromPusher(channelName: string, timeoutMs: number, log: (ms
                         }
                     });
                 }
-                
+
                 if (DEBUG) {
                     console.log(`[CT API] Received load: ${load.origin_city}, ${load.origin_state} -> ${load.dest_city}, ${load.dest_state} | $${load.trip_rate} | instant=${load.instant_book}`);
                     // DEBUG: Log all available fields to identify unused data
@@ -346,7 +347,7 @@ function collectLoadsFromPusher(channelName: string, timeoutMs: number, log: (ms
                     if (uncaptured.length > 0) {
                         console.log('[CT API DEBUG] Uncaptured fields:', uncaptured);
                     }
-                    
+
                     // Log stop structure for analysis
                     if (loadData.stops && loadData.stops.length > 0) {
                         console.log('[CT API DEBUG] Stop keys:', Object.keys(loadData.stops[0]));
@@ -406,4 +407,183 @@ export async function testApiConnection(
         const message = error instanceof Error ? error.message : String(error);
         return { success: false, error: message };
     }
+}
+
+/**
+ * Market Insights Types
+ */
+export interface MarketRegion {
+    region_id: string;
+    region_name: string;
+    state?: string;
+    load_count: number;
+    avg_rate_per_mile: number;
+    avg_rate: number;
+    demand_level: 'low' | 'medium' | 'high' | 'very_high';
+    trend: 'up' | 'down' | 'stable';
+    trend_percent: number;
+}
+
+export interface MarketInsightsData {
+    equipment_type: string;
+    distance_type: string;
+    last_updated: string;
+    regions: MarketRegion[];
+    national_avg_rpm: number;
+    total_loads: number;
+}
+
+/**
+ * Fetch market insights/conditions from CloudTrucks
+ * This data powers the heat map at https://app.cloudtrucks.com/market-conditions/
+ */
+export async function fetchMarketInsights(
+    sessionCookie: string,
+    csrfToken: string,
+    equipmentType: string = 'DRY_VAN',
+    distanceType: string = 'Long',
+    onLog?: (message: string) => void
+): Promise<MarketInsightsData | null> {
+    const log = (msg: string) => {
+        if (DEBUG) console.log(msg);
+        if (onLog) onLog(msg);
+    };
+
+    log('[CT API] Fetching market insights...');
+
+    const cleanSession = cleanCookieValue(sessionCookie, '__Secure-sessionid-v2');
+    const cleanCsrf = cleanCookieValue(csrfToken, '__Secure-csrftoken-v2');
+
+    // Try multiple possible API endpoints for market conditions
+    const possibleEndpoints = [
+        '/api/v1/market-conditions/',
+        '/api/v2/market-conditions/',
+        '/api/v1/market-insights/',
+        '/api/v2/market-insights/',
+        '/api/v1/heat-map/',
+        '/api/v1/market/',
+    ];
+
+    for (const endpoint of possibleEndpoints) {
+        try {
+            const url = new URL(endpoint, CLOUDTRUCKS_API_BASE);
+            url.searchParams.set('equipment', equipmentType);
+            url.searchParams.set('distance_type', distanceType);
+
+            log(`[CT API] Trying endpoint: ${url.toString()}`);
+
+            const { statusCode, body } = await request(url.toString(), {
+                method: 'GET',
+                dispatcher: httpAgent,
+                headers: {
+                    'accept': 'application/json, text/plain, */*',
+                    'cookie': `__Secure-csrftoken-v2=${cleanCsrf}; __Secure-sessionid-v2=${cleanSession}`,
+                    'origin': 'https://app.cloudtrucks.com',
+                    'referer': 'https://app.cloudtrucks.com/market-conditions/',
+                    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
+                    'x-csrftoken': cleanCsrf,
+                },
+            });
+
+            const responseText = await body.text();
+
+            if (statusCode === 200) {
+                log(`[CT API] Market insights found at ${endpoint}`);
+                try {
+                    const data = JSON.parse(responseText);
+                    // Try to normalize the response to our expected format
+                    return normalizeMarketInsightsResponse(data, equipmentType, distanceType);
+                } catch (parseError) {
+                    log(`[CT API] Failed to parse response from ${endpoint}`);
+                }
+            } else {
+                log(`[CT API] Endpoint ${endpoint} returned ${statusCode}`);
+            }
+        } catch (error) {
+            log(`[CT API] Error fetching from ${endpoint}: ${error}`);
+        }
+    }
+
+    log('[CT API] Could not find market insights endpoint');
+    return null;
+}
+
+/**
+ * Normalize market insights response to our expected format
+ */
+function normalizeMarketInsightsResponse(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: any,
+    equipmentType: string,
+    distanceType: string
+): MarketInsightsData {
+    // Handle various possible response formats
+    const regions: MarketRegion[] = [];
+
+    // If data has a regions/markets/areas array
+    const rawRegions = data.regions || data.markets || data.areas || data.data || [];
+
+    if (Array.isArray(rawRegions)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        rawRegions.forEach((r: any, index: number) => {
+            regions.push({
+                region_id: r.id || r.region_id || r.code || `region-${index}`,
+                region_name: r.name || r.region_name || r.market || r.area || 'Unknown',
+                state: r.state || r.state_code,
+                load_count: r.load_count || r.loads || r.count || 0,
+                avg_rate_per_mile: r.avg_rate_per_mile || r.rpm || r.rate_per_mile || 0,
+                avg_rate: r.avg_rate || r.rate || r.average_rate || 0,
+                demand_level: normalizeDemandLevel(r.demand || r.demand_level || r.load_count),
+                trend: normalizeTrend(r.trend || r.direction),
+                trend_percent: r.trend_percent || r.change_percent || 0,
+            });
+        });
+    }
+
+    return {
+        equipment_type: equipmentType,
+        distance_type: distanceType,
+        last_updated: data.last_updated || data.updated_at || new Date().toISOString(),
+        regions,
+        national_avg_rpm: data.national_avg_rpm || data.avg_rpm || calculateAvgRpm(regions),
+        total_loads: data.total_loads || regions.reduce((sum, r) => sum + r.load_count, 0),
+    };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeDemandLevel(value: any): 'low' | 'medium' | 'high' | 'very_high' {
+    if (typeof value === 'string') {
+        const lower = value.toLowerCase();
+        if (lower.includes('very') || lower.includes('hot')) return 'very_high';
+        if (lower.includes('high')) return 'high';
+        if (lower.includes('low')) return 'low';
+        return 'medium';
+    }
+    if (typeof value === 'number') {
+        if (value > 100) return 'very_high';
+        if (value > 50) return 'high';
+        if (value > 20) return 'medium';
+        return 'low';
+    }
+    return 'medium';
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeTrend(value: any): 'up' | 'down' | 'stable' {
+    if (typeof value === 'string') {
+        const lower = value.toLowerCase();
+        if (lower.includes('up') || lower.includes('increas')) return 'up';
+        if (lower.includes('down') || lower.includes('decreas')) return 'down';
+    }
+    if (typeof value === 'number') {
+        if (value > 0) return 'up';
+        if (value < 0) return 'down';
+    }
+    return 'stable';
+}
+
+function calculateAvgRpm(regions: MarketRegion[]): number {
+    if (regions.length === 0) return 0;
+    const total = regions.reduce((sum, r) => sum + r.avg_rate_per_mile, 0);
+    return total / regions.length;
 }
