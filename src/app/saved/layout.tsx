@@ -1,7 +1,7 @@
 import AuthedLayout from '@/components/authed-layout'
-import { RouteBuilderProvider } from '@/components/route-builder'
+import { RouteBuilderProvider, RouteBuilderToggle } from '@/components/route-builder'
 
-export default function RoutesLayout({
+export default function InterestedLayout({
     children,
 }: {
     children: React.ReactNode
@@ -10,6 +10,7 @@ export default function RoutesLayout({
         <AuthedLayout>
             <RouteBuilderProvider>
                 {children}
+                <RouteBuilderToggle />
             </RouteBuilderProvider>
         </AuthedLayout>
     )

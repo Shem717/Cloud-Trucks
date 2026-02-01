@@ -62,7 +62,9 @@ function estimatePriceFromPriceLevel(priceLevel: number | undefined, basePrice: 
 function generateFuelStops(
     originCity: string,
     destCity: string,
-    totalDistance: number
+    totalDistance: number,
+    startCoords: { lat: number, lon: number } | null = null,
+    endCoords: { lat: number, lon: number } | null = null
 ): FuelStop[] {
     // Generate stops roughly every 200-300 miles
     const numStops = Math.max(2, Math.floor(totalDistance / 250))
@@ -112,6 +114,19 @@ function generateFuelStops(
         // Price varies by region ($3.20 - $4.50)
         const basePrice = 3.20 + ((seed + i * 7) % 130) / 100
 
+        // Simple linear interpolation if coordinates exist
+        let lat = 0;
+        let lon = 0;
+
+        if (startCoords && endCoords) {
+            const fraction = (i + 1) / (numStops + 1);
+            // Add slight randomness to simulate off-highway locations (+/- 0.05 deg is roughly 3-4 miles)
+            const randomOffset = ((seed + i * 13) % 100) / 1000 - 0.05;
+
+            lat = startCoords.lat + (endCoords.lat - startCoords.lat) * fraction + (randomOffset * 0.5);
+            lon = startCoords.lon + (endCoords.lon - startCoords.lon) * fraction + randomOffset;
+        }
+
         stops.push({
             id: `stop-${i}`,
             name: `${chain.name} #${1000 + (seed + i) % 9000}`,
@@ -119,8 +134,8 @@ function generateFuelStops(
             address: `${100 + (seed * i) % 9000} Interstate Drive`,
             city: cityData.city,
             state: cityData.state,
-            lat: 0, // Mock data doesn't have real coordinates
-            lon: 0,
+            lat: lat,
+            lon: lon,
             price: Math.round(basePrice * 100) / 100,
             amenities: chain.amenities,
             distanceFromRoute: (seed + i) % 3, // 0-2 miles off route
@@ -140,22 +155,41 @@ function generateFuelStops(
 function calculateFuelNeeds(
     distance: number,
     mpg: number,
-    currentFuel: number = 50 // gallons in tank
+    currentFuel: number = 150 // gallons in tank (more realistic starting fuel)
 ): { gallonsNeeded: number; refillPoints: number[] } {
     const tankCapacity = 300 // typical semi tank capacity
     const refillThreshold = 50 // refill when down to 50 gallons
     const gallonsNeeded = distance / mpg
     const refillPoints: number[] = []
 
+    // If we have enough fuel for the whole trip, no refills needed
+    if (currentFuel >= gallonsNeeded) {
+        return { gallonsNeeded, refillPoints }
+    }
+
     let fuel = currentFuel
     let milesTraveled = 0
     const milesPerGallon = mpg
 
     while (milesTraveled < distance) {
-        const milesUntilRefill = (fuel - refillThreshold) * milesPerGallon
+        // Calculate how many miles we can travel before hitting refill threshold
+        const milesUntilRefill = Math.max(0, (fuel - refillThreshold) * milesPerGallon)
+
+        // Check if we can finish the trip with remaining fuel
+        const remainingDistance = distance - milesTraveled
+        const fuelNeededForRest = remainingDistance / milesPerGallon
+
+        if (fuel >= fuelNeededForRest) {
+            // We can finish without refilling
+            break
+        }
+
         if (milesTraveled + milesUntilRefill < distance) {
             milesTraveled += milesUntilRefill
-            refillPoints.push(Math.round(milesTraveled))
+            // Don't add refill point at mile 0
+            if (milesTraveled > 0) {
+                refillPoints.push(Math.round(milesTraveled))
+            }
             fuel = tankCapacity * 0.9 // Fill to 90%
         } else {
             break
@@ -209,6 +243,7 @@ export function FuelStopOptimizer({
         // If no coordinates, fall back to mock data
         if (!originLat || !originLon || !destLat || !destLon) {
             console.log('[FUEL] No coordinates available, using mock data')
+            // Pass whatever we have, even if only partial
             setFuelStops(generateFuelStops(origin, dest, distance))
             return
         }
@@ -255,7 +290,10 @@ export function FuelStopOptimizer({
                 setError(err instanceof Error ? err.message : 'Failed to load fuel stops')
 
                 // Fall back to mock data on error
-                setFuelStops(generateFuelStops(origin, dest, distance))
+                // Fall back to mock data on error, passing coordinates for interpolation
+                const startCoords = (originLat && originLon) ? { lat: originLat, lon: originLon } : null;
+                const endCoords = (destLat && destLon) ? { lat: destLat, lon: destLon } : null;
+                setFuelStops(generateFuelStops(origin, dest, distance, startCoords, endCoords))
             } finally {
                 setIsLoading(false)
             }
@@ -324,9 +362,11 @@ export function FuelStopOptimizer({
                         <div className="text-center p-3 bg-muted/30 rounded-lg">
                             <div className="text-xs text-muted-foreground">Recommended Stops</div>
                             <div className="text-xl font-bold text-blue-500">
-                                {fuelNeeds.refillPoints.length || 1}
+                                {fuelNeeds.refillPoints.length}
                             </div>
-                            <div className="text-[10px] text-muted-foreground">refill points</div>
+                            <div className="text-[10px] text-muted-foreground">
+                                {fuelNeeds.refillPoints.length === 0 ? 'no refuel needed' : 'refill points'}
+                            </div>
                         </div>
                         <div className="text-center p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
                             <div className="text-xs text-muted-foreground">Potential Savings</div>
@@ -345,8 +385,13 @@ export function FuelStopOptimizer({
                                 <span className="ml-3 text-muted-foreground">Finding fuel stops along your route...</span>
                             </div>
                         ) : fuelStops.length === 0 ? (
-                            <div className="flex items-center justify-center py-12 text-muted-foreground">
-                                No fuel stops found for this route
+                            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+                                <Fuel className="h-8 w-8 opacity-30" />
+                                <span>
+                                    {fuelNeeds.refillPoints.length === 0
+                                        ? 'This route is short enough that no fuel stop is required.'
+                                        : 'No fuel stops found along this route. Try a different path.'}
+                                </span>
                             </div>
                         ) : (
                             fuelStops.map((stop, index) => (

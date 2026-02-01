@@ -12,6 +12,7 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
+    DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { SearchCriteria, CloudTrucksLoad, CloudTrucksLoadStop } from "@/workers/cloudtrucks-api-client";
 // import { formatDistanceToNow } from "date-fns"; // Removed to avoid missing dependency
@@ -29,7 +30,8 @@ import { useHOS, HOSSettingsButton } from "@/components/hos-tracker";
 import { SmartSuggestions } from "@/components/smart-suggestions";
 import { CalendarToggle } from "@/components/load-calendar";
 import { MarketRateTrends } from "@/components/market-rate-trends";
-import { MarketInsights } from "@/components/market-insights";
+
+import { useDefaultSort } from "@/hooks/use-preferences";
 
 type SortOption = 'newest' | 'price_high' | 'price_low' | 'rpm_high' | 'rpm_low' | 'deadhead_low' | 'deadhead_high' | 'pickup_soonest' | 'pickup_latest' | 'distance_short' | 'distance_long' | 'weight_light' | 'weight_heavy';
 
@@ -77,8 +79,17 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
     const [criteriaList, setCriteriaList] = useState<EnrichedCriteria[]>([])
     const [activeCriteriaCount, setActiveCriteriaCount] = useState<number>(0)
+    const { defaultSort, setDefaultSort } = useDefaultSort()
     const [sortBy, setSortBy] = useState<SortOption>('newest')
     const [viewMode, setViewMode] = useState<'feed' | 'trash'>('feed');
+
+    // Sync sortBy with user's default sort preference
+    useEffect(() => {
+        if (defaultSort && defaultSort !== sortBy) {
+            setSortBy(defaultSort)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [defaultSort])
     // const [visibleLoads, setVisibleLoads] = useState<SavedLoad[]>([]); // Removed unused
     const [savingInterest, setSavingInterest] = useState<string | null>(null)
     const [backhaulingId, setBackhaulingId] = useState<string | null>(null)
@@ -192,7 +203,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
             const [loadsRes, criteriaRes, interestedRes] = await Promise.all([
                 fetch('/api/loads'),
                 fetch(criteriaUrl, { cache: 'no-store' }),
-                fetch('/api/interested')
+                fetch('/api/saved')
             ])
 
             const loadsResult = await loadsRes.json()
@@ -464,7 +475,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
             const isAlreadySaved = savedLoadIds.has(loadId);
 
             if (isAlreadySaved) {
-                const res = await fetch(`/api/interested?cloudtrucks_load_id=${encodeURIComponent(loadId)}`, {
+                const res = await fetch(`/api/saved?cloudtrucks_load_id=${encodeURIComponent(loadId)}`, {
                     method: 'DELETE',
                 });
                 const result = await res.json();
@@ -478,7 +489,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                 return;
             }
 
-            const res = await fetch('/api/interested', {
+            const res = await fetch('/api/saved', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -916,52 +927,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                         )}
                     </Button>
 
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="glass-panel border-white/20">
-                                <ArrowUpDown className="mr-2 h-4 w-4" />
-                                Sort
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56 glass-panel max-h-[400px] overflow-y-auto">
-                            <DropdownMenuItem onClick={() => setSortBy('price_high')}>
-                                Price: High to Low
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('price_low')}>
-                                Price: Low to High
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('rpm_high')}>
-                                RPM: High to Low
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('rpm_low')}>
-                                RPM: Low to High
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('deadhead_low')}>
-                                Deadhead: Shortest
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('deadhead_high')}>
-                                Deadhead: Longest
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('pickup_soonest')}>
-                                Pickup: Earliest
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('pickup_latest')}>
-                                Pickup: Latest
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('distance_short')}>
-                                Loaded miles: Lowest
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('distance_long')}>
-                                Loaded miles: Highest
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('weight_light')}>
-                                Weight: Lightest
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSortBy('weight_heavy')}>
-                                Weight: Heaviest
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+
                 </div>
             </div>
 
@@ -1009,7 +975,7 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                         }
                     }}
                 />
-                <MarketInsights />
+
                 <MarketRateTrends loads={filteredLoads} />
             </div>
 
@@ -1332,6 +1298,66 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                         >
                             Standard
                         </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-9 gap-2">
+                                    <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                    Sort
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56 glass-panel max-h-[400px] overflow-y-auto">
+                                <DropdownMenuItem onClick={() => setSortBy('price_high')}>
+                                    Price: High to Low
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setSortBy('price_low')}>
+                                    Price: Low to High
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setSortBy('rpm_high')}>
+                                    RPM: High to Low
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setSortBy('rpm_low')}>
+                                    RPM: Low to High
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setSortBy('deadhead_low')}>
+                                    Deadhead: Shortest
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setSortBy('deadhead_high')}>
+                                    Deadhead: Longest
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setSortBy('pickup_soonest')}>
+                                    Pickup: Earliest
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setSortBy('pickup_latest')}>
+                                    Pickup: Latest
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setSortBy('distance_short')}>
+                                    Loaded miles: Lowest
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setSortBy('distance_long')}>
+                                    Loaded miles: Highest
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setSortBy('weight_light')}>
+                                    Weight: Lightest
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setSortBy('weight_heavy')}>
+                                    Weight: Heaviest
+                                </DropdownMenuItem>
+                                {sortBy !== defaultSort && (
+                                    <>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            onClick={() => setDefaultSort(sortBy)}
+                                            className="text-blue-400"
+                                        >
+                                            <Star className="h-4 w-4 mr-2" />
+                                            Set as default
+                                        </DropdownMenuItem>
+                                    </>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </div>
 

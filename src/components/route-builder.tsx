@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react'
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +10,33 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CloudTrucksLoad } from '@/workers/cloudtrucks-api-client'
+
+// Storage key for localStorage
+const ROUTE_BUILDER_STORAGE_KEY = 'cloudtrucks-route-builder-loads'
+
+// Load route builder state from localStorage (SSR-safe)
+function loadFromStorage(): RouteBuilderLoad[] {
+    if (typeof window === 'undefined') return []
+    try {
+        const stored = localStorage.getItem(ROUTE_BUILDER_STORAGE_KEY)
+        if (!stored) return []
+        const parsed = JSON.parse(stored)
+        return Array.isArray(parsed) ? parsed : []
+    } catch (error) {
+        console.error('Failed to load route builder state:', error)
+        return []
+    }
+}
+
+// Save route builder state to localStorage (SSR-safe)
+function saveToStorage(loads: RouteBuilderLoad[]): void {
+    if (typeof window === 'undefined') return
+    try {
+        localStorage.setItem(ROUTE_BUILDER_STORAGE_KEY, JSON.stringify(loads))
+    } catch (error) {
+        console.error('Failed to save route builder state:', error)
+    }
+}
 
 // Types
 interface RouteBuilderLoad {
@@ -45,6 +72,23 @@ export function useRouteBuilder() {
 export function RouteBuilderProvider({ children }: { children: React.ReactNode }) {
     const [loads, setLoads] = useState<RouteBuilderLoad[]>([])
     const [isOpen, setIsOpen] = useState(false)
+    const [isHydrated, setIsHydrated] = useState(false)
+
+    // Load from localStorage on mount (client-side only)
+    useEffect(() => {
+        const storedLoads = loadFromStorage()
+        if (storedLoads.length > 0) {
+            setLoads(storedLoads)
+        }
+        setIsHydrated(true)
+    }, [])
+
+    // Save to localStorage whenever loads change (after hydration)
+    useEffect(() => {
+        if (isHydrated) {
+            saveToStorage(loads)
+        }
+    }, [loads, isHydrated])
 
     const addLoad = useCallback((load: RouteBuilderLoad) => {
         setLoads(prev => {
@@ -64,6 +108,10 @@ export function RouteBuilderProvider({ children }: { children: React.ReactNode }
 
     const clearLoads = useCallback(() => {
         setLoads([])
+        // Also clear from localStorage
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem(ROUTE_BUILDER_STORAGE_KEY)
+        }
     }, [])
 
     const reorderLoads = useCallback((fromIndex: number, toIndex: number) => {
@@ -111,15 +159,13 @@ function RouteBuilderSidebar() {
         const fuelPrice = 3.80
 
         loads.forEach(load => {
-            const rate = typeof load.details.rate === 'string'
-                ? parseFloat(load.details.rate)
-                : (load.details.rate || 0)
-            const dist = typeof load.details.distance === 'string'
-                ? parseFloat(load.details.distance)
-                : (load.details.distance || 0)
+            // CloudTrucks loads use trip_rate or estimated_rate, not rate
+            const rate = load.details.trip_rate || load.details.estimated_rate || 0
+            // CloudTrucks loads use trip_distance_mi, not distance
+            const dist = load.details.trip_distance_mi || 0
 
-            revenue += rate
-            miles += dist
+            revenue += Number(rate)
+            miles += Number(dist)
             fuelCost += (dist / mpg) * fuelPrice
         })
 
@@ -219,12 +265,8 @@ function RouteBuilderSidebar() {
                                         const dest = load.details.dest_city
                                             ? `${load.details.dest_city}, ${load.details.dest_state}`
                                             : load.details.destination
-                                        const rate = typeof load.details.rate === 'string'
-                                            ? parseFloat(load.details.rate)
-                                            : (load.details.rate || 0)
-                                        const dist = typeof load.details.distance === 'string'
-                                            ? parseFloat(load.details.distance)
-                                            : (load.details.distance || 0)
+                                        const rate = Number(load.details.trip_rate || load.details.estimated_rate || 0)
+                                        const dist = Number(load.details.trip_distance_mi || 0)
 
                                         return (
                                             <div key={load.id}>

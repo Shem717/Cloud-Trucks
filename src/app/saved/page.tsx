@@ -23,6 +23,15 @@ import { extractLoadAddresses, openInMaps } from "@/lib/address-utils"
 import { MapboxIntelligenceModal } from "@/components/mapbox-intelligence-modal"
 import { CityAutocomplete } from "@/components/city-autocomplete"
 import { MultiStateSelect } from "@/components/multi-state-select"
+import { BrokerReliabilityBadge } from "@/components/broker-reliability"
+import { ProfitBadge } from "@/components/profit-badge"
+import { FreshnessBadge } from "@/components/freshness-badge"
+import { FuelStopOptimizer, FuelCostBadge } from "@/components/fuel-stop-optimizer"
+import { BackhaulSummaryPanel } from "@/components/backhaul-summary-panel"
+import { BackhaulBadge } from "@/components/backhaul-badge"
+import { SuggestedBackhaul } from "@/app/api/backhauls/route"
+import { useRouteBuilder } from "@/components/route-builder"
+import { usePreferences } from "@/hooks/use-preferences"
 // Reuse types if possible, or redefine for speed given simple page
 interface Load {
     id: string; // Internal interest ID
@@ -54,6 +63,8 @@ const FieldLabel = ({ children }: { children: React.ReactNode }) => (
 const inputStyles = "bg-slate-900/50 border-slate-600 h-10 text-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium text-sm rounded-md placeholder:text-slate-600";
 
 export default function InterestedPage() {
+    const { addLoad } = useRouteBuilder()
+    const { preferences } = usePreferences()
     const [loads, setLoads] = useState<Load[]>([])
     const [loading, setLoading] = useState(true)
     const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -66,9 +77,32 @@ export default function InterestedPage() {
     const [destStates, setDestStates] = useState<string[]>([])
 
     const [viewMode, setViewMode] = useState<'active' | 'trash'>('active')
+    const [backhauls, setBackhauls] = useState<Record<string, SuggestedBackhaul>>({})
+    const [backhaulsLoading, setBackhaulsLoading] = useState(false)
+
+    const fetchBackhauls = async () => {
+        try {
+            setBackhaulsLoading(true)
+            const res = await fetch('/api/backhauls')
+            if (res.ok) {
+                const data = await res.json()
+                // Create a map of cloudtrucks_load_id -> suggestion
+                const map: Record<string, SuggestedBackhaul> = {}
+                for (const b of data.backhauls || []) {
+                    map[b.saved_load_cloudtrucks_id] = b
+                }
+                setBackhauls(map)
+            }
+        } catch (error) {
+            console.error('Failed to fetch backhauls:', error)
+        } finally {
+            setBackhaulsLoading(false)
+        }
+    }
 
     useEffect(() => {
         fetchInterested()
+        fetchBackhauls()
 
         // Auto-refresh every 5 minutes to get updated load data from scans
         const interval = setInterval(() => {
@@ -86,7 +120,7 @@ export default function InterestedPage() {
 
     const fetchInterested = async () => {
         try {
-            const res = await fetch(`/api/interested${viewMode === 'trash' ? '?view=trash' : ''}`)
+            const res = await fetch(`/api/saved${viewMode === 'trash' ? '?view=trash' : ''}`)
             const result = await res.json()
             if (result.loads) {
                 setLoads(result.loads)
@@ -119,7 +153,7 @@ export default function InterestedPage() {
 
         if (action === 'restore') {
             try {
-                await fetch('/api/interested', {
+                await fetch('/api/saved', {
                     method: 'PATCH',
                     body: JSON.stringify({ ids, status: 'interested' })
                 });
@@ -135,7 +169,7 @@ export default function InterestedPage() {
             if (!confirm(`Permanently delete ${ids.length} loads? This cannot be undone.`)) return;
             // Hard Delete
             try {
-                await fetch(`/api/interested?ids=${ids.join(',')}`, { method: 'DELETE' });
+                await fetch(`/api/saved?ids=${ids.join(',')}`, { method: 'DELETE' });
                 setLoads(prev => prev.filter(l => !selectedIds.has(l.id)));
                 setSelectedIds(new Set());
             } catch (e) {
@@ -144,7 +178,7 @@ export default function InterestedPage() {
         } else {
             // Soft Delete (Trash)
             try {
-                await fetch('/api/interested', {
+                await fetch('/api/saved', {
                     method: 'PATCH',
                     body: JSON.stringify({ ids, status: 'trash' })
                 });
@@ -162,7 +196,7 @@ export default function InterestedPage() {
         if (selectedIds.has(id)) toggleSelection(id);
 
         try {
-            await fetch('/api/interested', {
+            await fetch('/api/saved', {
                 method: 'PATCH',
                 body: JSON.stringify({ ids: [id], status: 'trash' })
             });
@@ -178,7 +212,7 @@ export default function InterestedPage() {
         if (selectedIds.has(id)) toggleSelection(id);
 
         try {
-            await fetch('/api/interested', {
+            await fetch('/api/saved', {
                 method: 'PATCH',
                 body: JSON.stringify({ ids: [id], status: 'interested' })
             });
@@ -195,22 +229,48 @@ export default function InterestedPage() {
     const openBackhaulDialog = (load: Load) => {
         const equip = Array.isArray(load.details.equipment) ? load.details.equipment[0] : load.details.equipment;
         const maxWeight = load.details.weight || load.details.truck_weight_lb || 45000;
-        const pickupDate = load.details.pickup_date || load.details.origin_pickup_date || null;
+
+        // Calculate pickup date: Use delivery date + 1 day if available, otherwise pickup date + 2 days
+        let backhaulPickupDate = null;
+        const deliveryDate = load.details.dest_delivery_date;
+        const pickupDate = load.details.pickup_date || load.details.origin_pickup_date;
+
+        if (deliveryDate) {
+            const delivery = new Date(deliveryDate);
+            delivery.setDate(delivery.getDate() + 1); // Next day after delivery
+            backhaulPickupDate = delivery.toISOString().split('T')[0];
+        } else if (pickupDate) {
+            // Estimate: pickup + 2 days (rough delivery estimate)
+            const pickup = new Date(pickupDate);
+            pickup.setDate(pickup.getDate() + 2);
+            backhaulPickupDate = pickup.toISOString().split('T')[0];
+        }
+
+        // Use user preferences for backhaul settings
+        const preferredDestStates = preferences?.preferred_destination_states || [];
+        const maxDeadhead = preferences?.backhaul_max_deadhead || 50;
+        const minRpm = preferences?.backhaul_min_rpm || null;
+        const preferredEquipment = preferences?.preferred_equipment_type || equip || 'Any';
+        const preferredBookingType = preferences?.preferred_booking_type || 'Any';
+        const preferredMaxWeight = preferences?.preferred_max_weight || maxWeight;
 
         setBackhaulDraft({
             load_id: load.id,
             origin_city: load.details.dest_city || '',
             origin_state: load.details.dest_state || '',
-            dest_city: load.details.origin_city || '',
-            destination_states: load.details.origin_state ? [load.details.origin_state] : [],
-            equipment_type: equip || 'Any',
-            pickup_distance: 50,
-            booking_type: 'Any',
-            min_rate: null,
-            min_rpm: null,
-            max_weight: maxWeight,
-            pickup_date: pickupDate,
+            dest_city: '', // Leave empty - user can specify or use preferred states
+            destination_states: preferredDestStates,
+            equipment_type: preferredEquipment,
+            pickup_distance: maxDeadhead,
+            booking_type: preferredBookingType,
+            min_rate: preferences?.preferred_min_rate,
+            min_rpm: minRpm,
+            max_weight: preferredMaxWeight,
+            pickup_date: backhaulPickupDate,
         })
+        // Initialize state variables for the form
+        setOriginState(load.details.dest_state || '')
+        setDestStates(preferredDestStates)
         setBackhaulDialogOpen(true)
     }
 
@@ -328,6 +388,11 @@ export default function InterestedPage() {
                 )
             }
 
+            {/* Backhaul Summary Panel - only show in active view */}
+            {viewMode === 'active' && !loading && loads.length > 0 && (
+                <BackhaulSummaryPanel className="mb-2" />
+            )}
+
             {
                 loading ? (
                     <div className="text-center py-12 text-muted-foreground">Loading specific favorites...</div>
@@ -360,6 +425,10 @@ export default function InterestedPage() {
                             const dist = typeof rawDist === 'string' ? parseFloat(rawDist) : rawDist;
                             const rpm = (rate && dist) ? (rate / dist).toFixed(2) : null;
 
+                            // Calculate pseudo-revenue per hour for ProfitBadge
+                            const estimatedDurationHours = dist ? (dist / 50) + 2 : 0;
+                            const revenuePerHour = load.details.estimated_revenue_per_hour || (rate && estimatedDurationHours ? rate / estimatedDurationHours : 0);
+
                             // Extract delivery date
                             let deliveryDate = load.details.dest_delivery_date;
                             if (!deliveryDate && Array.isArray(load.details.stops)) {
@@ -373,6 +442,12 @@ export default function InterestedPage() {
                             const broker = load.details.broker_name;
                             const isSelected = selectedIds.has(load.id);
                             const isTeam = load.details.is_team_load === true;
+
+                            // Lat/Lon for Fuel Optimizer
+                            const originLat = load.details.origin_lat || 34.0522;
+                            const originLon = load.details.origin_lon || -118.2437;
+                            const destLat = load.details.dest_lat || 33.4484;
+                            const destLon = load.details.dest_lon || -112.0740;
 
                             return (
                                 <div key={load.id} className="relative group">
@@ -395,14 +470,20 @@ export default function InterestedPage() {
                                                         <Badge className="bg-yellow-500/10 text-yellow-600 hover:bg-yellow-600/20 border-0">
                                                             Saved
                                                         </Badge>
+                                                        {/* Freshness Badge */}
+                                                        {load.details.age_min && (
+                                                            <FreshnessBadge ageMin={load.details.age_min} />
+                                                        )}
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         {broker && (
-                                                            <div className="flex items-center gap-2">
+                                                            <div className="flex items-center gap-2 min-w-0">
                                                                 <BrokerLogo name={broker} size="sm" />
-                                                                <Badge variant="outline" className="text-[10px] h-5 border-indigo-200 bg-indigo-50 text-indigo-700 font-medium">
+                                                                <Badge variant="outline" className="text-[10px] h-5 border-indigo-200 bg-indigo-50 text-indigo-700 font-medium max-w-[140px] md:max-w-none truncate">
                                                                     {broker}
                                                                 </Badge>
+                                                                {/* Broker Reliability Badge */}
+                                                                <BrokerReliabilityBadge brokerName={broker} size="sm" />
                                                             </div>
                                                         )}
                                                         <span className="text-[11px] text-muted-foreground font-mono">
@@ -505,12 +586,25 @@ export default function InterestedPage() {
                                                             ${rpm}/mi
                                                         </span>
                                                     )}
-                                                    {load.details.total_deadhead_mi && (
-                                                        <span className="text-[11px] text-muted-foreground">
-                                                            {load.details.total_deadhead_mi} mi deadhead
-                                                        </span>
-                                                    )}
+                                                    {/* Fuel Cost Badge */}
+                                                    <div className="ml-auto flex items-center gap-2">
+                                                        <FuelCostBadge distance={dist || 0} size="sm" />
+                                                    </div>
                                                 </div>
+
+                                                {/* Backhaul Suggestions */}
+                                                {viewMode === 'active' && (
+                                                    <div className="pt-2 border-t border-slate-700/30">
+                                                        <BackhaulBadge
+                                                            suggestion={backhauls[load.cloudtrucks_load_id] || null}
+                                                            loadId={load.id}
+                                                            cloudtrucksLoadId={load.cloudtrucks_load_id}
+                                                            loadDetails={load.details}
+                                                            onRefresh={fetchBackhauls}
+                                                            isRefreshing={backhaulsLoading}
+                                                        />
+                                                    </div>
+                                                )}
 
                                                 <div className="flex flex-wrap items-center gap-4 text-[12px] text-muted-foreground">
                                                     {(load.details.pickup_date || load.details.origin_pickup_date) && (
@@ -539,11 +633,17 @@ export default function InterestedPage() {
                                                         <span className="text-lg mr-0.5">$</span>
                                                         {rate?.toFixed(0) || '---'}
                                                     </div>
-                                                    {rpm && (
-                                                        <Badge variant="secondary" className="mt-1 font-mono text-xs">
-                                                            ${rpm}/mi
-                                                        </Badge>
-                                                    )}
+                                                    <div className="flex flex-col items-center gap-1.5 mt-2">
+                                                        {rpm && (
+                                                            <Badge variant="secondary" className="font-mono text-sm bg-green-500/10 text-green-400 border border-green-500/30">
+                                                                ${rpm}/mi
+                                                            </Badge>
+                                                        )}
+                                                        {/* Profit Badge */}
+                                                        {revenuePerHour > 0 && (
+                                                            <ProfitBadge revenuePerHour={revenuePerHour} />
+                                                        )}
+                                                    </div>
                                                     {load.details.total_deadhead_mi && (
                                                         <div className="text-[11px] text-muted-foreground mt-1">
                                                             {load.details.total_deadhead_mi} mi deadhead
@@ -554,31 +654,51 @@ export default function InterestedPage() {
                                                 <Button
                                                     className="w-full mt-2 bg-blue-600 hover:bg-blue-700 font-semibold"
                                                     size="sm"
-                                                    asChild
+                                                    onClick={() => {
+                                                        addLoad({
+                                                            id: load.id,
+                                                            cloudtrucks_load_id: load.cloudtrucks_load_id,
+                                                            details: load.details,
+                                                            created_at: load.created_at
+                                                        })
+                                                    }}
                                                 >
-                                                    <a
-                                                        href={`https://app.cloudtrucks.com/loads/${load.cloudtrucks_load_id}/book`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                    >
-                                                        Book Now
-                                                    </a>
+                                                    Add to Route
                                                 </Button>
 
                                                 <div className="flex flex-col gap-2 w-full mt-2">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => setSelectedLoadForMap(load)}
-                                                        className="w-full justify-between"
-                                                        title="View Route Intelligence"
-                                                    >
-                                                        <span className="flex items-center gap-1">
-                                                            <Map className="h-4 w-4" />
-                                                            Route
-                                                        </span>
-                                                        <Navigation className="h-3.5 w-3.5 opacity-60" />
-                                                    </Button>
+                                                    <div className="flex gap-1 w-full">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => setSelectedLoadForMap(load)}
+                                                            className="flex-1 justify-between px-2"
+                                                            title="View Route Intelligence"
+                                                        >
+                                                            <span className="flex items-center gap-1">
+                                                                <Map className="h-4 w-4" />
+                                                            </span>
+                                                            <Navigation className="h-3.5 w-3.5 opacity-60" />
+                                                        </Button>
+
+                                                        {/* Fuel Stop Optimizer Button */}
+                                                        <div className="flex-1">
+                                                            <FuelStopOptimizer
+                                                                distance={dist || 0}
+                                                                originCity={load.details.origin_city}
+                                                                originState={load.details.origin_state}
+                                                                originLat={originLat}
+                                                                originLon={originLon}
+                                                                destCity={load.details.dest_city}
+                                                                destState={load.details.dest_state}
+                                                                destLat={destLat}
+                                                                destLon={destLon}
+                                                                mpg={6.5}
+                                                                fuelPrice={3.80}
+                                                            />
+                                                        </div>
+                                                    </div>
+
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
@@ -618,7 +738,7 @@ export default function InterestedPage() {
                                                             size="sm"
                                                             onClick={() => handleSoftDelete(load.id)}
                                                             disabled={deletingId === load.id}
-                                                            className="w-full gap-1 border text-yellow-500 hover:text-red-500 hover:bg-red-100 border-yellow-500/20"
+                                                            className="w-full gap-1 border text-red-400 hover:text-red-500 hover:bg-red-500/10 border-red-500/30"
                                                             title="Move to Trash"
                                                         >
                                                             <Trash2 className="h-4 w-4" />

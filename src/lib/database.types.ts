@@ -455,6 +455,141 @@ export type Database = {
                 }
                 Relationships: []
             }
+            suggested_backhauls: {
+                Row: {
+                    id: string
+                    user_id: string
+                    saved_load_id: string
+                    saved_load_cloudtrucks_id: string
+                    origin_city: string
+                    origin_state: string
+                    target_states: string[] | null
+                    loads_found: number
+                    best_rate: number | null
+                    best_rpm: number | null
+                    avg_rate: number | null
+                    avg_rpm: number | null
+                    top_loads: Json | null
+                    status: string
+                    last_searched_at: string | null
+                    expires_at: string | null
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: string
+                    user_id: string
+                    saved_load_id: string
+                    saved_load_cloudtrucks_id: string
+                    origin_city: string
+                    origin_state: string
+                    target_states?: string[] | null
+                    loads_found?: number
+                    best_rate?: number | null
+                    best_rpm?: number | null
+                    avg_rate?: number | null
+                    avg_rpm?: number | null
+                    top_loads?: Json | null
+                    status?: string
+                    last_searched_at?: string | null
+                    expires_at?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: string
+                    user_id?: string
+                    saved_load_id?: string
+                    saved_load_cloudtrucks_id?: string
+                    origin_city?: string
+                    origin_state?: string
+                    target_states?: string[] | null
+                    loads_found?: number
+                    best_rate?: number | null
+                    best_rpm?: number | null
+                    avg_rate?: number | null
+                    avg_rpm?: number | null
+                    top_loads?: Json | null
+                    status?: string
+                    last_searched_at?: string | null
+                    expires_at?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Relationships: []
+            }
+            user_preferences: {
+                Row: {
+                    id: string
+                    user_id: string
+                    default_sort: string
+                    preferred_min_rate: number | null
+                    preferred_min_rpm: number | null
+                    preferred_max_weight: number | null
+                    preferred_min_weight: number | null
+                    preferred_equipment_type: string | null
+                    preferred_booking_type: string | null
+                    preferred_pickup_distance: number
+                    home_city: string | null
+                    home_state: string | null
+                    preferred_destination_states: string[] | null
+                    avoid_states: string[] | null
+                    auto_suggest_backhauls: boolean
+                    backhaul_max_deadhead: number
+                    backhaul_min_rpm: number
+                    fuel_mpg: number
+                    fuel_price_per_gallon: number
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: string
+                    user_id: string
+                    default_sort?: string
+                    preferred_min_rate?: number | null
+                    preferred_min_rpm?: number | null
+                    preferred_max_weight?: number | null
+                    preferred_min_weight?: number | null
+                    preferred_equipment_type?: string | null
+                    preferred_booking_type?: string | null
+                    preferred_pickup_distance?: number
+                    home_city?: string | null
+                    home_state?: string | null
+                    preferred_destination_states?: string[] | null
+                    avoid_states?: string[] | null
+                    auto_suggest_backhauls?: boolean
+                    backhaul_max_deadhead?: number
+                    backhaul_min_rpm?: number
+                    fuel_mpg?: number
+                    fuel_price_per_gallon?: number
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: string
+                    user_id?: string
+                    default_sort?: string
+                    preferred_min_rate?: number | null
+                    preferred_min_rpm?: number | null
+                    preferred_max_weight?: number | null
+                    preferred_min_weight?: number | null
+                    preferred_equipment_type?: string | null
+                    preferred_booking_type?: string | null
+                    preferred_pickup_distance?: number
+                    home_city?: string | null
+                    home_state?: string | null
+                    preferred_destination_states?: string[] | null
+                    avoid_states?: string[] | null
+                    auto_suggest_backhauls?: boolean
+                    backhaul_max_deadhead?: number
+                    backhaul_min_rpm?: number
+                    fuel_mpg?: number
+                    fuel_price_per_gallon?: number
+                    created_at?: string
+                    updated_at?: string
+                }
+                Relationships: []
+            }
         }
         Views: {
             [_ in never]: never

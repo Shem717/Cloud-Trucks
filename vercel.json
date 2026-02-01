@@ -8,6 +8,9 @@
         },
         "src/app/api/cron/guest-cleanup/route.ts": {
             "maxDuration": 60
+        },
+        "src/app/api/cron/backhaul-cleanup/route.ts": {
+            "maxDuration": 60
         }
     },
     "crons": [
@@ -50,6 +53,10 @@
         {
             "path": "/api/cron/guest-cleanup",
             "schedule": "0 17 */4 * *"
+        },
+        {
+            "path": "/api/cron/backhaul-cleanup",
+            "schedule": "0 6 * * *"
         }
     ]
 }

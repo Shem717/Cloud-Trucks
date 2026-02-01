@@ -44,6 +44,15 @@ export default async function RoutePlanningPage() {
         .select('*')
         .in('criteria_id', backhaulCriteria?.map(c => c.id) || []);
 
+    // 4. Fetch Suggested Backhauls
+    const { data: suggestedBackhauls } = await supabase
+        .from('suggested_backhauls')
+        .select('*')
+        .eq('user_id', user?.id)
+        .eq('status', 'completed')
+        .gte('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false });
+
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <div>
@@ -57,6 +66,7 @@ export default async function RoutePlanningPage() {
                 interestedLoads={interestedLoads || []}
                 backhaulCriteria={backhaulCriteria || []}
                 backhaulLoads={backhaulLoads || []}
+                suggestedBackhauls={suggestedBackhauls || []}
             />
         </div>
     );

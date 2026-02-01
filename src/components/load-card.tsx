@@ -168,7 +168,7 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap, onAddToRoute
                         <div className="flex items-center gap-1.5 min-w-0 flex-1">
                             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 flex-shrink-0" />
                             <span className={cn(
-                                "font-medium text-foreground truncate",
+                                "font-medium text-foreground break-words leading-tight",
                                 cabbieMode ? "text-lg" : "text-sm"
                             )}>
                                 {origin}
@@ -178,7 +178,7 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap, onAddToRoute
                         {/* Destination */}
                         <div className="flex items-center gap-1.5 min-w-0 flex-1">
                             <span className={cn(
-                                "font-medium text-foreground truncate",
+                                "font-medium text-foreground break-words leading-tight",
                                 cabbieMode ? "text-lg" : "text-sm"
                             )}>
                                 {dest}

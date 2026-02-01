@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { getRequestContext } from '@/lib/request-context';
+import { generateBackhaulSuggestion, UserPreferencesForBackhaul } from '@/workers/backhaul-suggester';
 
 const USER_INTERESTED_TABLE = 'interested_loads';
 const USER_FOUND_TABLE = 'found_loads';
@@ -9,7 +10,7 @@ const GUEST_INTERESTED_TABLE = 'guest_interested_loads';
 const GUEST_FOUND_TABLE = 'guest_found_loads';
 
 /**
- * GET /api/interested - Fetch user's interested loads
+ * GET /api/saved - Fetch user's interested loads
  */
 export async function GET(request: NextRequest) {
     try {
@@ -118,7 +119,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/interested - Add a load to interested list
+ * POST /api/saved - Add a load to interested list
  */
 export async function POST(request: NextRequest) {
     try {
@@ -165,6 +166,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
+        // Trigger backhaul suggestion generation for authenticated users (async, non-blocking)
+        if (!isGuest && userId && data) {
+            triggerBackhaulSuggestion(userId, data.id, cloudtrucks_load_id, details).catch(err => {
+                console.error('[API] Backhaul suggestion error (non-fatal):', err);
+            });
+        }
+
         return NextResponse.json({ success: true, load: data });
     } catch (error: unknown) {
         console.error('[API] Interested loads POST error:', error);
@@ -174,7 +182,70 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * PATCH /api/interested - Update load status (e.g. move to trash)
+ * Trigger backhaul suggestion generation (async, non-blocking)
+ */
+async function triggerBackhaulSuggestion(
+    userId: string,
+    savedLoadId: string,
+    cloudtrucksLoadId: string,
+    details: Record<string, unknown>
+) {
+    try {
+        const supabase = await createClient();
+
+        // Get user preferences
+        const { data: preferences, error: prefError } = await supabase
+            .from('user_preferences')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+
+        if (prefError && prefError.code !== 'PGRST116') {
+            console.error('[API] Error fetching preferences for backhaul:', prefError);
+            return;
+        }
+
+        // Use default preferences if none exist
+        const userPrefs: UserPreferencesForBackhaul = preferences || {
+            preferred_destination_states: null,
+            avoid_states: null,
+            backhaul_max_deadhead: 100,
+            backhaul_min_rpm: 2.00,
+            preferred_max_weight: 45000,
+            preferred_equipment_type: null,
+            preferred_pickup_distance: 50,
+            auto_suggest_backhauls: true,
+        };
+
+        // Skip if auto-suggest is disabled or no preferred states
+        if (!userPrefs.auto_suggest_backhauls) {
+            return;
+        }
+
+        if (!userPrefs.preferred_destination_states || userPrefs.preferred_destination_states.length === 0) {
+            console.log('[API] Skipping backhaul suggestion - no preferred states configured');
+            return;
+        }
+
+        // Generate backhaul suggestion
+        await generateBackhaulSuggestion(
+            userId,
+            {
+                id: savedLoadId,
+                cloudtrucks_load_id: cloudtrucksLoadId,
+                details: details as { dest_city?: string; dest_state?: string; destination_city?: string; destination_state?: string; dest_delivery_date?: string; origin_pickup_date?: string; equipment?: string[] },
+            },
+            userPrefs
+        );
+
+        console.log(`[API] Backhaul suggestion triggered for load ${cloudtrucksLoadId}`);
+    } catch (error) {
+        console.error('[API] Failed to trigger backhaul suggestion:', error);
+    }
+}
+
+/**
+ * PATCH /api/saved - Update load status (e.g. move to trash)
  */
 export async function PATCH(request: NextRequest) {
     try {
@@ -216,7 +287,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 /**
- * DELETE /api/interested - Permanently remove a load
+ * DELETE /api/saved - Permanently remove a load
  */
 export async function DELETE(request: NextRequest) {
     try {
