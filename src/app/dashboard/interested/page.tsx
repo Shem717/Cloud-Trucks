@@ -1,13 +1,18 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MapPin, DollarSign, Weight, Calendar, Truck, Trash2, ArrowLeft, ArrowLeftRight, RefreshCw } from 'lucide-react'
+import { MapPin, Weight, Calendar, Truck, Trash2, ArrowLeft, ArrowLeftRight, RefreshCw, Navigation } from 'lucide-react'
 import { cn } from "@/lib/utils"
 import { BrokerLogo } from "@/components/broker-logo"
 import { WeatherBadge } from "@/components/weather-badge"
+import { BrokerReliabilityBadge } from "@/components/broker-reliability"
+import { ProfitBadge } from "@/components/profit-badge"
+import { FreshnessBadge } from "@/components/freshness-badge"
+import { FuelStopOptimizer, FuelCostBadge } from "@/components/fuel-stop-optimizer"
+
 // Reuse types if possible, or redefine for speed given simple page
 interface Load {
     id: string; // Internal interest ID
@@ -106,6 +111,7 @@ export default function InterestedPage() {
         // Optimistic
         setLoads(prev => prev.filter(l => l.id !== id));
         if (selectedIds.has(id)) toggleSelection(id);
+        setDeletingId(id);
 
         try {
             await fetch('/api/interested', {
@@ -115,6 +121,8 @@ export default function InterestedPage() {
         } catch (error) {
             console.error('Failed to trash load:', error);
             fetchInterested();
+        } finally {
+            setDeletingId(null);
         }
     }
 
@@ -182,7 +190,7 @@ export default function InterestedPage() {
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="space-y-6 animate-in fade-in duration-500 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="flex items-center gap-4">
                 <Button variant="ghost" size="icon" asChild>
                     <a href="/dashboard">
@@ -191,10 +199,10 @@ export default function InterestedPage() {
                 </Button>
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight">
-                        {viewMode === 'trash' ? 'Trash Bin' : 'Interested Loads'}
+                        {viewMode === 'trash' ? 'Trash Bin' : 'Saved Loads & Analytics'}
                     </h2>
                     <p className="text-muted-foreground text-sm">
-                        {viewMode === 'trash' ? 'Loads you have deleted. Restore or delete forever.' : 'Loads you have saved for later review.'}
+                        {viewMode === 'trash' ? 'Loads you have deleted. Restore or delete forever.' : 'Detailed breakdown with fuel estimates and broker insights.'}
                     </p>
                 </div>
                 <div className="ml-auto flex bg-muted/50 p-1 rounded-lg border">
@@ -262,7 +270,7 @@ export default function InterestedPage() {
                     </CardContent>
                 </Card>
             ) : (
-                <div className="grid gap-4">
+                <div className="grid gap-6">
                     {loads.map(load => {
                         const origin = load.details.origin_city
                             ? `${load.details.origin_city}, ${load.details.origin_state}`
@@ -278,6 +286,11 @@ export default function InterestedPage() {
                         const dist = typeof rawDist === 'string' ? parseFloat(rawDist) : rawDist;
                         const rpm = (rate && dist) ? (rate / dist).toFixed(2) : null;
 
+                        // Calculate pseudo-revenue per hour if not present
+                        // Est. Speed: 50mph, Loading/Unloading: 2 hours
+                        const estimatedDurationHours = dist ? (dist / 50) + 2 : 0;
+                        const revenuePerHour = load.details.estimated_revenue_per_hour || (rate && estimatedDurationHours ? rate / estimatedDurationHours : 0);
+
                         // Extract delivery date
                         let deliveryDate = load.details.dest_delivery_date;
                         if (!deliveryDate && Array.isArray(load.details.stops)) {
@@ -289,7 +302,16 @@ export default function InterestedPage() {
                         }
 
                         const broker = load.details.broker_name;
+                        const validBrokerName = broker && broker.length < 50 ? broker : null;
+                        
                         const isSelected = selectedIds.has(load.id);
+                        
+                        // Parse amenities or build from data
+                        // Mock latitude if missing for functionality
+                        const originLat = load.details.origin_lat || 34.0522; 
+                        const originLon = load.details.origin_lon || -118.2437;
+                        const destLat = load.details.dest_lat || 33.4484;
+                        const destLon = load.details.dest_lon || -112.0740;
 
                         return (
                             <div key={load.id} className="relative group">
@@ -302,184 +324,254 @@ export default function InterestedPage() {
                                     />
                                 </div>
                                 <Card className={cn(
-                                    "overflow-hidden hover:border-blue-400/50 transition-all hover:shadow-md pl-8",
+                                    "overflow-hidden hover:border-blue-400/50 transition-all hover:shadow-lg pl-8",
                                     isSelected && "border-blue-500 bg-blue-50/10 ring-1 ring-blue-500"
                                 )}>
-                                    <div className="flex flex-col md:flex-row">
-                                        <div className="flex-1 p-5 space-y-3">
+                                    <div className="flex flex-col lg:flex-row">
+                                        <div className="flex-1 p-5 space-y-4">
+                                            {/* Header: Status, Broker, Time */}
                                             <div className="flex items-start justify-between">
-                                                <div className="flex gap-2">
-                                                    <Badge className="bg-yellow-500/10 text-yellow-600 hover:bg-yellow-600/20 border-0">
+                                                <div className="flex items-center gap-2">
+                                                    <Badge className="bg-amber-500/10 text-amber-600 hover:bg-amber-600/20 border-amber-200">
                                                         Saved
                                                     </Badge>
+                                                    {load.details.age_min && (
+                                                        <FreshnessBadge ageMin={load.details.age_min} />
+                                                    )}
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    {broker && (
-                                                        <div className="flex items-center gap-2">
-                                                            <BrokerLogo name={broker} size="sm" />
-                                                            <Badge variant="outline" className="text-[10px] h-5 border-indigo-200 bg-indigo-50 text-indigo-700 font-medium">
-                                                                {broker}
-                                                            </Badge>
+                                                <div className="flex items-center gap-3">
+                                                    {validBrokerName && (
+                                                        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 pr-2 pl-1 py-1 rounded-full border border-slate-100 dark:border-slate-800">
+                                                            <BrokerLogo name={validBrokerName} size="sm" />
+                                                            <div className="flex flex-col leading-none">
+                                                                <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-[120px]">{validBrokerName}</span>
+                                                            </div>
+                                                            <BrokerReliabilityBadge brokerName={validBrokerName} size="sm" />
                                                         </div>
                                                     )}
                                                     <span className="text-xs text-muted-foreground font-mono">
-                                                        {new Date(load.created_at).toLocaleTimeString()}
+                                                        {new Date(load.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                                     </span>
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center gap-4">
+                                            {/* Route: Origin -> Dest */}
+                                            <div className="flex items-center gap-4 py-2">
                                                 <div className="flex-1">
-                                                    <div className="flex items-center gap-2 text-lg font-semibold">
-                                                        <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></span>
+                                                    <div className="flex items-center gap-2 text-xl font-bold text-slate-900 dark:text-slate-100">
+                                                        <span className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] shrink-0"></span>
                                                         {origin}
                                                         <WeatherBadge
-                                                            lat={load.details.origin_lat}
-                                                            lon={load.details.origin_lon}
+                                                            lat={originLat}
+                                                            lon={originLon}
                                                             city={load.details.origin_city}
                                                             state={load.details.origin_state}
                                                             size="sm"
                                                         />
                                                     </div>
-                                                    {load.details.origin_address && (
-                                                        <span className="block text-xs font-normal text-muted-foreground truncate max-w-[150px]">
-                                                            {load.details.origin_address}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="flex flex-col items-center px-4">
-                                                    <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                                                        {dist ? `${dist.toFixed(0)} mi Loaded` : '---'}
+                                                    <span className="flex items-center gap-1 text-sm text-muted-foreground mt-1 font-medium pl-5">
+                                                        {load.details.origin_address && load.details.origin_address !== origin ? (
+                                                            <>
+                                                                <MapPin className="h-3 w-3" />
+                                                                {load.details.origin_address}
+                                                            </>
+                                                        ) : (
+                                                            <span className="italic opacity-50">Address hidden</span>
+                                                        )}
+                                                        <span className="ml-auto block lg:hidden font-mono text-xs bg-slate-100 dark:bg-slate-800 px-1.5 rounded">{load.details.origin_deadhead_mi || 0} mi dh</span>
                                                     </span>
-                                                    <div className="w-24 h-[1px] bg-border my-1 relative">
-                                                        <div className="absolute right-0 -top-[3px] w-0 h-0 border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent border-l-[6px] border-l-border"></div>
+                                                </div>
+                                                
+                                                {/* Directional Arrow / Distance */}
+                                                <div className="flex flex-col items-center px-4 shrink-0">
+                                                    <span className="text-xs text-muted-foreground font-bold tracking-wider mb-1">
+                                                        {dist ? `${dist.toFixed(0)} mi` : '---'}
+                                                    </span>
+                                                    <div className="w-16 h-0.5 bg-slate-200 dark:bg-slate-700 relative flex items-center justify-center">
+                                                        <div className="absolute right-0 -mr-1 w-2 h-2 border-t-2 border-r-2 border-slate-400 rotate-45"></div>
+                                                    </div>
+                                                    <div className="mt-1">
+                                                        <FuelCostBadge distance={dist} />
                                                     </div>
                                                 </div>
+
                                                 <div className="flex-1 text-right">
-                                                    <div className="flex items-center justify-end gap-2 text-lg font-semibold">
+                                                    <div className="flex items-center justify-end gap-2 text-xl font-bold text-slate-900 dark:text-slate-100">
                                                         <WeatherBadge
-                                                            lat={load.details.dest_lat}
-                                                            lon={load.details.dest_lon}
+                                                            lat={destLat}
+                                                            lon={destLon}
                                                             city={load.details.dest_city}
                                                             state={load.details.dest_state}
                                                             size="sm"
                                                         />
-                                                        <div>
-                                                            {dest}
-                                                            {load.details.dest_address && (
-                                                                <span className="block text-xs font-normal text-muted-foreground truncate max-w-[150px] text-right">
-                                                                    {load.details.dest_address}
-                                                                </span>
-                                                            )}
-                                                        </div>
+                                                        {dest}
+                                                        <span className="w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)] shrink-0"></span>
                                                     </div>
+                                                    <span className="flex items-center justify-end gap-1 text-sm text-muted-foreground mt-1 font-medium pr-5">
+                                                        {load.details.dest_address && load.details.dest_address !== dest ? (
+                                                            <>
+                                                                {load.details.dest_address}
+                                                                <MapPin className="h-3 w-3" />
+                                                            </>
+                                                        ) : (
+                                                            <span className="italic opacity-50">Address hidden</span>
+                                                        )}
+                                                        <span className="mr-auto block lg:hidden font-mono text-xs bg-slate-100 dark:bg-slate-800 px-1.5 rounded">{load.details.dest_deadhead_mi || 0} mi dh</span>
+                                                    </span>
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center gap-6 text-sm text-muted-foreground pt-1">
-                                                {(load.details.pickup_date || load.details.origin_pickup_date) && (
-                                                    <div className="flex items-center gap-1.5 text-green-700 font-medium">
-                                                        <Calendar className="h-4 w-4" />
-                                                        <span>Pick: {new Date(load.details.pickup_date || load.details.origin_pickup_date).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                            {/* Metadata Row */}
+                                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm pt-2">
+                                                <div className="bg-slate-50 dark:bg-slate-900/50 p-2 rounded border border-slate-100 dark:border-slate-800">
+                                                    <span className="text-xs text-muted-foreground block mb-0.5 uppercase tracking-wide">Pickup</span>
+                                                    <div className="flex items-center gap-1.5 font-semibold text-green-700 dark:text-green-400">
+                                                        <Calendar className="h-3.5 w-3.5" />
+                                                        {load.details.pickup_date || load.details.origin_pickup_date ? 
+                                                            new Date(load.details.pickup_date || load.details.origin_pickup_date).toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit'}) : 'ASAP'}
                                                     </div>
-                                                )}
-                                                {deliveryDate ? (
-                                                    <div className="flex items-center gap-1.5 text-blue-700 font-medium">
-                                                        <Calendar className="h-4 w-4" />
-                                                        <span>Drop: {new Date(deliveryDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex items-center gap-1.5 text-muted-foreground/50 font-medium">
-                                                        <Calendar className="h-4 w-4" />
-                                                        <span>Drop: <span className="italic">Unavailable</span></span>
-                                                    </div>
-                                                )}
-                                                <div className="flex items-center gap-1.5">
-                                                    <Truck className="h-4 w-4" />
-                                                    {Array.isArray(load.details.equipment) ? load.details.equipment.join(', ') : load.details.equipment}
                                                 </div>
+                                                
+                                                <div className="bg-slate-50 dark:bg-slate-900/50 p-2 rounded border border-slate-100 dark:border-slate-800">
+                                                    <span className="text-xs text-muted-foreground block mb-0.5 uppercase tracking-wide">Delivery</span>
+                                                    <div className="flex items-center gap-1.5 font-semibold text-blue-700 dark:text-blue-400">
+                                                        <Calendar className="h-3.5 w-3.5" />
+                                                        {deliveryDate ? 
+                                                            new Date(deliveryDate).toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit'}) : 'Open'}
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="bg-slate-50 dark:bg-slate-900/50 p-2 rounded border border-slate-100 dark:border-slate-800">
+                                                    <span className="text-xs text-muted-foreground block mb-0.5 uppercase tracking-wide">Equipment</span>
+                                                    <div className="flex items-center gap-1.5 font-medium">
+                                                        <Truck className="h-3.5 w-3.5 text-slate-500" />
+                                                        <span className="truncate" title={Array.isArray(load.details.equipment) ? load.details.equipment.join(', ') : load.details.equipment}>
+                                                            {Array.isArray(load.details.equipment) ? load.details.equipment[0] : load.details.equipment}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                
                                                 {(load.details.weight || load.details.truck_weight_lb) && (
-                                                    <div className="flex items-center gap-1.5">
-                                                        <Weight className="h-4 w-4" />
-                                                        {load.details.weight || load.details.truck_weight_lb} lbs
+                                                    <div className="bg-slate-50 dark:bg-slate-900/50 p-2 rounded border border-slate-100 dark:border-slate-800">
+                                                        <span className="text-xs text-muted-foreground block mb-0.5 uppercase tracking-wide">Weight</span>
+                                                        <div className="flex items-center gap-1.5 font-medium">
+                                                            <Weight className="h-3.5 w-3.5 text-slate-500" />
+                                                            {load.details.weight || load.details.truck_weight_lb} lbs
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
 
-                                        <div className="flex md:flex-col items-center justify-center p-5 bg-muted/30 border-t md:border-t-0 md:border-l min-w-[180px]">
-                                            <div className="text-center">
-                                                <div className="text-3xl font-bold text-green-600 flex items-center justify-center">
-                                                    <span className="text-lg mr-0.5">$</span>
+                                        {/* Right Sidebar: Rates & Actions */}
+                                        <div className="flex lg:flex-col items-center justify-between lg:justify-center p-5 bg-slate-50 dark:bg-slate-900/50 border-t lg:border-t-0 lg:border-l min-w-[220px] gap-4">
+                                            <div className="text-center w-full">
+                                                <div className="text-3xl font-bold text-green-600 dark:text-green-500 flex items-center justify-center">
+                                                    <span className="text-lg mr-0.5 font-normal text-muted-foreground">$</span>
                                                     {rate?.toFixed(0) || '---'}
                                                 </div>
-                                                {rpm && (
-                                                    <Badge variant="secondary" className="mt-1 font-mono text-xs">
-                                                        ${rpm}/mi
-                                                    </Badge>
-                                                )}
-                                                {load.details.total_deadhead_mi && (
-                                                    <div className="text-xs text-muted-foreground mt-1">
+                                                
+                                                <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+                                                    {rpm && (
+                                                        <Badge variant="secondary" className="font-mono text-xs bg-slate-200 dark:bg-slate-800">
+                                                            ${rpm}/mi
+                                                        </Badge>
+                                                    )}
+                                                    {revenuePerHour > 0 && (
+                                                        <ProfitBadge revenuePerHour={revenuePerHour} />
+                                                    )}
+                                                </div>
+                                                
+                                                {load.details.total_deadhead_mi > 0 && (
+                                                    <div className="text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
+                                                        <Navigation className="h-3 w-3" />
                                                         {load.details.total_deadhead_mi} mi deadhead
                                                     </div>
                                                 )}
                                             </div>
 
-                                            <Button
-                                                className="w-full mt-3 bg-blue-600 hover:bg-blue-700 font-bold"
-                                                size="sm"
-                                                asChild
-                                            >
-                                                <a
-                                                    href={`https://app.cloudtrucks.com/loads/${load.cloudtrucks_load_id}/book`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
+                                            <div className="w-full space-y-2">
+                                                <Button
+                                                    className="w-full bg-blue-600 hover:bg-blue-700 font-bold shadow-md shadow-blue-500/10"
+                                                    size="sm"
+                                                    asChild
                                                 >
-                                                    Book Now
-                                                </a>
-                                            </Button>
-
-                                            <Button
-                                                className="w-full mt-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
-                                                size="sm"
-                                                onClick={() => handleBackhaul(load)}
-                                                disabled={backhaulingId === load.id}
-                                                title="Search Return Trip (Swap Origin/Dest)"
-                                            >
-                                                {backhaulingId === load.id ? (
-                                                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                                                ) : (
-                                                    <ArrowLeftRight className="h-4 w-4 mr-2" />
-                                                )}
-                                                Backhaul
-                                            </Button>
-
-                                            <div className="flex gap-2 w-full mt-2">
-                                                {viewMode === 'trash' ? (
-                                                    <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        className="w-full gap-1 border hover:bg-green-100 hover:text-green-600"
-                                                        onClick={() => handleRestore(load.id)}
-                                                        title="Restore"
+                                                    <a
+                                                        href={`https://app.cloudtrucks.com/loads/${load.cloudtrucks_load_id}/book`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
                                                     >
-                                                        <RefreshCw className="h-4 w-4" />
-                                                        <span className="ml-1">Restore</span>
-                                                    </Button>
-                                                ) : (
+                                                        Book Now
+                                                    </a>
+                                                </Button>
+
+                                                <div className="flex gap-2">
                                                     <Button
-                                                        variant="ghost"
+                                                        variant="outline"
                                                         size="sm"
-                                                        onClick={() => handleSoftDelete(load.id)}
-                                                        disabled={deletingId === load.id}
-                                                        className="w-full gap-1 border text-yellow-500 hover:text-red-500 hover:bg-red-100 border-yellow-500/20"
-                                                        title="Move to Trash"
+                                                        className="flex-1 gap-1 text-xs"
+                                                        asChild
                                                     >
-                                                        <Trash2 className="h-4 w-4" />
-                                                        <span className="ml-1">Remove</span>
+                                                        <a href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}`} target="_blank" rel="noreferrer">
+                                                            <Navigation className="h-3 w-3" />
+                                                            Route
+                                                        </a>
                                                     </Button>
-                                                )}
+                                                    <FuelStopOptimizer 
+                                                        distance={dist || 0}
+                                                        originCity={load.details.origin_city}
+                                                        originState={load.details.origin_state}
+                                                        originLat={originLat}
+                                                        originLon={originLon}
+                                                        destCity={load.details.dest_city}
+                                                        destState={load.details.dest_state}
+                                                        destLat={destLat}
+                                                        destLon={destLon}
+                                                        mpg={6.5}
+                                                        fuelPrice={3.80}
+                                                    />
+                                                </div>
+
+                                                <Button
+                                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                                                    size="sm"
+                                                    onClick={() => handleBackhaul(load)}
+                                                    disabled={backhaulingId === load.id}
+                                                    title="Search Return Trip (Swap Origin/Dest)"
+                                                >
+                                                    {backhaulingId === load.id ? (
+                                                        <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                                                    ) : (
+                                                        <ArrowLeftRight className="h-4 w-4 mr-2" />
+                                                    )}
+                                                    Backhaul
+                                                </Button>
+
+                                                <div className="pt-2 mt-2 border-t border-slate-200 dark:border-slate-800">
+                                                    {viewMode === 'trash' ? (
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="w-full gap-1 border border-dashed hover:bg-green-100 hover:text-green-600 hover:border-green-300 h-8"
+                                                            onClick={() => handleRestore(load.id)}
+                                                        >
+                                                            <RefreshCw className="h-3 w-3" />
+                                                            Restore
+                                                        </Button>
+                                                    ) : (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleSoftDelete(load.id)}
+                                                            disabled={deletingId === load.id}
+                                                            className="w-full gap-1 border border-dashed text-slate-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 h-8"
+                                                        >
+                                                            <Trash2 className="h-3 w-3" />
+                                                            Remove
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -492,5 +584,3 @@ export default function InterestedPage() {
         </div>
     )
 }
-
-
