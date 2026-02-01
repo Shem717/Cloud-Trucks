@@ -1,4 +1,6 @@
 import { DashboardWrapper } from "@/components/dashboard-wrapper"
+import { HOSProvider } from "@/components/hos-tracker"
+import { RouteBuilderProvider, RouteBuilderToggle } from "@/components/route-builder"
 
 export default function PublicDashboardPage() {
     return (
@@ -8,7 +10,12 @@ export default function PublicDashboardPage() {
                 <span>You are exploring a public sandbox. Any searches or data you create are isolated to your temporary session and will expire.</span>
             </div>
 
-            <DashboardWrapper isPublic={true} />
+            <HOSProvider>
+                <RouteBuilderProvider>
+                    <DashboardWrapper isPublic={true} />
+                    <RouteBuilderToggle />
+                </RouteBuilderProvider>
+            </HOSProvider>
         </div>
     )
 }
