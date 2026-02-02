@@ -21,6 +21,7 @@ interface EnrichedCriteria extends SearchCriteria {
     origin_states?: string | string[];
     destination_states?: string | string[];
     is_backhaul?: boolean;
+    pickup_date_end?: string | null;
 }
 
 interface EditCriteriaDialogProps {
@@ -129,6 +130,9 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess, on
         // Date
         const rawDate = formData.get('pickup_date') as string;
         updates.pickup_date = rawDate || null;
+
+        const rawEndDate = formData.get('pickup_date_end') as string;
+        updates.pickup_date_end = rawEndDate || null;
 
         // Enums
         const equip = formData.get('equipment_type');
@@ -256,7 +260,7 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess, on
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* Pickup Distance */}
                         <div>
                             <FieldLabel>Radius</FieldLabel>
@@ -277,18 +281,32 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess, on
                             </div>
                         </div>
 
-                        {/* Date */}
-                        <div>
-                            <FieldLabel>Date</FieldLabel>
-                            <div className="relative">
-                                <Input
-                                    type="date"
-                                    name="pickup_date"
-                                    defaultValue={criteria.pickup_date ? new Date(criteria.pickup_date).toISOString().split('T')[0] : ''}
-                                    className={cn(inputStyles, "pl-10 appearance-none")}
-                                    style={{ colorScheme: 'dark' }}
-                                />
-                                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+                        {/* Date Range */}
+                        <div className="col-span-1">
+                            <FieldLabel>Date Range</FieldLabel>
+                            <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                    <Input
+                                        type="date"
+                                        name="pickup_date"
+                                        placeholder="Start"
+                                        defaultValue={criteria.pickup_date ? new Date(criteria.pickup_date).toISOString().split('T')[0] : ''}
+                                        className={cn(inputStyles, "pl-10 appearance-none")}
+                                        style={{ colorScheme: 'dark' }}
+                                    />
+                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+                                </div>
+                                <div className="relative flex-1">
+                                    <Input
+                                        type="date"
+                                        name="pickup_date_end"
+                                        placeholder="End"
+                                        defaultValue={criteria.pickup_date_end ? new Date(criteria.pickup_date_end).toISOString().split('T')[0] : ''}
+                                        className={cn(inputStyles, "pl-10 appearance-none")}
+                                        style={{ colorScheme: 'dark' }}
+                                    />
+                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+                                </div>
                             </div>
                         </div>
 

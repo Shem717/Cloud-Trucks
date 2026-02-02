@@ -32,6 +32,9 @@ export async function POST(request: NextRequest) {
         // Date input sends YYYY-MM-DD, but empty string should be null
         const pickupDate = rawDate && rawDate.trim() !== '' ? rawDate : null;
 
+        const rawEndDate = formData.get('pickup_date_end') as string;
+        const pickupDateEnd = rawEndDate && rawEndDate.trim() !== '' ? rawEndDate : null;
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const parseNumeric = (val: any, type: 'int' | 'float', min?: number, max?: number) => {
             if (!val || val.toString().trim() === '' || val === 'Any') return null;
@@ -62,6 +65,7 @@ export async function POST(request: NextRequest) {
             // Validate pickup_distance: min 1 mile, max 500 miles
             pickup_distance: parseNumeric(formData.get('pickup_distance'), 'int', 1, 500) || 50,
             pickup_date: pickupDate,
+            pickup_date_end: pickupDateEnd,
             dest_city: formData.get('dest_city') as string || null,
             destination_state: formData.get('destination_state') === 'any' ? null : (formData.get('destination_state') as string || (destStates?.[0] ?? null)),
             destination_states: destStates,
@@ -280,7 +284,7 @@ export async function PATCH(request: NextRequest) {
             const allowedFields = [
                 'origin_city', 'origin_state', 'origin_states',
                 'dest_city', 'destination_state', 'destination_states',
-                'pickup_distance', 'pickup_date',
+                'pickup_distance', 'pickup_date', 'pickup_date_end',
                 'min_rate', 'min_rpm', 'min_weight', 'max_weight',
                 'equipment_type', 'booking_type'
             ];

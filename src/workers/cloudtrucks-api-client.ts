@@ -21,7 +21,8 @@ export interface SearchCriteria {
     origin_city: string;
     origin_state?: string;
     pickup_distance?: number; // origin_range_mi__max
-    pickup_date?: string; // origin_pickup_date__min
+    pickup_date?: string | null; // origin_pickup_date__min
+    pickup_date_end?: string | null; // origin_pickup_date__max
     dest_city?: string;
     destination_state?: string;
     min_rate?: number;
@@ -112,7 +113,9 @@ function buildApiPayload(criteria: SearchCriteria): object {
     // For Instant Book loads, try requesting unmasked data to get addresses
     const isInstantOnly = normalizeBookingType(criteria.booking_type) === 'INSTANT';
 
-    return {
+    // Construct base payload
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const payload: any = {
         origin_location: origin,
         origin_range_mi__max: criteria.pickup_distance || 50,
         origin_pickup_date__min: criteria.pickup_date || new Date().toISOString(),
@@ -130,7 +133,14 @@ function buildApiPayload(criteria: SearchCriteria): object {
         requested_states: criteria.destination_state ? [criteria.destination_state] : [],
         is_offline_book_compatible: true,
     };
+
+    if (criteria.pickup_date_end) {
+        payload.origin_pickup_date__max = criteria.pickup_date_end;
+    }
+
+    return payload;
 }
+
 
 /**
  * Helper to clean cookie values (remove name= prefix if user pasted it)

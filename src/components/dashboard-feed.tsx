@@ -55,6 +55,7 @@ interface EnrichedCriteria extends SearchCriteria {
     scan_status?: 'scanning' | 'success' | 'error' | null;
     scan_error?: string | null;
     last_scan_loads_found?: number | null;
+    pickup_date_end?: string | null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any;
 }
@@ -466,6 +467,33 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
         }
     }
 
+    const handleRefreshCriteria = async (id: string) => {
+        if (scanningCriteriaIds.has(id)) return;
+
+        setScanningCriteriaIds(prev => new Set(prev).add(id));
+        try {
+            const res = await fetch('/api/scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ criteriaId: id })
+            });
+
+            if (res.ok) {
+                const result = await res.json();
+                console.log(`Refreshed criteria ${id}: ${result.loadsFound} loads found`);
+                await fetchData();
+            }
+        } catch (error) {
+            console.error('Refresh failed', error);
+        } finally {
+            setScanningCriteriaIds(prev => {
+                const next = new Set(prev);
+                next.delete(id);
+                return next;
+            });
+        }
+    };
+
     // --- Toggle Saved ---
     const handleToggleSaved = async (load: SavedLoad) => {
         if (savingInterest) return;
@@ -801,10 +829,24 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
 
         // Normalize both dates to YYYY-MM-DD for comparison (ignore time)
         const criteriaDateStr = (criteria.pickup_date as string).slice(0, 10); // Get YYYY-MM-DD
+        const criteriaEndDateStr = criteria.pickup_date_end ? (criteria.pickup_date_end as string).slice(0, 10) : null;
+
         const loadDateObj = new Date(pickupDate as string);
         const loadDateStr = loadDateObj.toISOString().slice(0, 10); // Get YYYY-MM-DD
 
-        // Only show loads with pickup on or after the criteria date
+        // If end date is present, check range [start, end]
+        if (criteriaEndDateStr) {
+            return loadDateStr >= criteriaDateStr && loadDateStr <= criteriaEndDateStr;
+        }
+
+        // Otherwise, match exact date or on/after depending on requirement. 
+        // Previously it was on/after: return loadDateStr >= criteriaDateStr;
+        // User requested "Date range search instead of just single date searching".
+        // Single date search usually implies "on that date" or "on/after".
+        // The previous code was `return loadDateStr >= criteriaDateStr;` (On or After).
+        // Let's keep it as "On or After" if only start date is provided, OR "Within Range" if end is provided.
+        // Actually, if it's a "single date" in the UI, it might mean exact match, but ">= start" 
+        // is typical for logistics "Available Date".
         return loadDateStr >= criteriaDateStr;
     });
 
@@ -1121,6 +1163,9 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                             <span>{mission.count} Loads</span>
                                             {/* Action Buttons */}
                                             <div className="flex gap-1">
+                                                <Button variant="ghost" size="icon" className={cn("h-6 w-6 text-slate-400 hover:text-green-500", scanningCriteriaIds.has(mission.criteria.id) && "animate-spin text-green-500")} onClick={(e) => { e.stopPropagation(); handleRefreshCriteria(mission.criteria.id); }}>
+                                                    <RefreshCw className="h-3 w-3" />
+                                                </Button>
                                                 <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleDelete(mission.criteria.id); }}>
                                                     <Trash2 className="h-3 w-3" />
                                                 </Button>
@@ -1242,6 +1287,9 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                         <div className="flex justify-between items-center">
                                             <span>{mission.count} Loads</span>
                                             <div className="flex gap-1">
+                                                <Button variant="ghost" size="icon" className={cn("h-6 w-6 text-slate-400 hover:text-green-500", scanningCriteriaIds.has(mission.criteria.id) && "animate-spin text-green-500")} onClick={(e) => { e.stopPropagation(); handleRefreshCriteria(mission.criteria.id); }}>
+                                                    <RefreshCw className="h-3 w-3" />
+                                                </Button>
                                                 <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleDelete(mission.criteria.id); }}>
                                                     <Trash2 className="h-3 w-3" />
                                                 </Button>
