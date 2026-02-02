@@ -12,6 +12,7 @@ interface CityAutocompleteProps {
     placeholder?: string;
     required?: boolean;
     defaultValue?: string;
+    value?: string;
     onStateChange?: (state: string) => void;
     className?: string;
 }
@@ -21,17 +22,28 @@ export function CityAutocomplete({
     placeholder = "City",
     required = false,
     defaultValue = "",
+    value: controlledValue,
     onStateChange,
     className
 }: CityAutocompleteProps) {
     const [open, setOpen] = React.useState(false)
-    const [value, setValue] = React.useState(defaultValue)
+    const [internalValue, setInternalValue] = React.useState(defaultValue)
     const [suggestions, setSuggestions] = React.useState<City[]>([])
     const containerRef = React.useRef<HTMLDivElement>(null)
 
+    // Sync internal value with controlled value if provided
+    React.useEffect(() => {
+        if (controlledValue !== undefined) {
+            setInternalValue(controlledValue);
+        }
+    }, [controlledValue]);
+
+    const value = internalValue;
+    const setValue = setInternalValue;
+
     // On initial load, look up city state and call onStateChange
     React.useEffect(() => {
-        if (defaultValue && onStateChange) {
+        if (defaultValue && onStateChange && !controlledValue) {
             const matchedCity = US_CITIES.find(
                 city => city.value.toLowerCase() === defaultValue.toLowerCase()
             );
@@ -39,7 +51,7 @@ export function CityAutocomplete({
                 onStateChange(matchedCity.state);
             }
         }
-    }, [defaultValue, onStateChange]);
+    }, [defaultValue, onStateChange, controlledValue]);
 
     // Handle outside click to close suggestions
     React.useEffect(() => {

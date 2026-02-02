@@ -4,7 +4,7 @@ import React, { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { AlertCircle, CheckCircle2, Loader2, Search, ChevronDown, Calendar } from "lucide-react"
+import { AlertCircle, CheckCircle2, Loader2, Search, ChevronDown, Calendar, MapPin } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { cn } from "@/lib/utils"
 import { CityAutocomplete } from "@/components/city-autocomplete"
@@ -26,20 +26,91 @@ const inputStyles = "bg-slate-900/50 border-slate-600 h-10 text-slate-200 focus:
 
 function OriginFieldGroup() {
     const [stateValue, setStateValue] = React.useState("");
+    const [cityValue, setCityValue] = React.useState<string | undefined>(undefined);
+    const [isLocating, setIsLocating] = React.useState(false);
 
     const handleCityStateChange = (state: string) => {
         if (state) {
             setStateValue(state);
+            // Clear specific city value so user can type freely after locating
+            // But we don't want to clear it immediately if it was just set.
+            // Actually, CityAutocomplete will sync internal state, so we can clear our force-prop
+            // after a short timeout or just keep it until user types?
+            // "CityAutocomplete" uses useEffect to sync. If we set undefined, it might not "reset". 
+            // It only syncs if value !== undefined. So setting it back to undefined is safe.
+            setTimeout(() => setCityValue(undefined), 100);
         }
+    };
+
+    const handleLocateMe = () => {
+        if (!navigator.geolocation) {
+            alert("Geolocation is not supported by your browser");
+            return;
+        }
+
+        setIsLocating(true);
+        navigator.geolocation.getCurrentPosition(async (position) => {
+            try {
+                const { latitude, longitude } = position.coords;
+                // Using BigDataCloud's free client-side reverse geocoding
+                const res = await fetch(
+                    `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+                );
+                const data = await res.json();
+
+                if (data.city && data.principalSubdivision) {
+                    setCityValue(data.city);
+                    // Standardize state code (usually 2 letters)
+                    // The API returns full state name sometimes or code. 
+                    // Let's rely on CityAutocomplete to infer state from city if possible, 
+                    // or trust the API if it gives a code.
+                    // Actually, let's just use the city and let the Autocomplete component resolve the state 
+                    // via its own internal logic if it matches a known US city, 
+                    // OR set the state directly if we have a code.
+
+                    // The API returns "principalSubdivisionCode" usually (e.g. "US-TX").
+                    let stateCode = data.principalSubdivisionCode || "";
+                    if (stateCode.startsWith("US-")) {
+                        stateCode = stateCode.replace("US-", "");
+                    }
+
+                    if (stateCode.length === 2) {
+                        setStateValue(stateCode);
+                    }
+                } else {
+                    console.error("Could not detect city/state");
+                }
+            } catch (error) {
+                console.error("Reverse geocoding failed", error);
+            } finally {
+                setIsLocating(false);
+            }
+        }, (error) => {
+            console.error("Geolocation failed", error);
+            setIsLocating(false);
+            alert("Unable to retrieve location");
+        });
     };
 
     return (
         <div className="flex-1 min-w-[200px]">
-            <FieldLabel>Pickup <span className="text-slate-500 font-normal normal-case">(city & state)</span></FieldLabel>
+            <div className="flex items-center justify-between mb-1.5">
+                <FieldLabel>Pickup <span className="text-slate-500 font-normal normal-case">(city & state)</span></FieldLabel>
+                <button
+                    type="button"
+                    onClick={handleLocateMe}
+                    disabled={isLocating}
+                    className="text-[10px] flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors uppercase font-bold tracking-wider disabled:opacity-50"
+                >
+                    {isLocating ? <Loader2 className="h-3 w-3 animate-spin" /> : <MapPin className="h-3 w-3" />}
+                    {isLocating ? "Locating..." : "Use My Location"}
+                </button>
+            </div>
             <div className="flex gap-2">
                 <CityAutocomplete
                     name="origin_city"
                     required
+                    value={cityValue}
                     onStateChange={handleCityStateChange}
                     className="flex-[2]"
                 />
