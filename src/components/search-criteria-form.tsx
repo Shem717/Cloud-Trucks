@@ -163,61 +163,75 @@ function DestinationFieldGroup() {
 
 export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
     const router = useRouter()
+    const [isSubmitting, setIsSubmitting] = useState(false)
     const [isPending, startTransition] = useTransition()
     const [outcome, setOutcome] = useState<{ error?: string; success?: string } | null>(null)
-    const [showFilters] = useState(true)
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
         const form = event.currentTarget
         const formData = new FormData(form)
 
-        startTransition(async () => {
+        setIsSubmitting(true)
+        setOutcome(null)
+
+        try {
+            const response = await fetch('/api/criteria', {
+                method: 'POST',
+                body: formData,
+            })
+
+            let result;
             try {
-                const response = await fetch('/api/criteria', {
-                    method: 'POST',
-                    body: formData,
+                result = await response.json()
+            } catch (jsonError) {
+                console.error('Failed to parse JSON response:', jsonError)
+                throw new Error(`Server returned ${response.status} ${response.statusText}`)
+            }
+
+            if (result.error) {
+                setOutcome({ error: result.error })
+            } else {
+                setOutcome({ success: 'Added! Scanning started...' })
+
+                if (result.criteria) {
+                    onSuccess?.(result.criteria)
+                }
+
+                // Trigger a scan explicitly
+                try {
+                    const criteriaId = result.criteria?.id;
+                    fetch('/api/scan', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: criteriaId ? JSON.stringify({ criteriaId }) : undefined
+                    })
+                } catch {
+                    // Non-fatal
+                }
+
+                form.reset()
+
+                // Clear loading state immediately so UI feels responsive
+                setIsSubmitting(false)
+
+                // Refresh data in background without blocking UI
+                startTransition(() => {
+                    router.refresh()
                 })
 
-                let result;
-                try {
-                    result = await response.json()
-                } catch (jsonError) {
-                    console.error('Failed to parse JSON response:', jsonError)
-                    throw new Error(`Server returned ${response.status} ${response.statusText}`)
-                }
-
-                if (result.error) {
-                    setOutcome({ error: result.error })
-                } else {
-                    setOutcome({ success: 'Added! Scanning started...' })
-
-                    if (result.criteria) {
-                        onSuccess?.(result.criteria)
-                    }
-
-                    // Trigger a scan explicitly (more reliable on Vercel than background fire-and-forget).
-                    try {
-                        const criteriaId = result.criteria?.id;
-                        await fetch('/api/scan', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: criteriaId ? JSON.stringify({ criteriaId }) : undefined
-                        })
-                    } catch {
-                        // Non-fatal; user can still click "Scan Now".
-                    }
-
-                    form.reset()
-                    router.refresh()
-                    setTimeout(() => setOutcome(null), 3000)
-                }
-            } catch (error: unknown) {
-                console.error('Form submission error:', error)
-                const message = error instanceof Error ? error.message : 'Failed to save';
-                setOutcome({ error: message })
+                setTimeout(() => setOutcome(null), 3000)
             }
-        })
+        } catch (error: unknown) {
+            console.error('Form submission error:', error)
+            const message = error instanceof Error ? error.message : 'Failed to save';
+            setOutcome({ error: message })
+        } finally {
+            // Ensure loading is off if we didn't succeed (success case handles it inside explicitly)
+            if (outcome?.error || !outcome?.success) {
+                setIsSubmitting(false)
+            }
+        }
     }
 
     return (
@@ -245,6 +259,33 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                             {/* Origin */}
                             <OriginFieldGroup />
 
+                            {/* Pickup Date / Date Range */}
+                            <div className="flex-none relative z-20">
+                                <FieldLabel>Date Range</FieldLabel>
+                                <div className="flex gap-2">
+                                    <div className="relative">
+                                        <Input
+                                            type="date"
+                                            name="pickup_date"
+                                            placeholder="Start"
+                                            className={cn(inputStyles, "pl-9 pr-2 w-28 appearance-none text-xs")}
+                                            style={{ colorScheme: 'dark' }}
+                                        />
+                                        <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
+                                    </div>
+                                    <div className="relative">
+                                        <Input
+                                            type="date"
+                                            name="pickup_date_end"
+                                            placeholder="End"
+                                            className={cn(inputStyles, "pl-9 pr-2 w-28 appearance-none text-xs")}
+                                            style={{ colorScheme: 'dark' }}
+                                        />
+                                        <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* Radius */}
                             <div className="w-[110px]">
                                 <FieldLabel>Radius</FieldLabel>
@@ -258,20 +299,6 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                                         <option value="400">400 mi</option>
                                     </select>
                                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
-                                </div>
-                            </div>
-
-                            {/* Pickup Date */}
-                            <div className="w-[150px]">
-                                <FieldLabel>Date</FieldLabel>
-                                <div className="relative">
-                                    <Input
-                                        type="date"
-                                        name="pickup_date"
-                                        className={cn(inputStyles, "pl-10 appearance-none")} // Add padding for icon
-                                        style={{ colorScheme: 'dark' }} // Force dark calendar icon
-                                    />
-                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
                                 </div>
                             </div>
 
@@ -351,10 +378,10 @@ export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
                     <div className="p-4 bg-slate-900/60 backdrop-blur-md rounded-b-xl border-t border-slate-800/50">
                         <Button
                             type="submit"
-                            disabled={isPending}
+                            disabled={isSubmitting}
                             className="w-full h-10 bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)] transition-all duration-300 font-semibold"
                         >
-                            {isPending ? (
+                            {isSubmitting ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
                                 <>

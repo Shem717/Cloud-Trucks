@@ -260,7 +260,7 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess, on
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Pickup Distance */}
                         <div>
                             <FieldLabel>Radius</FieldLabel>
@@ -281,8 +281,25 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess, on
                             </div>
                         </div>
 
+                        {/* Equipment */}
+                        <div>
+                            <FieldLabel>Trailer Type</FieldLabel>
+                            <div className="relative">
+                                <select
+                                    name="equipment_type"
+                                    defaultValue={criteria.equipment_type || 'Any'}
+                                    className={cn(inputStyles, "w-full appearance-none px-3 cursor-pointer")}
+                                >
+                                    <option value="Any">Any Equipment</option>
+                                    <option value="Dry Van">Dry Van</option>
+                                    <option value="Power Only">Power Only</option>
+                                </select>
+                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+                            </div>
+                        </div>
+
                         {/* Date Range */}
-                        <div className="col-span-1">
+                        <div className="col-span-1 md:col-span-2">
                             <FieldLabel>Date Range</FieldLabel>
                             <div className="flex gap-2">
                                 <div className="relative flex-1">
@@ -307,23 +324,6 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess, on
                                     />
                                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
                                 </div>
-                            </div>
-                        </div>
-
-                        {/* Equipment */}
-                        <div>
-                            <FieldLabel>Trailer Type</FieldLabel>
-                            <div className="relative">
-                                <select
-                                    name="equipment_type"
-                                    defaultValue={criteria.equipment_type || 'Any'}
-                                    className={cn(inputStyles, "w-full appearance-none px-3 cursor-pointer")}
-                                >
-                                    <option value="Any">Any Equipment</option>
-                                    <option value="Dry Van">Dry Van</option>
-                                    <option value="Power Only">Power Only</option>
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
                             </div>
                         </div>
                     </div>
