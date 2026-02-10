@@ -114,3 +114,19 @@ Added a `@theme` block to `src/app/globals.css` that maps CSS variable-based des
 2. Updated Supabase Types: Synced `src/types/supabase.ts` via `generate_typescript_types` tool.
 
 **Prevention:** Create and apply migrations immediately when adding new fields to the UI that require persistence. Double-check `src/types/supabase.ts` matches the DB schema.
+
+---
+
+## 2026-02-09: Supabase Build Failure - Missing Table & Type Helper Error
+
+**Failure Signature #7:** "Type error: Property 'audit_log' does not exist on type 'Tables'" AND "Type '"Tables"' cannot be used to index type 'Database[PublicTableNameOrOptions["schema"]]'"
+
+**Root Cause:**
+1. The `audit_log` table definition was missing from `src/types/supabase.ts`, causing type errors in `src/lib/audit-logger.ts`.
+2. The generated type helper `Tables` (and others) used `keyof Database` to index schema properties, but `Database` includes `__InternalSupabase` which does not have `Tables`, causing index signature errors.
+
+**Fix:**
+1. Manually added `audit_log` table definition to `Database['public']['Tables']`.
+2. Defined `type DatabaseSchema = Exclude<keyof Database, "__InternalSupabase">` and updated helper types (`Tables`, `TablesInsert`, etc.) to use `DatabaseSchema` instead of `keyof Database`, ensuring only valid schemas are indexed.
+
+**Prevention:** Inspect `src/types/supabase.ts` after generation. Ensure helper types filter out internal keys. Verify all used tables are present in the types file.
