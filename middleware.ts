@@ -17,7 +17,7 @@ const securityHeaders = {
         "style-src 'self' 'unsafe-inline' https://api.mapbox.com",
         "img-src 'self' data: https: blob:",
         "font-src 'self' data:",
-        "connect-src 'self' https://*.supabase.co https://api.mapbox.com https://api.open-meteo.com https://api.bigdatacloud.net wss://*.supabase.co wss://ws-us3.pusher.com",
+        "connect-src 'self' https://*.supabase.co https://api.mapbox.com https://api.open-meteo.com https://api-bdc.io https://api-bdc.net https://api.bigdatacloud.net wss://*.supabase.co wss://ws-us3.pusher.com",
         "worker-src 'self' blob:",
         "frame-ancestors 'none'",
         "base-uri 'self'",

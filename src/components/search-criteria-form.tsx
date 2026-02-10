@@ -82,6 +82,7 @@ async function reverseGeocodeWithMapbox(latitude: number, longitude: number): Pr
 
 async function reverseGeocodeWithBigDataCloud(latitude: number, longitude: number): Promise<ReverseGeocodeResult | null> {
     const endpoints = [
+        'https://api-bdc.io/data/reverse-geocode-client',
         'https://api-bdc.net/data/reverse-geocode-client',
         'https://api.bigdatacloud.net/data/reverse-geocode-client',
     ];
