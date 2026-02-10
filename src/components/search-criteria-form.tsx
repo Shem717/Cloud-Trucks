@@ -24,6 +24,100 @@ const FieldLabel = ({ children }: { children: React.ReactNode }) => (
 // Consistent Input Style
 const inputStyles = "bg-slate-900/50 border-slate-600 h-10 text-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium text-sm rounded-md placeholder:text-slate-600"
 
+type ReverseGeocodeResult = {
+    city: string;
+    state: string;
+};
+
+function normalizeStateCode(value?: string): string {
+    if (!value) return "";
+
+    const upper = value.toUpperCase();
+    if (upper.startsWith('US-') && upper.length === 5) {
+        return upper.slice(3);
+    }
+
+    if (upper.length === 2) {
+        return upper;
+    }
+
+    return "";
+}
+
+async function reverseGeocodeWithMapbox(latitude: number, longitude: number): Promise<ReverseGeocodeResult | null> {
+    const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+    if (!token) return null;
+
+    const res = await fetch(
+        `https://api.mapbox.com/search/geocode/v6/reverse?longitude=${longitude}&latitude=${latitude}&types=place,region&access_token=${token}`
+    );
+
+    if (!res.ok) {
+        throw new Error(`Mapbox reverse geocode failed (${res.status})`);
+    }
+
+    const data = await res.json();
+    const features = Array.isArray(data?.features) ? data.features : [];
+
+    let city = "";
+    let state = "";
+
+    for (const feature of features) {
+        const featureType = Array.isArray(feature?.types) ? feature.types[0] : "";
+        if (!city && featureType === 'place') {
+            city = feature?.properties?.name || feature?.name || "";
+        }
+
+        if (!state && featureType === 'region') {
+            state = normalizeStateCode(feature?.properties?.short_code || feature?.properties?.region_code || feature?.name);
+        }
+    }
+
+    if (city && state) {
+        return { city, state };
+    }
+
+    return null;
+}
+
+async function reverseGeocodeWithBigDataCloud(latitude: number, longitude: number): Promise<ReverseGeocodeResult | null> {
+    const endpoints = [
+        'https://api-bdc.net/data/reverse-geocode-client',
+        'https://api.bigdatacloud.net/data/reverse-geocode-client',
+    ];
+
+    for (const endpoint of endpoints) {
+        const res = await fetch(
+            `${endpoint}?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+        );
+
+        if (!res.ok) {
+            continue;
+        }
+
+        const data = await res.json();
+        const city = data?.city || data?.locality || data?.localityInfo?.administrative?.[2]?.name || "";
+        const state = normalizeStateCode(data?.principalSubdivisionCode || data?.principalSubdivision);
+
+        if (city && state) {
+            return { city, state };
+        }
+    }
+
+    throw new Error('BigDataCloud reverse geocode failed across all endpoints');
+}
+
+async function reverseGeocode(latitude: number, longitude: number): Promise<ReverseGeocodeResult | null> {
+    try {
+        const mapboxResult = await reverseGeocodeWithMapbox(latitude, longitude);
+        if (mapboxResult) return mapboxResult;
+    } catch (error) {
+        console.warn("Mapbox reverse geocode failed", error);
+    }
+
+    return reverseGeocodeWithBigDataCloud(latitude, longitude);
+}
+
 function OriginFieldGroup() {
     const [stateValue, setStateValue] = React.useState("");
     const [cityValue, setCityValue] = React.useState<string | undefined>(undefined);
@@ -55,31 +149,11 @@ function OriginFieldGroup() {
         navigator.geolocation.getCurrentPosition(async (position) => {
             try {
                 const { latitude, longitude } = position.coords;
-                // Using BigDataCloud's free client-side reverse geocoding
-                const res = await fetch(
-                    `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
-                );
-                const data = await res.json();
+                const location = await reverseGeocode(latitude, longitude);
 
-                if (data.city && data.principalSubdivision) {
-                    setCityValue(data.city);
-                    // Standardize state code (usually 2 letters)
-                    // The API returns full state name sometimes or code. 
-                    // Let's rely on CityAutocomplete to infer state from city if possible, 
-                    // or trust the API if it gives a code.
-                    // Actually, let's just use the city and let the Autocomplete component resolve the state 
-                    // via its own internal logic if it matches a known US city, 
-                    // OR set the state directly if we have a code.
-
-                    // The API returns "principalSubdivisionCode" usually (e.g. "US-TX").
-                    let stateCode = data.principalSubdivisionCode || "";
-                    if (stateCode.startsWith("US-")) {
-                        stateCode = stateCode.replace("US-", "");
-                    }
-
-                    if (stateCode.length === 2) {
-                        setStateValue(stateCode);
-                    }
+                if (location) {
+                    setCityValue(location.city);
+                    setStateValue(location.state);
                 } else {
                     console.error("Could not detect city/state");
                     setLocateError("We found your location but could not determine city/state.");
@@ -94,6 +168,10 @@ function OriginFieldGroup() {
             console.error("Geolocation failed", error);
             setIsLocating(false);
             setLocateError("Unable to retrieve location. Please check browser location permissions.");
+        }, {
+            enableHighAccuracy: false,
+            timeout: 10000,
+            maximumAge: 60000,
         });
     };
 
@@ -172,7 +250,7 @@ function DestinationFieldGroup() {
 export function SearchCriteriaForm({ onSuccess }: SearchCriteriaFormProps) {
     const router = useRouter()
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [isPending, startTransition] = useTransition()
+    const [, startTransition] = useTransition()
     const [outcome, setOutcome] = useState<{ error?: string; success?: string } | null>(null)
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
