@@ -154,7 +154,7 @@ export async function fetchLoadsFromCloudTrucks(
 /**
  * Save newly found loads to database (updating latest + preserving history)
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export async function saveNewLoads(criteriaId: string, loads: CloudTrucksLoad[], supabaseClient?: any) {
     if (loads.length === 0) return 0;
 
@@ -164,7 +164,7 @@ export async function saveNewLoads(criteriaId: string, loads: CloudTrucksLoad[],
     const rows = loads.map((load) => ({
         criteria_id: criteriaId,
         cloudtrucks_load_id: load.id,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         details: (load.raw || load) as any,
         status: 'found',
         updated_at: new Date().toISOString(),
@@ -250,8 +250,15 @@ export async function saveNewLoads(criteriaId: string, loads: CloudTrucksLoad[],
 /**
  * Main scan function - scans loads for a specific user
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function scanLoadsForUser(userId: string, supabaseClient?: any, specificCriteriaId?: string): Promise<{
+ 
+type ScanScope = 'all' | 'fronthaul' | 'backhaul';
+
+export async function scanLoadsForUser(
+    userId: string,
+    supabaseClient?: any,
+    specificCriteriaId?: string,
+    scope: ScanScope = 'all'
+): Promise<{
     success: boolean;
     loadsFound: number;
     error?: string;
@@ -268,7 +275,14 @@ export async function scanLoadsForUser(userId: string, supabaseClient?: any, spe
             .from(USER_CRITERIA_TABLE)
             .select('*')
             .eq('user_id', userId)
-            .eq('active', true);
+            .eq('active', true)
+            .is('deleted_at', null);
+
+        if (scope === 'fronthaul') {
+            query = query.or('is_backhaul.is.null,is_backhaul.eq.false');
+        } else if (scope === 'backhaul') {
+            query = query.eq('is_backhaul', true);
+        }
 
         if (specificCriteriaId) {
             query = query.eq('id', specificCriteriaId);
@@ -406,7 +420,7 @@ async function getGuestAdminCredentials(supabase: any): Promise<GuestAdminCreden
 }
 
 // Save guest loads in guest_found_loads, updating latest + preserving history.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 async function saveNewGuestLoads(criteriaId: string, loads: CloudTrucksLoad[], supabaseClient: any) {
     if (loads.length === 0) return 0;
 
@@ -417,7 +431,7 @@ async function saveNewGuestLoads(criteriaId: string, loads: CloudTrucksLoad[], s
     const rows = capped.map((load) => ({
         criteria_id: criteriaId,
         cloudtrucks_load_id: load.id,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         details: (load.raw || load) as any,
         status: 'found',
         updated_at: new Date().toISOString(),

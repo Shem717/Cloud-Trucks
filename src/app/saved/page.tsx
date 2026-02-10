@@ -296,7 +296,12 @@ export default function InterestedPage() {
                 toast.success('Backhaul created. Scan started.')
                 setBackhaulDialogOpen(false)
                 setBackhaulDraft(null)
-                fetch('/api/scan', { method: 'POST' }).catch(() => {
+                const criteriaId = result.criteria?.id
+                fetch('/api/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: criteriaId ? JSON.stringify({ criteriaId }) : undefined
+                }).catch(() => {
                     // Non-fatal; user can still click "Scan Now".
                 })
                 window.location.href = '/dashboard'

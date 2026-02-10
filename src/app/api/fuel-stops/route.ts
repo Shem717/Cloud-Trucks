@@ -45,27 +45,116 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
     return R * c;
 }
 
+interface RoutePath {
+    coordinates: [number, number][];
+    distanceMiles: number;
+}
+
 /**
- * Generate waypoints along a route
+ * Fetch route geometry from Mapbox so fuel lookups follow drivable roads, not a straight line.
  */
-function generateWaypoints(
+async function fetchRoutePath(
+    originLat: number,
+    originLon: number,
+    destLat: number,
+    destLon: number
+): Promise<RoutePath | null> {
+    const mapboxToken = process.env.MAPBOX_ACCESS_TOKEN || process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+    if (!mapboxToken) {
+        return null;
+    }
+
+    try {
+        const url = new URL(
+            `https://api.mapbox.com/directions/v5/mapbox/driving/${originLon},${originLat};${destLon},${destLat}`
+        );
+        url.searchParams.set('geometries', 'geojson');
+        url.searchParams.set('overview', 'full');
+        url.searchParams.set('access_token', mapboxToken);
+
+        const response = await fetch(url.toString(), { cache: 'no-store' });
+        if (!response.ok) {
+            const text = await response.text();
+            console.error('[FUEL API] Mapbox route fetch failed:', text);
+            return null;
+        }
+
+        const data = await response.json();
+        const route = data.routes?.[0];
+        const coordinates = route?.geometry?.coordinates as [number, number][] | undefined;
+        if (!coordinates || coordinates.length < 2) {
+            return null;
+        }
+
+        return {
+            coordinates,
+            distanceMiles: (route.distance || 0) * 0.000621371,
+        };
+    } catch (error) {
+        console.error('[FUEL API] Mapbox route lookup error:', error);
+        return null;
+    }
+}
+
+function dedupeSearchPoints(points: Array<{ lat: number; lon: number }>): Array<{ lat: number; lon: number }> {
+    const seen = new Set<string>();
+    const deduped: Array<{ lat: number; lon: number }> = [];
+    for (const point of points) {
+        const key = `${point.lat.toFixed(4)},${point.lon.toFixed(4)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        deduped.push(point);
+    }
+    return deduped;
+}
+
+/**
+ * Sample points along the route and always include both endpoints.
+ */
+function buildRouteSearchPoints(
+    coordinates: [number, number][],
+    totalDistanceMiles: number,
+    maxStops: number
+): Array<{ lat: number; lon: number }> {
+    const minPoints = Math.max(4, maxStops + 2); // include endpoints + enough route samples
+    const distanceBasedPoints = Math.ceil(totalDistanceMiles / 120);
+    const desiredPoints = Math.min(12, Math.max(minPoints, distanceBasedPoints));
+
+    const points: Array<{ lat: number; lon: number }> = [];
+    for (let i = 0; i < desiredPoints; i++) {
+        const index = Math.round((i * (coordinates.length - 1)) / (desiredPoints - 1));
+        const [lon, lat] = coordinates[index];
+        points.push({ lat, lon });
+    }
+    return dedupeSearchPoints(points);
+}
+
+/**
+ * Fallback linear interpolation (still includes endpoints).
+ */
+function buildLinearSearchPoints(
     originLat: number,
     originLon: number,
     destLat: number,
     destLon: number,
-    numWaypoints: number
+    totalDistanceMiles: number,
+    maxStops: number
 ): Array<{ lat: number; lon: number }> {
-    const waypoints: Array<{ lat: number; lon: number }> = [];
+    const points: Array<{ lat: number; lon: number }> = [
+        { lat: originLat, lon: originLon },
+        { lat: destLat, lon: destLon },
+    ];
 
-    for (let i = 1; i <= numWaypoints; i++) {
-        const fraction = i / (numWaypoints + 1);
-        waypoints.push({
+    const between = Math.min(8, Math.max(2, Math.ceil(totalDistanceMiles / 150), maxStops));
+    for (let i = 1; i <= between; i++) {
+        const fraction = i / (between + 1);
+        points.push({
             lat: originLat + (destLat - originLat) * fraction,
             lon: originLon + (destLon - originLon) * fraction,
         });
     }
 
-    return waypoints;
+    return dedupeSearchPoints(points);
 }
 
 /**
@@ -203,12 +292,12 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Calculate total route distance
-        const totalDistance = calculateDistance(originLat, originLon, destLat, destLon);
-
-        // Generate waypoints along the route
-        const numWaypoints = Math.min(maxStops, Math.max(2, Math.floor(totalDistance / 200)));
-        const waypoints = generateWaypoints(originLat, originLon, destLat, destLon, numWaypoints);
+        // Use drivable route geometry when possible, fallback to straight-line interpolation.
+        const routePath = await fetchRoutePath(originLat, originLon, destLat, destLon);
+        const totalDistance = routePath?.distanceMiles || calculateDistance(originLat, originLon, destLat, destLon);
+        const waypoints = routePath
+            ? buildRouteSearchPoints(routePath.coordinates, totalDistance, maxStops)
+            : buildLinearSearchPoints(originLat, originLon, destLat, destLon, totalDistance, maxStops);
 
         // Search for gas stations near each waypoint
         const allStations: FuelStop[] = [];
@@ -281,7 +370,7 @@ export async function GET(request: NextRequest) {
             .sort((a, b) => a.milesAlongRoute - b.milesAlongRoute)
             .slice(0, maxStops);
 
-        console.log(`[FUEL API] Found ${sortedStations.length} fuel stops along ${totalDistance.toFixed(0)} mile route`);
+        console.log(`[FUEL API] Found ${sortedStations.length} fuel stops along ${totalDistance.toFixed(0)} mile route (${waypoints.length} search points)`);
 
         return NextResponse.json({
             success: true,

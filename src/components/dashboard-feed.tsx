@@ -456,7 +456,11 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
         if (scanning) return;
         setScanning(true);
         try {
-            const res = await fetch('/api/scan', { method: 'POST' });
+            const res = await fetch('/api/scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ scope: 'fronthaul' })
+            });
             const result = await res.json();
             if (result.success) {
                 console.log(`Scan complete: ${result.loadsFound} new loads found`);
@@ -600,7 +604,12 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                 console.log('Backhaul criteria created:', result);
                 // Trigger scan explicitly so the new backhaul fills immediately.
                 try {
-                    await fetch('/api/scan', { method: 'POST' });
+                    const criteriaId = result.criteria?.id;
+                    await fetch('/api/scan', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: criteriaId ? JSON.stringify({ criteriaId }) : undefined,
+                    });
                 } catch {
                     // Non-fatal; user can still click "Scan Now".
                 }
@@ -1032,10 +1041,18 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                 body: formData
                             });
 
+                            const result = await res.json();
                             if (res.ok) {
                                 // Trigger scan
-                                await fetch('/api/scan', { method: 'POST' });
+                                const criteriaId = result.criteria?.id;
+                                await fetch('/api/scan', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: criteriaId ? JSON.stringify({ criteriaId }) : undefined,
+                                });
                                 fetchData();
+                            } else {
+                                console.error('Failed to create backhaul criteria:', result.error);
                             }
                         } catch (error) {
                             console.error('Failed to create backhaul:', error);
