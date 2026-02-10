@@ -14,42 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      audit_log: {
-        Row: {
-          action: string
-          created_at: string
-          details: Json | null
-          id: string
-          ip_address: string | null
-          resource_id: string | null
-          resource_type: string | null
-          user_agent: string | null
-          user_id: string | null
-        }
-        Insert: {
-          action: string
-          created_at?: string
-          details?: Json | null
-          id?: string
-          ip_address?: string | null
-          resource_id?: string | null
-          resource_type?: string | null
-          user_agent?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          action?: string
-          created_at?: string
-          details?: Json | null
-          id?: string
-          ip_address?: string | null
-          resource_id?: string | null
-          resource_type?: string | null
-          user_agent?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       booked_loads: {
         Row: {
           broker: string | null
@@ -122,65 +86,130 @@ export type Database = {
         }
         Relationships: []
       }
-      cloudtrucks_credentials: {
+      criterias: {
         Row: {
-          created_at: string | null
-          encrypted_csrf_token: string | null
-          encrypted_email: string
-          encrypted_session_cookie: string
-          is_valid: boolean | null
-          last_validated_at: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
           user_id: string
+          value: string | null
         }
         Insert: {
-          created_at?: string | null
-          encrypted_csrf_token?: string | null
-          encrypted_email: string
-          encrypted_session_cookie: string
-          is_valid?: boolean | null
-          last_validated_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
           user_id: string
+          value?: string | null
         }
         Update: {
-          created_at?: string | null
-          encrypted_csrf_token?: string | null
-          encrypted_email?: string
-          encrypted_session_cookie?: string
-          is_valid?: boolean | null
-          last_validated_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
           user_id?: string
+          value?: string | null
         }
         Relationships: []
       }
-      interested_loads: {
+      fuel_stops: {
         Row: {
-          cloudtrucks_load_id: string
+          address: string
+          brand: string
+          city: string
           created_at: string | null
-          details: Json
+          diesel_price: number | null
           id: string
-          last_checked_at: string | null
-          status: string | null
-          user_id: string
+          last_updated: string | null
+          lat: number
+          lng: number
+          name: string
+          state: string
         }
         Insert: {
-          cloudtrucks_load_id: string
+          address: string
+          brand: string
+          city: string
           created_at?: string | null
-          details: Json
+          diesel_price?: number | null
           id?: string
-          last_checked_at?: string | null
-          status?: string | null
-          user_id: string
+          last_updated?: string | null
+          lat: number
+          lng: number
+          name: string
+          state: string
         }
         Update: {
-          cloudtrucks_load_id?: string
+          address?: string
+          brand?: string
+          city?: string
           created_at?: string | null
-          details?: Json
+          diesel_price?: number | null
           id?: string
-          last_checked_at?: string | null
-          status?: string | null
-          user_id?: string
+          last_updated?: string | null
+          lat?: number
+          lng?: number
+          name?: string
+          state?: string
         }
         Relationships: []
+      }
+      scanned_loads: {
+        Row: {
+          broker: string | null
+          cloudtrucks_load_id: string
+          created_at: string | null
+          destination: string
+          equipment: string | null
+          id: string
+          matches_criteria_id: string | null
+          origin: string
+          pickup_date: string | null
+          rate: number | null
+          raw_data: Json | null
+          rpm: number | null
+          weight: number | null
+        }
+        Insert: {
+          broker?: string | null
+          cloudtrucks_load_id: string
+          created_at?: string | null
+          destination: string
+          equipment?: string | null
+          id?: string
+          matches_criteria_id?: string | null
+          origin: string
+          pickup_date?: string | null
+          rate?: number | null
+          raw_data?: Json | null
+          rpm?: number | null
+          weight?: number | null
+        }
+        Update: {
+          broker?: string | null
+          cloudtrucks_load_id?: string
+          created_at?: string | null
+          destination?: string
+          equipment?: string | null
+          id?: string
+          matches_criteria_id?: string | null
+          origin?: string
+          pickup_date?: string | null
+          rate?: number | null
+          raw_data?: Json | null
+          rpm?: number | null
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scanned_loads_matches_criteria_id_fkey"
+            columns: ["matches_criteria_id"]
+            isOneToOne: false
+            referencedRelation: "search_criteria"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       search_criteria: {
         Row: {
@@ -194,6 +223,8 @@ export type Database = {
           equipment_type: string | null
           id: string
           is_backhaul: boolean | null
+          last_scan_loads_found: number | null
+          last_scanned_at: string | null
           max_weight: number | null
           min_rate: number | null
           min_rpm: number | null
@@ -202,7 +233,10 @@ export type Database = {
           origin_state: string | null
           origin_states: string[] | null
           pickup_date: string | null
+          pickup_date_end: string | null
           pickup_distance: number | null
+          scan_error: string | null
+          scan_status: string | null
           user_id: string
         }
         Insert: {
@@ -216,6 +250,8 @@ export type Database = {
           equipment_type?: string | null
           id?: string
           is_backhaul?: boolean | null
+          last_scan_loads_found?: number | null
+          last_scanned_at?: string | null
           max_weight?: number | null
           min_rate?: number | null
           min_rpm?: number | null
@@ -224,7 +260,10 @@ export type Database = {
           origin_state?: string | null
           origin_states?: string[] | null
           pickup_date?: string | null
+          pickup_date_end?: string | null
           pickup_distance?: number | null
+          scan_error?: string | null
+          scan_status?: string | null
           user_id: string
         }
         Update: {
@@ -238,6 +277,8 @@ export type Database = {
           equipment_type?: string | null
           id?: string
           is_backhaul?: boolean | null
+          last_scan_loads_found?: number | null
+          last_scanned_at?: string | null
           max_weight?: number | null
           min_rate?: number | null
           min_rpm?: number | null
@@ -246,8 +287,47 @@ export type Database = {
           origin_state?: string | null
           origin_states?: string[] | null
           pickup_date?: string | null
+          pickup_date_end?: string | null
           pickup_distance?: number | null
+          scan_error?: string | null
+          scan_status?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      weather_summaries: {
+        Row: {
+          condition: string | null
+          created_at: string
+          humidity: number | null
+          id: string
+          location: string
+          precipitation_chance: number | null
+          temperature: number | null
+          updated_at: string
+          wind_speed: number | null
+        }
+        Insert: {
+          condition?: string | null
+          created_at?: string
+          humidity?: number | null
+          id?: string
+          location: string
+          precipitation_chance?: number | null
+          temperature?: number | null
+          updated_at?: string
+          wind_speed?: number | null
+        }
+        Update: {
+          condition?: string | null
+          created_at?: string
+          humidity?: number | null
+          id?: string
+          location?: string
+          precipitation_chance?: number | null
+          temperature?: number | null
+          updated_at?: string
+          wind_speed?: number | null
         }
         Relationships: []
       }
@@ -269,100 +349,97 @@ export type Database = {
 
 type PublicSchema = Database[Extract<keyof Database, "public">]
 
-// Helper to exclude internal keys (like __InternalSupabase)
-type DatabaseSchema = Exclude<keyof Database, "__InternalSupabase">;
-
 export type Tables<
   PublicTableNameOrOptions extends
-  | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
-  | { schema: DatabaseSchema },
-  TableName extends PublicTableNameOrOptions extends { schema: DatabaseSchema }
-  ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-    Database[PublicTableNameOrOptions["schema"]]["Views"])
-  : never = never,
-> = PublicTableNameOrOptions extends { schema: DatabaseSchema }
+    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+        Database[PublicTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof Database }
   ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-    Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
-  ? R
-  : never
+    ? R
+    : never
   : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-    PublicSchema["Views"])
-  ? (PublicSchema["Tables"] &
-    PublicSchema["Views"])[PublicTableNameOrOptions] extends {
-      Row: infer R
-    }
-  ? R
-  : never
-  : never
+        PublicSchema["Views"])
+    ? (PublicSchema["Tables"] &
+        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
 
 export type TablesInsert<
   PublicTableNameOrOptions extends
-  | keyof PublicSchema["Tables"]
-  | { schema: DatabaseSchema },
-  TableName extends PublicTableNameOrOptions extends { schema: DatabaseSchema }
-  ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
-> = PublicTableNameOrOptions extends { schema: DatabaseSchema }
+    | keyof PublicSchema["Tables"]
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof Database }
   ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
+      Insert: infer I
+    }
+    ? I
+    : never
   : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-  ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
-  : never
+    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
 
 export type TablesUpdate<
   PublicTableNameOrOptions extends
-  | keyof PublicSchema["Tables"]
-  | { schema: DatabaseSchema },
-  TableName extends PublicTableNameOrOptions extends { schema: DatabaseSchema }
-  ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
-> = PublicTableNameOrOptions extends { schema: DatabaseSchema }
+    | keyof PublicSchema["Tables"]
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof Database }
   ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Update: infer U
-  }
-  ? U
-  : never
+      Update: infer U
+    }
+    ? U
+    : never
   : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-  ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
-    Update: infer U
-  }
-  ? U
-  : never
-  : never
+    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
 
 export type Enums<
   PublicEnumNameOrOptions extends
-  | keyof PublicSchema["Enums"]
-  | { schema: DatabaseSchema },
-  EnumName extends PublicEnumNameOrOptions extends { schema: DatabaseSchema }
-  ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
-  : never = never,
-> = PublicEnumNameOrOptions extends { schema: DatabaseSchema }
+    | keyof PublicSchema["Enums"]
+    | { schema: keyof Database },
+  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = PublicEnumNameOrOptions extends { schema: keyof Database }
   ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-  ? PublicSchema["Enums"][PublicEnumNameOrOptions]
-  : never
+    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-  | keyof PublicSchema["CompositeTypes"]
-  | { schema: DatabaseSchema },
+    | keyof PublicSchema["CompositeTypes"]
+    | { schema: keyof Database },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: DatabaseSchema
+    schema: keyof Database
   }
-  ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-  : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: DatabaseSchema }
+    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
   ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
-  ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-  : never
+    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never

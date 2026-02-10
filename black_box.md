@@ -100,3 +100,17 @@ Added a `@theme` block to `src/app/globals.css` that maps CSS variable-based des
 
 **Prevention:** When using Tailwind CSS v4, always register custom design tokens in a `@theme` block in your global CSS to ensure they are available for both JIT usage and `@apply` directives.
 
+
+---
+
+## 2026-02-03: Date Range Schema Issue
+
+**Failure Signature #6:** "Could not find the 'pickup_date_end' column of 'search_criteria' in the schema cache"
+
+**Root Cause:** The `pickup_date_end` field was added to the UI/API for date range filtering, but the corresponding column was missing from the `search_criteria` table in the database.
+
+**Fix:**
+1. Applied migration: `ALTER TABLE search_criteria ADD COLUMN pickup_date_end date;`
+2. Updated Supabase Types: Synced `src/types/supabase.ts` via `generate_typescript_types` tool.
+
+**Prevention:** Create and apply migrations immediately when adding new fields to the UI that require persistence. Double-check `src/types/supabase.ts` matches the DB schema.

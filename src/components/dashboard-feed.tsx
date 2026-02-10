@@ -273,6 +273,11 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
         fetchData()
         checkCredentials()
 
+        // Clear any stuck scanning states on mount
+        // This ensures spinners don't persist across page refreshes
+        setScanningCriteriaIds(new Set());
+        console.log('[Dashboard] Cleared all scanning states on mount');
+
         // Supabase Realtime Subscription
         // const supabase = createClient() // Removed as per refactor, not directly used here
         // const channel = supabase
@@ -470,6 +475,12 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
     const handleRefreshCriteria = async (id: string) => {
         if (scanningCriteriaIds.has(id)) return;
 
+        // Check credentials before scanning
+        if (credentialWarning) {
+            alert('Cannot scan: ' + credentialWarning);
+            return;
+        }
+
         setScanningCriteriaIds(prev => new Set(prev).add(id));
         try {
             const res = await fetch('/api/scan', {
@@ -480,8 +491,22 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
 
             if (res.ok) {
                 const result = await res.json();
-                console.log(`Refreshed criteria ${id}: ${result.loadsFound} loads found`);
+                if (result.success) {
+                    console.log(`Refreshed criteria ${id}: ${result.loadsFound} loads found`);
+                } else {
+                    console.error(`Scan failed for criteria ${id}:`, result.error);
+                    // Show user-friendly error
+                    if (result.error?.includes('credentials') || result.error?.includes('Unauthorized')) {
+                        setCredentialWarning('Your CloudTrucks session has expired. Please reconnect your account.');
+                    }
+                }
                 await fetchData();
+            } else {
+                const result = await res.json();
+                console.error('Refresh failed', result.error);
+                if (result.error?.includes('credentials')) {
+                    setCredentialWarning('Your CloudTrucks session has expired. Please reconnect your account.');
+                }
             }
         } catch (error) {
             console.error('Refresh failed', error);
