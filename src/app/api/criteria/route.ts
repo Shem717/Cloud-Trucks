@@ -5,6 +5,12 @@ import { getRequestContext } from '@/lib/request-context';
 
 const USER_CRITERIA_TABLE = 'search_criteria';
 const GUEST_CRITERIA_TABLE = 'guest_search_criteria';
+const LEGACY_MISSING_COLUMN = 'pickup_date_end';
+
+function isMissingPickupDateEndColumn(error: { message?: string } | null): boolean {
+    if (!error?.message) return false;
+    return error.message.includes(LEGACY_MISSING_COLUMN) && error.message.includes('schema cache');
+}
 
 /**
  * POST /api/criteria - Create new search criteria
@@ -101,11 +107,25 @@ export async function POST(request: NextRequest) {
             ? { guest_session: guestSession, ...criteriaBase }
             : { user_id: userId, ...criteriaBase };
 
-        const { data, error } = await db
+        let { data, error } = await db
             .from(table)
             .insert(criteria)
             .select()
             .single();
+
+        // Backward compatibility for environments where the pickup_date_end migration
+        // has not yet been applied.
+        if (error && isMissingPickupDateEndColumn(error)) {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { pickup_date_end, ...legacyCriteria } = criteria;
+            const retry = await db
+                .from(table)
+                .insert(legacyCriteria)
+                .select()
+                .single();
+            data = retry.data;
+            error = retry.error;
+        }
 
         if (error) {
             console.error('Supabase DB Error on Insert:', error);
@@ -311,7 +331,31 @@ export async function PATCH(request: NextRequest) {
                 ? query.eq('guest_session', guestSession as string)
                 : query.eq('user_id', userId as string);
 
-            const { data, error } = await query.select();
+            let { data, error } = await query.select();
+
+            if (error && isMissingPickupDateEndColumn(error) && 'pickup_date_end' in safeUpdates) {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { pickup_date_end, ...legacyUpdates } = safeUpdates;
+
+                if (Object.keys(legacyUpdates).length === 0) {
+                    return NextResponse.json({
+                        error: 'Your environment is missing pickup_date_end support. Please run latest migrations.'
+                    }, { status: 400 });
+                }
+
+                let retryQuery = db
+                    .from(table)
+                    .update(legacyUpdates)
+                    .eq('id', id);
+
+                retryQuery = isGuest
+                    ? retryQuery.eq('guest_session', guestSession as string)
+                    : retryQuery.eq('user_id', userId as string);
+
+                const retry = await retryQuery.select();
+                data = retry.data;
+                error = retry.error;
+            }
 
             if (error) {
                 console.error("Update error:", error);
