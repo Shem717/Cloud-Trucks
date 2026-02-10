@@ -28,6 +28,7 @@ function OriginFieldGroup() {
     const [stateValue, setStateValue] = React.useState("");
     const [cityValue, setCityValue] = React.useState<string | undefined>(undefined);
     const [isLocating, setIsLocating] = React.useState(false);
+    const [locateError, setLocateError] = React.useState<string | null>(null);
 
     const handleCityStateChange = (state: string) => {
         if (state) {
@@ -43,8 +44,10 @@ function OriginFieldGroup() {
     };
 
     const handleLocateMe = () => {
+        setLocateError(null);
+
         if (!navigator.geolocation) {
-            alert("Geolocation is not supported by your browser");
+            setLocateError("Geolocation is not supported by your browser.");
             return;
         }
 
@@ -79,16 +82,18 @@ function OriginFieldGroup() {
                     }
                 } else {
                     console.error("Could not detect city/state");
+                    setLocateError("We found your location but could not determine city/state.");
                 }
             } catch (error) {
                 console.error("Reverse geocoding failed", error);
+                setLocateError("Could not reverse geocode your location. Please enter city/state manually.");
             } finally {
                 setIsLocating(false);
             }
         }, (error) => {
             console.error("Geolocation failed", error);
             setIsLocating(false);
-            alert("Unable to retrieve location");
+            setLocateError("Unable to retrieve location. Please check browser location permissions.");
         });
     };
 
@@ -126,6 +131,9 @@ function OriginFieldGroup() {
                     />
                 </div>
             </div>
+            {locateError && (
+                <p className="mt-2 text-xs text-amber-400">{locateError}</p>
+            )}
         </div>
     );
 }

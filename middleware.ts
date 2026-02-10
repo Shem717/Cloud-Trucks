@@ -9,7 +9,7 @@ const securityHeaders = {
     'X-Content-Type-Options': 'nosniff',
     'X-XSS-Protection': '1; mode=block',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+    'Permissions-Policy': 'geolocation=(self), microphone=(), camera=()',
     // Content Security Policy
     'Content-Security-Policy': [
         "default-src 'self'",
@@ -17,13 +17,21 @@ const securityHeaders = {
         "style-src 'self' 'unsafe-inline' https://api.mapbox.com",
         "img-src 'self' data: https: blob:",
         "font-src 'self' data:",
-        "connect-src 'self' https://*.supabase.co https://api.mapbox.com https://api.open-meteo.com wss://*.supabase.co wss://ws-us3.pusher.com",
+        "connect-src 'self' https://*.supabase.co https://api.mapbox.com https://api.open-meteo.com https://api.bigdatacloud.net wss://*.supabase.co wss://ws-us3.pusher.com",
         "worker-src 'self' blob:",
         "frame-ancestors 'none'",
         "base-uri 'self'",
         "form-action 'self'",
     ].join('; '),
 };
+
+function applySecurityHeaders(response: NextResponse) {
+    Object.entries(securityHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+    });
+
+    return response;
+}
 
 export async function middleware(request: NextRequest) {
     let response = NextResponse.next({
@@ -76,25 +84,22 @@ export async function middleware(request: NextRequest) {
                 maxAge: 60 * 60 * 24 * 4 // 4 days
             })
         }
-        return response
+        return applySecurityHeaders(response)
     }
 
     // Protect /dashboard routes (Admin Only)
     if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
-        return NextResponse.redirect(new URL('/login', request.url))
+        const redirectResponse = NextResponse.redirect(new URL('/login', request.url))
+        return applySecurityHeaders(redirectResponse)
     }
 
     // Redirect authenticated users away from /login
     if (request.nextUrl.pathname.startsWith('/login') && user) {
-        return NextResponse.redirect(new URL('/dashboard', request.url))
+        const redirectResponse = NextResponse.redirect(new URL('/dashboard', request.url))
+        return applySecurityHeaders(redirectResponse)
     }
 
-    // Apply security headers to all responses
-    Object.entries(securityHeaders).forEach(([key, value]) => {
-        response.headers.set(key, value);
-    });
-
-    return response
+    return applySecurityHeaders(response)
 }
 
 export const config = {
