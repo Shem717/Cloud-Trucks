@@ -81,31 +81,23 @@ async function reverseGeocodeWithMapbox(latitude: number, longitude: number): Pr
 }
 
 async function reverseGeocodeWithBigDataCloud(latitude: number, longitude: number): Promise<ReverseGeocodeResult | null> {
-    const endpoints = [
-        'https://api-bdc.io/data/reverse-geocode-client',
-        'https://api-bdc.net/data/reverse-geocode-client',
-        'https://api.bigdatacloud.net/data/reverse-geocode-client',
-    ];
+    const res = await fetch(
+        `https://api-bdc.io/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+    );
 
-    for (const endpoint of endpoints) {
-        const res = await fetch(
-            `${endpoint}?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
-        );
-
-        if (!res.ok) {
-            continue;
-        }
-
-        const data = await res.json();
-        const city = data?.city || data?.locality || data?.localityInfo?.administrative?.[2]?.name || "";
-        const state = normalizeStateCode(data?.principalSubdivisionCode || data?.principalSubdivision);
-
-        if (city && state) {
-            return { city, state };
-        }
+    if (!res.ok) {
+        throw new Error(`BigDataCloud reverse geocode failed (${res.status})`);
     }
 
-    throw new Error('BigDataCloud reverse geocode failed across all endpoints');
+    const data = await res.json();
+    const city = data?.city || data?.locality || data?.localityInfo?.administrative?.[2]?.name || "";
+    const state = normalizeStateCode(data?.principalSubdivisionCode || data?.principalSubdivision);
+
+    if (city && state) {
+        return { city, state };
+    }
+
+    return null;
 }
 
 async function reverseGeocode(latitude: number, longitude: number): Promise<ReverseGeocodeResult | null> {
