@@ -13,7 +13,6 @@ export function DashboardWrapper({ isPublic = false }: DashboardWrapperProps) {
     const [guestReady, setGuestReady] = useState(!isPublic)
 
     const handleCriteriaAdded = () => {
-        // Increment trigger to force re-fetch in feed
         setRefreshTrigger(prev => prev + 1)
     }
 
@@ -49,10 +48,10 @@ export function DashboardWrapper({ isPublic = false }: DashboardWrapperProps) {
 
     return (
         <>
-            {/* Search Bar (Horizontal) */}
+            {/* Search Bar — Primary entry point for drivers */}
             <SearchCriteriaForm onSuccess={handleCriteriaAdded} />
 
-            {/* Application Feed */}
+            {/* Command Center Feed */}
             <DashboardFeed refreshTrigger={refreshTrigger} isPublic={isPublic} />
         </>
     )

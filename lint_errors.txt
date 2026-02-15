@@ -1,0 +1,513 @@
+
+> temp-app@0.1.0 lint
+> eslint
+
+
+/Users/samuelclow/Desktop/Cloud-Trucks/middleware.ts
+  45:58  warning  'options' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/public/sw.js
+  1:71    warning  Generic Object Injection Sink                                                                                                   security/detect-object-injection
+  1:156   warning  Expected an assignment or function call and instead saw an expression                                                           @typescript-eslint/no-unused-expressions
+  1:209   warning  Expected an assignment or function call and instead saw an expression                                                           @typescript-eslint/no-unused-expressions
+  1:252   warning  Variable Assigned to Object Injection Sink                                                                                      security/detect-object-injection
+  1:432   warning  Generic Object Injection Sink                                                                                                   security/detect-object-injection
+  1:510   warning  Generic Object Injection Sink                                                                                                   security/detect-object-injection
+  1:536   warning  Generic Object Injection Sink                                                                                                   security/detect-object-injection
+  1:626   warning  Expected an assignment or function call and instead saw an expression                                                           @typescript-eslint/no-unused-expressions
+  1:703   error    Found a string with entropy 4.26 : "/_next/static/3Usc5cNsKaQHVKIolaS5q/_buildManifest.js"                                      no-secrets/no-secrets
+  1:809   error    Found a string with entropy 4.09 : "/_next/static/3Usc5cNsKaQHVKIolaS5q/_ssgManifest.js"                                        no-secrets/no-secrets
+  1:1075  error    Found a string with entropy 4.01 : "/_next/static/chunks/4bd1b696-096d35a2bd1da3af.js"                                          no-secrets/no-secrets
+  1:1323  error    Found a string with entropy 4.11 : "/_next/static/chunks/app/_global-error/page-ad63f96ddf554605.js"                            no-secrets/no-secrets
+  1:1818  error    Found a string with entropy 4.06 : "/_next/static/chunks/app/dashboard/layout-ad63f96ddf554605.js"                              no-secrets/no-secrets
+  1:2012  error    Found a string with entropy 4 : "/_next/static/chunks/app/layout-0831f6c76c6a1028.js"                                           no-secrets/no-secrets
+  1:2278  error    Found a string with entropy 4.3 : "/_next/static/chunks/framework-75892d61b920805f.js"                                          no-secrets/no-secrets
+  1:2533  error    Found a string with entropy 4.01 : "/_next/static/chunks/next/dist/client/components/builtin/app-error-ad63f96ddf554605.js"     no-secrets/no-secrets
+  1:2779  error    Found a string with entropy 4.08 : "/_next/static/chunks/next/dist/client/components/builtin/global-error-af78275c6386b789.js"  no-secrets/no-secrets
+  1:3028  error    Found a string with entropy 4.04 : "/_next/static/chunks/next/dist/client/components/builtin/unauthorized-ad63f96ddf554605.js"  no-secrets/no-secrets
+  1:3154  error    Found a string with entropy 4.16 : "/_next/static/chunks/polyfills-42372ed130431b0a.js"                                         no-secrets/no-secrets
+  1:3257  error    Found a string with entropy 4.01 : "/_next/static/chunks/webpack-923e7e2536c61618.js"                                           no-secrets/no-secrets
+  1:3613  error    Found a string with entropy 4.06 : "/_next/static/media/8d697b304b401681-s.woff2"                                               no-secrets/no-secrets
+
+/Users/samuelclow/Desktop/Cloud-Trucks/public/swe-worker-5c72df51bb1f6ee0.js
+  1:700  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/Users/samuelclow/Desktop/Cloud-Trucks/public/workbox-f1770938.js
+  1:49     warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:87     warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:211    warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:257    warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:298    warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:381    warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:642    warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:813    warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:989    warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:1093   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:1738   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:2263   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:3058   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:3102   warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:3598   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:3727   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:5369   warning  Found non-literal argument to RegExp Constructor                       security/detect-non-literal-regexp
+  1:6182   warning  Generic Object Injection Sink                                          security/detect-object-injection
+  1:6329   warning  Generic Object Injection Sink                                          security/detect-object-injection
+  1:6348   warning  Generic Object Injection Sink                                          security/detect-object-injection
+  1:6579   warning  Generic Object Injection Sink                                          security/detect-object-injection
+  1:6673   warning  Function Call Object Injection Sink                                    security/detect-object-injection
+  1:7052   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:7234   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:7954   warning  'i' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:7962   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:8066   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:8340   warning  Variable Assigned to Object Injection Sink                             security/detect-object-injection
+  1:8368   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:8400   warning  Generic Object Injection Sink                                          security/detect-object-injection
+  1:8405   warning  Generic Object Injection Sink                                          security/detect-object-injection
+  1:8768   warning  Function Call Object Injection Sink                                    security/detect-object-injection
+  1:8789   warning  Generic Object Injection Sink                                          security/detect-object-injection
+  1:9440   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:9550   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:9566   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:9627   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:9962   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:10038  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:10065  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:10081  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:10163  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:10825  warning  Function Call Object Injection Sink                                    security/detect-object-injection
+  1:10963  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:11007  warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:11122  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:11194  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:11301  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:11382  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:11623  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:11941  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:12060  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:12464  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:12684  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:13012  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:13272  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:13319  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:13367  warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:14423  warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:14555  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:14599  warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:15097  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:15191  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:15404  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:15514  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:16025  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:16057  warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:16165  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:16591  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:16958  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:17076  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:17178  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:17458  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:17719  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:17903  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:19089  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:20040  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:20129  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:20260  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:20317  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:20514  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:20635  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:20768  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:20988  warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:21080  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:21657  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:21768  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:21988  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:22227  warning  'e' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:22385  warning  's' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:22450  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:22748  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:22962  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  1:23349  warning  't' is defined but never used                                          @typescript-eslint/no-unused-vars
+  1:23479  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/Users/samuelclow/Desktop/Cloud-Trucks/scripts/encrypt-values.ts
+  42:23  error  Found a string with entropy 4.04 : "jjwg0d9ebb9h0e15vkdyoh1g9cq7coh9"  no-secrets/no-secrets
+  43:19  error  Found a string with entropy 4.35 : "WT4f1lJV9r5C1sw5lxeo0zJxoaLBJ0Vs"  no-secrets/no-secrets
+
+/Users/samuelclow/Desktop/Cloud-Trucks/scripts/investigate_api.js
+  10:13  error  Found a string with entropy 4.12 : "ajs_anonymous_id=092f4a92-ccb1-47d5-a97f-8e8baa11e4ee;"                                                                                                                                                                                                                                                        no-secrets/no-secrets
+  10:13  error  Found a string with entropy 4.34 : "_mkto_trk=id:347-MEQ-363&token:_mch-cloudtrucks.com-737c18d5636e9990e8b2aee6d89bdf68;"                                                                                                                                                                                                                         no-secrets/no-secrets
+  10:13  error  Found a string with entropy 4.63 : "__Secure-csrftoken-v2=loNMSGdok4L7VkiqLLvuz9NY6v7VoCg7;"                                                                                                                                                                                                                                                       no-secrets/no-secrets
+  10:13  error  Found a string with entropy 4.43 : "__Secure-sessionid-v2=gini0370hov5bpb6xioxkrrnv58ppcqw;"                                                                                                                                                                                                                                                       no-secrets/no-secrets
+  10:13  error  Found a string with entropy 4.11 : "_uetsid=4a5f31a0f1c111f0ada24789208165b8;"                                                                                                                                                                                                                                                                     no-secrets/no-secrets
+  10:13  error  Found a string with entropy 4.03 : "_uetvid=4a5f3160f1c111f08dc7bbe313b9186f;"                                                                                                                                                                                                                                                                     no-secrets/no-secrets
+  10:13  error  Found a string with entropy 4.29 : "_hp2_ses_props.2401912710=%7B%22z%22%3A1%2C%22r%22%3A%22https%3A%2F%2Fapp.cloudtrucks.com%2Fjobs%2F%22%2C%22ts%22%3A1768522895942%2C%22d%22%3A%22app.cloudtrucks.com%22%2C%22h%22%3A%22%2Fsearch%2F%22%2C%22t%22%3A%22CloudTrucks%20-%20Business%20Management%20for%20Owner-Operators%22%7D;"                  no-secrets/no-secrets
+  10:13  error  Found a string with entropy 4.35 : "_ga_DGZEVQ4QLR=GS2.1.s1768524532$o7$g1$t1768524664$j58$l0$h454331188;"                                                                                                                                                                                                                                         no-secrets/no-secrets
+  10:13  error  Found a string with entropy 4.32 : "_ga_LGJ1WX2Z7M=GS2.1.s1768524532$o7$g1$t1768524664$j58$l0$h0;"                                                                                                                                                                                                                                                 no-secrets/no-secrets
+  10:13  error  Found a string with entropy 4.56 : "_clsk=v8ujnz%5E1768525324093%5E13%5E1%5Eh.clarity.ms%2Fcollect;"                                                                                                                                                                                                                                               no-secrets/no-secrets
+  10:13  error  Found a string with entropy 4.33 : "_lr_hb_-7zp8gw%2Fcloudtrucks-web={%22heartbeat%22:1768525358854};"                                                                                                                                                                                                                                             no-secrets/no-secrets
+  10:13  error  Found a string with entropy 4.49 : "_lr_tabs_-7zp8gw%2Fcloudtrucks-web={%22recordingID%22:%226-019bc42a-d8f6-7e0c-8bb6-c71892a62dfe%22%2C%22sessionID%22:0%2C%22lastActivity%22:1768525450532%2C%22hasActivity%22:true%2C%22confirmed%22:true%2C%22clearsIdentifiedUser%22:false};"                                                                no-secrets/no-secrets
+  10:13  error  Found a string with entropy 4.29 : "_hp2_id.2401912710=%7B%22userId%22%3A%221143914858987305%22%2C%22pageviewId%22%3A%221814391658536576%22%2C%22sessionId%22%3A%222258309367022442%22%2C%22identity%22%3A%22b2d79575-5ea9-422e-9925-d603d122aaab%22%2C%22trackerVersion%22%3A%224.0%22%2C%22identityField%22%3Anull%2C%22isIdentified%22%3A1%7D"  no-secrets/no-secrets
+  17:18  error  Found a string with entropy 4.3 : "loNMSGdok4L7VkiqLLvuz9NY6v7VoCg7"                                                                                                                                                                                                                                                                               no-secrets/no-secrets
+
+/Users/samuelclow/Desktop/Cloud-Trucks/scripts/reencrypt-credentials.ts
+  83:13  warning  'data' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/app/api/bookings/route.ts
+  8:27  warning  'request' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/app/api/criteria/route.ts
+  293:21  warning  Generic Object Injection Sink  security/detect-object-injection
+  293:40  warning  Generic Object Injection Sink  security/detect-object-injection
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/app/api/cron/guest-cleanup/route.ts
+  12:5  warning  Potential timing attack, left side: true  security/detect-possible-timing-attacks
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/app/api/cron/scan/route.ts
+  12:5  warning  Potential timing attack, left side: true  security/detect-possible-timing-attacks
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/app/api/debug/loads/route.ts
+   45:43  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   61:73  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   94:30  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   99:21  warning  Generic Object Injection Sink             security/detect-object-injection
+   99:48  warning  Generic Object Injection Sink             security/detect-object-injection
+  109:55  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  110:56  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/app/api/scan/route.ts
+  24:18  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/app/api/weather/route.ts
+  114:30  warning  Function Call Object Injection Sink  security/detect-object-injection
+  115:29  warning  Function Call Object Injection Sink  security/detect-object-injection
+  116:26  warning  Generic Object Injection Sink        security/detect-object-injection
+  117:32  warning  Generic Object Injection Sink        security/detect-object-injection
+  118:39  warning  Generic Object Injection Sink        security/detect-object-injection
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/app/dashboard/debugger/page.tsx
+  12:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  52:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/app/dashboard/interested/page.tsx
+   4:29  warning  'CardHeader' is defined but never used                                                                              @typescript-eslint/no-unused-vars
+   4:41  warning  'CardTitle' is defined but never used                                                                               @typescript-eslint/no-unused-vars
+   4:52  warning  'CardDescription' is defined but never used                                                                         @typescript-eslint/no-unused-vars
+   7:10  warning  'MapPin' is defined but never used                                                                                  @typescript-eslint/no-unused-vars
+   7:18  warning  'DollarSign' is defined but never used                                                                              @typescript-eslint/no-unused-vars
+  23:24  warning  'setDeletingId' is assigned a value but never used                                                                  @typescript-eslint/no-unused-vars
+  31:8   warning  React Hook useEffect has a missing dependency: 'fetchInterested'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/app/dashboard/page.tsx
+  2:16  warning  'CardContent' is defined but never used  @typescript-eslint/no-unused-vars
+  6:10  warning  'PlusCircle' is defined but never used   @typescript-eslint/no-unused-vars
+  6:22  warning  'Play' is defined but never used         @typescript-eslint/no-unused-vars
+  6:28  warning  'Truck' is defined but never used        @typescript-eslint/no-unused-vars
+  6:35  warning  'Activity' is defined but never used     @typescript-eslint/no-unused-vars
+  6:45  warning  'Search' is defined but never used       @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/app/interested/page.tsx
+   6:29  warning  'CardHeader' is defined but never used                                                                              @typescript-eslint/no-unused-vars
+   6:41  warning  'CardTitle' is defined but never used                                                                               @typescript-eslint/no-unused-vars
+   6:52  warning  'CardDescription' is defined but never used                                                                         @typescript-eslint/no-unused-vars
+  18:10  warning  'MapPin' is defined but never used                                                                                  @typescript-eslint/no-unused-vars
+  18:18  warning  'DollarSign' is defined but never used                                                                              @typescript-eslint/no-unused-vars
+  59:24  warning  'setDeletingId' is assigned a value but never used                                                                  @typescript-eslint/no-unused-vars
+  79:8   warning  React Hook useEffect has a missing dependency: 'fetchInterested'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/app/page.tsx
+  3:10  warning  'ArrowRight' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/breadcrumbs.tsx
+  45:23  warning  Generic Object Injection Sink      security/detect-object-injection
+  75:40  warning  'index' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/broker-logo.tsx
+  174:144  warning  Function Call Object Injection Sink  security/detect-object-injection
+  181:91   warning  Function Call Object Injection Sink  security/detect-object-injection
+  182:14   warning  Generic Object Injection Sink        security/detect-object-injection
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/broker-reliability.tsx
+  5:10  warning  'Button' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/chain-law-badge.tsx
+  67:25  warning  Function Call Object Injection Sink  security/detect-object-injection
+  68:25  warning  Function Call Object Injection Sink  security/detect-object-injection
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/city-autocomplete.tsx
+  4:10  warning  'Check' is defined but never used           @typescript-eslint/no-unused-vars
+  4:17  warning  'ChevronsUpDown' is defined but never used  @typescript-eslint/no-unused-vars
+  6:10  warning  'Button' is defined but never used          @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/compare-loads-modal.tsx
+   9:37  warning  'Clock' is defined but never used           @typescript-eslint/no-unused-vars
+  17:47  error    Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  96:19  warning  Variable Assigned to Object Injection Sink  security/detect-object-injection
+  99:21  warning  Variable Assigned to Object Injection Sink  security/detect-object-injection
+  99:21  warning  Generic Object Injection Sink               security/detect-object-injection
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/connect-form.tsx
+  71:41  error  Found a string with entropy 4.2 : "gini0370hov5bpb6xioxkrrnv58ppcqw"  no-secrets/no-secrets
+  86:41  error  Found a string with entropy 4.3 : "loNMSGdok4L7VkiqLLvuz9NY6v7VoCg7"  no-secrets/no-secrets
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/dashboard-client.tsx
+   3:15  warning  'ReactNode' is defined but never used             @typescript-eslint/no-unused-vars
+   8:11  warning  'DashboardClientProps' is defined but never used  @typescript-eslint/no-unused-vars
+  16:45  warning  'criteria' is defined but never used              @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/dashboard-feed.tsx
+    5:10   warning  'Card' is defined but never used                                                                                       @typescript-eslint/no-unused-vars
+    5:16   warning  'CardContent' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+    5:29   warning  'CardHeader' is defined but never used                                                                                 @typescript-eslint/no-unused-vars
+    5:41   warning  'CardTitle' is defined but never used                                                                                  @typescript-eslint/no-unused-vars
+    7:10   warning  'MapPin' is defined but never used                                                                                     @typescript-eslint/no-unused-vars
+    7:18   warning  'DollarSign' is defined but never used                                                                                 @typescript-eslint/no-unused-vars
+    7:30   warning  'Weight' is defined but never used                                                                                     @typescript-eslint/no-unused-vars
+    7:38   warning  'Calendar' is defined but never used                                                                                   @typescript-eslint/no-unused-vars
+    7:155  warning  'Map' is defined but never used                                                                                        @typescript-eslint/no-unused-vars
+    7:168  warning  'ChevronDown' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+    7:181  warning  'ChevronUp' is defined but never used                                                                                  @typescript-eslint/no-unused-vars
+   16:43   warning  'CloudTrucksLoadStop' is defined but never used                                                                        @typescript-eslint/no-unused-vars
+   18:10   warning  'BrokerLogo' is defined but never used                                                                                 @typescript-eslint/no-unused-vars
+   19:10   warning  'WeatherBadge' is defined but never used                                                                               @typescript-eslint/no-unused-vars
+   20:10   warning  'ChainLawBadge' is defined but never used                                                                              @typescript-eslint/no-unused-vars
+   20:25   warning  'useChainLaws' is defined but never used                                                                               @typescript-eslint/no-unused-vars
+   93:12   warning  'expandedLoadId' is assigned a value but never used                                                                    @typescript-eslint/no-unused-vars
+   93:28   warning  'setExpandedLoadId' is assigned a value but never used                                                                 @typescript-eslint/no-unused-vars
+  108:11   warning  'hos' is assigned a value but never used                                                                               @typescript-eslint/no-unused-vars
+  241:8    warning  React Hook useCallback has a missing dependency: 'checkForHotLoads'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  243:11   warning  'handleScanStart' is assigned a value but never used                                                                   @typescript-eslint/no-unused-vars
+  247:11   warning  'handleScanComplete' is assigned a value but never used                                                                @typescript-eslint/no-unused-vars
+  505:11   warning  'handleBackhaul' is assigned a value but never used                                                                    @typescript-eslint/no-unused-vars
+  582:19   warning  'getDeliveryDate' is assigned a value but never used                                                                   @typescript-eslint/no-unused-vars
+  650:17   warning  Generic Object Injection Sink                                                                                          security/detect-object-injection
+  653:32   warning  Generic Object Injection Sink                                                                                          security/detect-object-injection
+  653:52   warning  Generic Object Injection Sink                                                                                          security/detect-object-injection
+  805:11   warning  'activeScoutsCount' is assigned a value but never used                                                                 @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/edit-criteria-dialog.tsx
+  87:8  warning  React Hook useEffect has missing dependencies: 'criteria.destination_state', 'criteria.destination_states', 'criteria.origin_state', and 'criteria.origin_states'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/fuel-settings-dialog.tsx
+  31:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/fuel-settings-dialog.tsx:31:13
+  29 |     useEffect(() => {
+  30 |         if (open) {
+> 31 |             setMpg(currentMpg.toString());
+     |             ^^^^^^ Avoid calling setState() directly within an effect
+  32 |             setPrice(currentFuelPrice.toString());
+  33 |         }
+  34 |     }, [open, currentMpg, currentFuelPrice]);  react-hooks/set-state-in-effect
+  54:45  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 react/no-unescaped-entities
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/fuel-stop-optimizer.tsx
+  18:24  warning  'DollarSign' is defined but never used    @typescript-eslint/no-unused-vars
+  18:50  warning  'Navigation' is defined but never used    @typescript-eslint/no-unused-vars
+  18:62  warning  'ExternalLink' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/hos-tracker.tsx
+   14:47  warning  'Settings' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+   76:17  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/hos-tracker.tsx:76:17
+  74 |             try {
+  75 |                 const parsed = JSON.parse(saved)
+> 76 |                 setState({
+     |                 ^^^^^^^^ Avoid calling setState() directly within an effect
+  77 |                     ...parsed,
+  78 |                     lastResetTime: parsed.lastResetTime ? new Date(parsed.lastResetTime) : null
+  79 |                 })  react-hooks/set-state-in-effect
+  195:9   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/hos-tracker.tsx:195:9
+  193 |
+  194 |     useEffect(() => {
+> 195 |         setDrivingInput(state.drivingHoursUsed.toString())
+      |         ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  196 |         setOnDutyInput(state.onDutyHoursUsed.toString())
+  197 |     }, [state.drivingHoursUsed, state.onDutyHoursUsed])
+  198 |                                          react-hooks/set-state-in-effect
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/load-calendar.tsx
+  18:5   warning  'DollarSign' is defined but never used    @typescript-eslint/no-unused-vars
+  27:47  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/load-card-modules.tsx
+    5:38  warning  'Scale' is defined but never used                                                                                                                          @typescript-eslint/no-unused-vars
+  180:9   warning  'scoreLabel' is assigned a value but never used                                                                                                            @typescript-eslint/no-unused-vars
+  203:31  error    Found a string with entropy 4.14 : "https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=MC_MX&query_string="  no-secrets/no-secrets
+  244:39  error    Unexpected any. Specify a different type                                                                                                                   @typescript-eslint/no-explicit-any
+  270:47  error    Unexpected any. Specify a different type                                                                                                                   @typescript-eslint/no-explicit-any
+  271:45  error    Unexpected any. Specify a different type                                                                                                                   @typescript-eslint/no-explicit-any
+  295:21  error    Unexpected any. Specify a different type                                                                                                                   @typescript-eslint/no-explicit-any
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/load-card.tsx
+   8:15  warning  'Weight' is defined but never used        @typescript-eslint/no-unused-vars
+  25:51  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/loads-list.tsx
+  7:38  warning  'Calendar' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/mapbox-intelligence-modal.tsx
+  24:53  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  38:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  39:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/market-insights.tsx
+  256:85  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/market-rate-trends.tsx
+   28:47  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  359:17  warning  Function Call Object Injection Sink       security/detect-object-injection
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/multi-stop-route-modal.tsx
+    3:46  warning  'useCallback' is defined but never used     @typescript-eslint/no-unused-vars
+    3:59  warning  'useMemo' is defined but never used         @typescript-eslint/no-unused-vars
+   40:24  error    Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  128:53  warning  Variable Assigned to Object Injection Sink  security/detect-object-injection
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/route-builder.tsx
+   8:23  warning  'ArrowRight' is defined but never used    @typescript-eslint/no-unused-vars
+  18:47  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/route-conditions-panel.tsx
+  7:48  warning  'AlertTriangle' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/route-planning-board.tsx
+  7:22  warning  'MapPin' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/search-criteria-form.tsx
+  97:12  warning  'showFilters' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/smart-suggestions.tsx
+   11:5   warning  'MapPin' is defined but never used        @typescript-eslint/no-unused-vars
+   17:5   warning  'Zap' is defined but never used           @typescript-eslint/no-unused-vars
+   24:47  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   42:50  warning  'savedLoadIds' is defined but never used  @typescript-eslint/no-unused-vars
+  332:17  warning  Function Call Object Injection Sink       security/detect-object-injection
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/voice-commands.tsx
+   90:12  warning  'lastCommand' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+  117:28  warning  Variable Assigned to Object Injection Sink                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  security/detect-object-injection
+  132:21  error    Error: Cannot access variable before it is declared
+
+`speakConfirmation` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/voice-commands.tsx:132:21
+  130 |
+  131 |                     // Speak confirmation
+> 132 |                     speakConfirmation(commandResult.command)
+      |                     ^^^^^^^^^^^^^^^^^ `speakConfirmation` accessed before it is declared
+  133 |                 } else {
+  134 |                     setStatus('error')
+  135 |                 }
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/voice-commands.tsx:170:5
+  168 |
+  169 |     // Speak confirmation using Web Speech API
+> 170 |     const speakConfirmation = useCallback((command: VoiceCommand) => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 171 |         if (!('speechSynthesis' in window)) return
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 172 |
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 192 |         window.speechSynthesis.speak(utterance)
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 193 |     }, [])
+      | ^^^^^^^^^^^ `speakConfirmation` is declared here
+  194 |
+  195 |     const toggleListening = useCallback(() => {
+  196 |         if (!recognitionRef.current) return  react-hooks/immutability
+  156:26  warning  'e' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+  167:8   warning  React Hook useEffect has a missing dependency: 'speakConfirmation'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        react-hooks/exhaustive-deps
+  189:56  warning  Generic Object Injection Sink                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               security/detect-object-injection
+  271:37  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             react/no-unescaped-entities
+  271:50  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             react/no-unescaped-entities
+  285:52  error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/voice-commands.tsx:285:52
+  283 |                                     className="w-1 bg-rose-500 rounded-full animate-pulse"
+  284 |                                     style={{
+> 285 |                                         height: `${Math.random() * 20 + 10}px`,
+      |                                                    ^^^^^^^^^^^^^ Cannot call impure function
+  286 |                                         animationDelay: `${i * 0.1}s`
+  287 |                                     }}
+  288 |                                 />                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              react-hooks/purity
+  294:36  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             react/no-unescaped-entities
+  294:51  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             react/no-unescaped-entities
+  294:56  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             react/no-unescaped-entities
+  294:68  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             react/no-unescaped-entities
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/components/weather-badge.tsx
+  131:25  warning  Function Call Object Injection Sink  security/detect-object-injection
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/hooks/use-mobile.tsx
+  57:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/hooks/use-mobile.tsx:57:9
+  55 |
+  56 |     useEffect(() => {
+> 57 |         setMounted(true)
+     |         ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  58 |     }, [])
+  59 |
+  60 |     if (!mounted) {  react-hooks/set-state-in-effect
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/lib/audit-logger.ts
+  37:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/lib/crypto.ts
+  5:7  warning  'AUTH_TAG_LENGTH' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/lib/validators/api-validators.ts
+  2:10  warning  'coordinateSchema' is defined but never used  @typescript-eslint/no-unused-vars
+  2:40  warning  'sanitizeString' is defined but never used    @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/workers/booker.ts
+  71:15  warning  'credentials' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/workers/cloudtrucks-api-client.ts
+  325:51  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  495:26  warning  'parseError' is defined but never used    @typescript-eslint/no-unused-vars
+  514:11  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  525:32  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  550:38  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  567:32  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/samuelclow/Desktop/Cloud-Trucks/src/workers/scanner.ts
+  157:1  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  167:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  253:1  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  409:1  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  420:9  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+
+✖ 297 problems (73 errors, 224 warnings)
+  0 errors and 5 warnings potentially fixable with the `--fix` option.
+

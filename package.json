@@ -38,7 +38,8 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "commander": "^14.0.2",
-    "framer-motion": "^12.27.5",
+    "framer-motion": "^12.34.0",
+    "geist": "^1.7.0",
     "ioredis": "^5.9.1",
     "lucide-react": "^0.562.0",
     "mapbox-gl": "^3.18.0",
@@ -52,7 +53,7 @@
     "react-intersection-observer": "^10.0.2",
     "semver": "^7.7.3",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^3.4.0",
+    "tailwind-merge": "^3.4.1",
     "undici": "^7.18.2",
     "zod": "^4.3.5"
   },

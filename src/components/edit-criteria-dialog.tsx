@@ -142,43 +142,91 @@ export function EditCriteriaDialog({ open, onOpenChange, criteria, onSuccess, on
         updates.booking_type = booking === 'Any' ? null : booking;
 
         try {
-            const res = await fetch('/api/criteria', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'update',
-                    id: criteria.id,
-                    updates
-                })
-            });
+            let res;
+            let newCriteriaId = criteria.id;
+
+            if (criteria.id) {
+                // UPDATE existing
+                res = await fetch('/api/criteria', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'update',
+                        id: criteria.id,
+                        updates
+                    })
+                });
+            } else {
+                // CREATE new
+                // For create, we send the fields directly in body (or nested depending on API, but usually formData structure for POST)
+                // The /api/criteria POST endpoint expects formData usually or JSON.
+                // Let's assume it accepts JSON for consistency or we use the formData we have if the API expects it.
+                // Looking at search-criteria-form (step 116), it uses formData directly.
+                // But here we processed 'updates' object. Let's send JSON if the API supports it, or reconstruct formData.
+                // To be safe and consistent with previous Edit, let's assume the API handles JSON if we formatted it?
+                // Actually SearchCriteriaForm uses `body: formData`.
+                // Let's use formData for creation to match SearchCriteriaForm.
+                // But we modified state (originStates/destStates) which might not be in formData exactly as expected if we relied on controlled inputs.
+                // We should append the multi-select states to formData if they are not picked up.
+                // formData.getAll('origin_states')?
+
+                // Let's use the same JSON body structure but for CREATE if possible.
+                // If /api/criteria POST only accepts FormData, we must use FormData.
+                // SearchCriteriaForm uses FormData.
+                // Let's stick to FormData for creation to be safe.
+                const createData = new FormData();
+                Object.entries(updates).forEach(([key, value]) => {
+                    if (value !== null && value !== undefined) {
+                        if (Array.isArray(value)) {
+                            value.forEach(v => createData.append(key, v));
+                        } else {
+                            createData.append(key, String(value));
+                        }
+                    }
+                });
+                // Ensure is_backhaul is set if passed in props
+                if (criteria.is_backhaul) {
+                    createData.append('is_backhaul', 'true');
+                }
+
+                res = await fetch('/api/criteria', {
+                    method: 'POST',
+                    body: createData,
+                });
+            }
 
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.error || 'Failed to update');
+                throw new Error(err.error || 'Failed to save');
             }
 
+            const result = await res.json();
+            if (result.criteria?.id) {
+                newCriteriaId = result.criteria.id;
+            }
 
             onSuccess();
             onOpenChange(false);
 
-            // Trigger background scan to fetch fresh loads matching new criteria (fire-and-forget)
-            console.log('[EDIT DIALOG] Triggering scan for criteria:', criteria.id);
-            if (onScanStart) onScanStart(criteria.id);
-            fetch('/api/scan', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ criteriaId: criteria.id })
-            }).then(res => {
-                console.log('[EDIT DIALOG] Scan response:', res.status, res.ok);
-                if (onScanComplete) onScanComplete(criteria.id);
-            }).catch(err => {
-                console.error('[EDIT DIALOG] Scan failed:', err);
-                if (onScanComplete) onScanComplete(criteria.id);
-            });
+            // Trigger background scan
+            if (newCriteriaId) {
+                console.log('[DIALOG] Triggering scan for:', newCriteriaId);
+                if (onScanStart) onScanStart(newCriteriaId);
+                fetch('/api/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ criteriaId: newCriteriaId })
+                }).then(scanRes => {
+                    if (onScanComplete) onScanComplete(newCriteriaId);
+                }).catch(err => {
+                    console.error('[DIALOG] Scan failed:', err);
+                    if (onScanComplete) onScanComplete(newCriteriaId);
+                });
+            }
 
         } catch (error) {
-            console.error('Update failed:', error);
-            alert('Failed to update scout');
+            console.error('Operation failed:', error);
+            alert('Failed to save operation');
         } finally {
             setSubmitting(false);
         }
