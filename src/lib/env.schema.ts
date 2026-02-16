@@ -10,6 +10,7 @@ export const serverEnvSchema = z.object({
   FIGMA_PAT: z.string().optional(),
   FIGMA_FILE_KEY: z.string().optional(),
   NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: z.string().startsWith('pk.'),
+  FRED_API_KEY: z.string().min(32).optional(),
   VERCEL_OIDC_TOKEN: z.string().optional(),
   CLOUDTRUCKS_DEBUG: z.enum(['0', '1']).optional(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
