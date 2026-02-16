@@ -1,428 +1,362 @@
-import React, { useState } from 'react';
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+"use client"
+
+import { Button } from "@/components/ui/button"
 import {
-    Phone, Mail, ShieldCheck, Truck, Scale, AlertTriangle,
-    Droplets, HandCoins, Receipt, Castle, Calculator, MapPin, Navigation
-} from "lucide-react";
-import { Separator } from "@/components/ui/separator";
+    DollarSign,
+    MapPin,
+    Truck,
+    AlertTriangle,
+    Star,
+    Phone,
+    Mail,
+    Timer,
+    BookOpen,
+    Navigation,
+} from "lucide-react"
+import { extractLoadAddresses, openInMaps } from "@/lib/address-utils"
 
-// --- Types ---
-interface FinancialsModuleProps {
-    fuelCost?: number | string;
-    tollCost?: number | string;
-    revenuePerHour?: number | string;
-    tripRate: number | string;
+// --- Financials ---
+export function FinancialsModule({ fuelCost, tollCost, revenuePerHour, tripRate }: any) {
+    const netProfit = tripRate - fuelCost - (tollCost || 0);
+    return (
+        <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-white/70 flex items-center gap-2">
+                <DollarSign className="h-4 w-4" /> Financials
+            </h4>
+            <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 bg-white/5 rounded-lg border border-white/5">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Gross Rate</div>
+                    <div className="text-xl font-bold text-emerald-400">${tripRate?.toLocaleString()}</div>
+                </div>
+                <div className="p-3 bg-white/5 rounded-lg border border-white/5">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Net Profit (Est)</div>
+                    <div className="text-xl font-bold text-white">${netProfit?.toLocaleString()}</div>
+                </div>
+            </div>
+            {/* Breakdowns */}
+            <div className="text-xs text-muted-foreground space-y-1 pl-1">
+                <div className="flex justify-between">
+                    <span>Est. Fuel Cost</span>
+                    <span>-${fuelCost}</span>
+                </div>
+                {tollCost > 0 && (
+                    <div className="flex justify-between">
+                        <span>Est. Tolls</span>
+                        <span>-${tollCost}</span>
+                    </div>
+                )}
+                <div className="flex justify-between pt-2 border-t border-white/10">
+                    <span>Rev / Hour</span>
+                    <span className="text-white font-mono">${(Number(revenuePerHour) || 0).toFixed(2)}/hr</span>
+                </div>
+            </div>
+        </div>
+    )
 }
 
-interface LogisticsModuleProps {
-    originDeadhead?: number | string;
-    destDeadhead?: number | string;
-    truckLength?: number | string;
-    weight: number;
-    warnings?: string[];
-    isTeam?: boolean;
-    hasAutoBid?: boolean;
-}
+// --- Address ---
+export function AddressModule({ originCity, originState, destCity, destState, originAddress, destAddress, stops, details }: any) {
+    // Use extractLoadAddresses to dig into stops data for hidden addresses
+    const addresses = extractLoadAddresses(details || { stops, origin_address: originAddress, dest_address: destAddress, origin_city: originCity, origin_state: originState, dest_city: destCity, dest_state: destState });
+    const { origin, destination } = addresses;
 
-interface TrustModuleProps {
-    brokerName: string;
-    mcNumber?: string;
-    phone?: string;
-    email?: string;
-    score?: number; // 0-100
-}
-
-interface AddressModuleProps {
-    originAddress?: string;
-    destAddress?: string;
-    originCity: string;
-    originState: string;
-    destCity: string;
-    destState: string;
-    stops?: Array<{
-        type: string;
-        city?: string;
-        state?: string;
-        address?: string;
-        [key: string]: unknown;
-    }>;
-}
-
-// --- Helper ---
-const safeFloat = (val: number | string | undefined): number | null => {
-    if (val === undefined || val === null) return null;
-    const num = typeof val === 'string' ? parseFloat(val) : val;
-    return isNaN(num) ? null : num;
-};
-
-// --- Components ---
-
-export function FinancialsModule({ fuelCost, tollCost, tripRate }: FinancialsModuleProps) {
-    const [showProfit, setShowProfit] = useState(false);
-
-    const safeTripRate = safeFloat(tripRate) || 0;
-    const safeFuel = safeFloat(fuelCost) || 0;
-    const safeTolls = safeFloat(tollCost) || 0;
-
-    const netProfit = safeTripRate - safeFuel - safeTolls;
-    const margin = safeTripRate > 0 ? (netProfit / safeTripRate) * 100 : 0;
+    // Filter intermediate stops (not ORIGIN or DESTINATION)
+    const intermediateStops = (stops || []).filter((s: any) => s.type !== 'ORIGIN' && s.type !== 'DESTINATION');
 
     return (
         <div className="space-y-3">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                <HandCoins className="h-3 w-3" /> Financials
+            <h4 className="text-sm font-semibold text-white/70 flex items-center gap-2">
+                <MapPin className="h-4 w-4" /> Route
             </h4>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="p-2 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
-                    <div className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Droplets className="h-3 w-3" /> Est. Fuel
-                    </div>
-                    <div className="font-mono font-medium mt-1">
-                        {safeFuel > 0 ? `$${safeFuel.toFixed(0)}` : 'N/A'}
-                    </div>
-                </div>
-                <div className="p-2 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
-                    <div className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Receipt className="h-3 w-3" /> Est. Tolls
-                    </div>
-                    <div className="font-mono font-medium mt-1">
-                        {safeTolls > 0 ? `$${safeTolls.toFixed(0)}` : '$0'}
-                    </div>
-                </div>
-                {showProfit ? (
-                    <div className="col-span-2 p-2 rounded-md bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50">
-                        <div className="flex justify-between items-end">
-                            <div>
-                                <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Est. Net Profit</div>
-                                <div className="text-lg font-bold text-emerald-700 dark:text-emerald-300 font-mono">
-                                    ${netProfit.toFixed(0)}
-                                </div>
+            <div className="relative border-l-2 border-white/10 ml-2 pl-6 space-y-6 py-2">
+                {/* Origin */}
+                <div className="relative">
+                    <span className="absolute -left-[31px] top-1 h-4 w-4 rounded-full bg-emerald-500 ring-4 ring-background" />
+                    <div>
+                        <div className="font-bold text-white text-base">{origin.city || originCity}, {origin.state || originState}</div>
+                        {origin.hasAddress ? (
+                            <div className="space-y-1">
+                                <div className="text-xs text-white/80">{origin.address}</div>
+                                {origin.zip && <div className="text-[10px] text-muted-foreground">ZIP: {origin.zip}</div>}
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); openInMaps(origin); }}
+                                    className="flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 transition-colors mt-0.5"
+                                >
+                                    <Navigation className="h-2.5 w-2.5" /> Open in Maps
+                                </button>
                             </div>
-                            <div className="text-right">
-                                <div className="text-xs text-muted-foreground">Margin</div>
-                                <div className="font-mono text-sm font-medium">{margin.toFixed(0)}%</div>
+                        ) : (
+                            <div className="text-xs text-muted-foreground italic">
+                                {origin.lat && origin.lon ? (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); openInMaps(origin); }}
+                                        className="flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors"
+                                    >
+                                        <Navigation className="h-2.5 w-2.5" /> View on Maps (coords available)
+                                    </button>
+                                ) : 'Address masked by broker'}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Intermediate Stops */}
+                {intermediateStops.map((stop: any, idx: number) => {
+                    const stopCity = stop.location_city || stop.city;
+                    const stopState = stop.location_state || stop.state;
+                    const stopAddr = stop.location_address1 || stop.address;
+                    const stopZip = stop.location_zip || stop.zip;
+                    return (
+                        <div key={idx} className="relative">
+                            <span className="absolute -left-[29px] top-2 h-2 w-2 rounded-full bg-yellow-500" />
+                            <div>
+                                <div className="text-sm text-white/80">Stop {idx + 1}: {stopCity}, {stopState}</div>
+                                {stopAddr && <div className="text-xs text-muted-foreground">{stopAddr}</div>}
+                                {stopZip && <div className="text-[10px] text-muted-foreground">ZIP: {stopZip}</div>}
                             </div>
                         </div>
+                    );
+                })}
+
+                {/* Destination */}
+                <div className="relative">
+                    <span className="absolute -left-[31px] top-1 h-4 w-4 rounded-full bg-rose-500 ring-4 ring-background" />
+                    <div>
+                        <div className="font-bold text-white text-base">{destination.city || destCity}, {destination.state || destState}</div>
+                        {destination.hasAddress ? (
+                            <div className="space-y-1">
+                                <div className="text-xs text-white/80">{destination.address}</div>
+                                {destination.zip && <div className="text-[10px] text-muted-foreground">ZIP: {destination.zip}</div>}
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); openInMaps(destination); }}
+                                    className="flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 transition-colors mt-0.5"
+                                >
+                                    <Navigation className="h-2.5 w-2.5" /> Open in Maps
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="text-xs text-muted-foreground italic">
+                                {destination.lat && destination.lon ? (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); openInMaps(destination); }}
+                                        className="flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors"
+                                    >
+                                        <Navigation className="h-2.5 w-2.5" /> View on Maps (coords available)
+                                    </button>
+                                ) : 'Address masked by broker'}
+                            </div>
+                        )}
                     </div>
-                ) : (
-                    <div className="col-span-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full gap-2 text-muted-foreground hover:text-foreground"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setShowProfit(true);
-                            }}
-                        >
-                            <Calculator className="h-3 w-3" />
-                            Calculate Net Profit
-                        </Button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// --- Load Details (Extra API Data) ---
+export function LoadDetailsModule({ details }: { details: any }) {
+    if (!details) return null;
+
+    const ageMin = details.age_min;
+    const bookingInstructions = details.booking_instructions;
+    const estimatedRateMin = details.estimated_rate_min;
+    const estimatedRateMax = details.estimated_rate_max;
+    const instantBook = details.instant_book;
+    const hasAutoBid = details.has_auto_bid;
+    const ctFuelCost = details.estimated_fuel_cost;
+    const ctTollCost = details.estimated_toll_cost;
+    const ctRevPerHour = details.estimated_revenue_per_hour;
+
+    // Check if there's anything worth showing
+    const hasData = ageMin || bookingInstructions || estimatedRateMin || estimatedRateMax || hasAutoBid || ctFuelCost || ctRevPerHour;
+    if (!hasData) return null;
+
+    return (
+        <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-white/70 flex items-center gap-2">
+                <BookOpen className="h-4 w-4" /> Load Intel
+            </h4>
+            <div className="bg-white/5 p-3 rounded-lg border border-white/5 space-y-2 text-xs">
+                {/* Age / Freshness */}
+                {ageMin != null && (
+                    <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-muted-foreground">
+                            <Timer className="h-3 w-3" /> Posted
+                        </span>
+                        <span className={`font-medium ${ageMin < 30 ? 'text-emerald-400' : ageMin < 120 ? 'text-yellow-400' : 'text-red-400'}`}>
+                            {ageMin < 60 ? `${ageMin}m ago` : `${Math.round(ageMin / 60)}h ago`}
+                        </span>
+                    </div>
+                )}
+
+                {/* Rate Range */}
+                {(estimatedRateMin || estimatedRateMax) && (
+                    <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-muted-foreground">
+                            <DollarSign className="h-3 w-3" /> Rate Range
+                        </span>
+                        <span className="text-white font-mono">
+                            ${estimatedRateMin?.toLocaleString()} – ${estimatedRateMax?.toLocaleString()}
+                        </span>
+                    </div>
+                )}
+
+                {/* CT Estimates */}
+                {ctRevPerHour != null && (
+                    <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">CT Rev/Hour</span>
+                        <span className="text-white font-mono">${Number(ctRevPerHour).toFixed(2)}/hr</span>
+                    </div>
+                )}
+                {ctFuelCost != null && (
+                    <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">CT Fuel Est.</span>
+                        <span className="text-white font-mono">-${Number(ctFuelCost).toLocaleString()}</span>
+                    </div>
+                )}
+                {ctTollCost != null && ctTollCost > 0 && (
+                    <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">CT Toll Est.</span>
+                        <span className="text-white font-mono">-${Number(ctTollCost).toLocaleString()}</span>
+                    </div>
+                )}
+
+                {/* Booking Info */}
+                {(instantBook || hasAutoBid) && (
+                    <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+                        {instantBook && (
+                            <span className="px-1.5 py-0.5 bg-amber-500/15 border border-amber-500/25 rounded text-[10px] font-bold text-amber-400 uppercase tracking-wider">Instant Book</span>
+                        )}
+                        {hasAutoBid && (
+                            <span className="px-1.5 py-0.5 bg-purple-500/15 border border-purple-500/25 rounded text-[10px] font-bold text-purple-400 uppercase tracking-wider">Auto Bid</span>
+                        )}
+                    </div>
+                )}
+
+                {/* Booking Instructions */}
+                {bookingInstructions && (
+                    <div className="pt-1 border-t border-white/5">
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Booking Instructions</div>
+                        <div className="text-white/80 text-xs leading-relaxed bg-white/5 rounded p-2">{bookingInstructions}</div>
                     </div>
                 )}
             </div>
         </div>
-    );
+    )
 }
 
-export function LogisticsModule({ originDeadhead, destDeadhead, truckLength, weight, warnings, isTeam, hasAutoBid }: LogisticsModuleProps) {
+// --- Logistics ---
+export function LogisticsModule({ originDeadhead, destDeadhead, truckLength, weight, warnings, isTeam, equipment }: any) {
+    const equipmentLabel = equipment || (truckLength ? `${truckLength}' Van` : 'Unknown')
     return (
         <div className="space-y-3">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                <Truck className="h-3 w-3" /> Logistics
+            <h4 className="text-sm font-semibold text-white/70 flex items-center gap-2">
+                <Truck className="h-4 w-4" /> Logistics
             </h4>
-
-            <div className="grid grid-cols-2 gap-2">
-                <div className="flex flex-col gap-1">
-                    <div className="text-xs text-muted-foreground">Deadhead (Org/Dst)</div>
-                    <div className="font-mono text-sm">
-                        {originDeadhead ?? '?'}mi / {destDeadhead ?? '?'}mi
-                    </div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="bg-muted/10 p-2 rounded flex justify-between">
+                    <span className="text-muted-foreground">Deadhead (Org)</span>
+                    <span className="text-white">{originDeadhead} mi</span>
                 </div>
-                <div className="flex flex-col gap-1">
-                    <div className="text-xs text-muted-foreground">Truck Req</div>
-                    <div className="font-mono text-sm">
-                        {truckLength ? `${truckLength}ft` : 'Any'} • {(weight / 1000).toFixed(1)}k lbs
-                    </div>
+                <div className="bg-muted/10 p-2 rounded flex justify-between">
+                    <span className="text-muted-foreground">Deadhead (Dst)</span>
+                    <span className="text-white">{destDeadhead} mi</span>
+                </div>
+                <div className="bg-muted/10 p-2 rounded flex justify-between">
+                    <span className="text-muted-foreground">Weight</span>
+                    <span className="text-white">{weight?.toLocaleString()} lbs</span>
+                </div>
+                <div className="bg-muted/10 p-2 rounded flex justify-between">
+                    <span className="text-muted-foreground">Equipment</span>
+                    <span className="text-white">{equipmentLabel}</span>
                 </div>
             </div>
-
-            <div className="flex flex-wrap gap-2 mt-2">
-                {isTeam && <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">Team Required</Badge>}
-                {hasAutoBid && <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">Auto-Bid Active</Badge>}
-            </div>
-
             {warnings && warnings.length > 0 && (
-                <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/30 rounded border border-amber-200 dark:border-amber-900">
-                    <div className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1 mb-1">
-                        <AlertTriangle className="h-3 w-3" /> Warnings
+                <div className="bg-red-500/10 border border-red-500/20 p-2 rounded text-xs text-red-400 flex gap-2 items-start mt-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    <div className="flex flex-col">
+                        {warnings.map((w: string, i: number) => <span key={i}>{w}</span>)}
                     </div>
-                    <ul className="list-disc list-inside text-xs text-amber-800 dark:text-amber-300 space-y-0.5">
-                        {warnings.map((w, i) => <li key={i}>{w}</li>)}
-                    </ul>
                 </div>
             )}
         </div>
-    );
+    )
 }
 
-export function TrustModule({ brokerName, mcNumber, phone, email, score = 95 }: TrustModuleProps) {
-    // Mock score logic if not provided
-    const displayScore = score;
-    let scoreColor = "bg-emerald-500";
-    let scoreLabel = "Excellent";
-    if (displayScore < 70) {
-        scoreColor = "bg-rose-500";
-        scoreLabel = "Risk";
-    } else if (displayScore < 90) {
-        scoreColor = "bg-amber-500";
-        scoreLabel = "Good";
-    }
+// --- Trust ---
+export function TrustModule({ brokerName, mcNumber, phone, email }: any) {
+    const saferUrl = mcNumber
+        ? `https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=MC_MX&query_string=${mcNumber}`
+        : null
 
     return (
         <div className="space-y-3">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                <ShieldCheck className="h-3 w-3" /> Trust & Contact
+            <h4 className="text-sm font-semibold text-white/70 flex items-center gap-2">
+                <Star className="h-4 w-4" /> Broker
             </h4>
-
-            <div className="bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 p-3">
-                <div className="flex justify-between items-start mb-2">
-                    <div className="font-medium text-sm">{brokerName}</div>
-                    <div className="text-right">
-                        <div className="text-[10px] text-muted-foreground uppercase">Credit Score</div>
-                        <div className="flex items-center gap-1 justify-end">
-                            <div className={`w-2 h-2 rounded-full ${scoreColor}`} />
-                            <span className="font-mono font-bold text-sm">{displayScore}</span>
-                        </div>
+            <div className="bg-white/5 p-3 rounded-lg border border-white/5 space-y-3">
+                <div className="flex justify-between items-start">
+                    <div>
+                        <div className="font-bold text-white">{brokerName}</div>
+                        <div className="text-xs text-muted-foreground">MC: {mcNumber || 'N/A'}</div>
+                    </div>
+                    {/* Placeholder Logo */}
+                    <div className="h-8 w-8 bg-white/10 rounded flex items-center justify-center text-xs font-bold">
+                        {brokerName?.substring(0, 2)}
                     </div>
                 </div>
 
-                {mcNumber && (
+                {/* SAFER Link */}
+                {saferUrl && (
                     <a
-                        href={`https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=MC_MX&query_string=${mcNumber}`}
+                        href={saferUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 mb-3"
-                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-2 text-xs text-blue-400 hover:text-blue-300 transition-colors"
                     >
-                        <Castle className="h-3 w-3" /> MC#{mcNumber} (Verify on SAFER)
+                        <span className="inline-block px-1.5 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded text-[10px] font-bold uppercase tracking-wider">SAFER</span>
+                        View FMCSA Safety Record →
                     </a>
                 )}
 
-                <Separator className="my-2" />
+                {/* Contact Details */}
+                <div className="text-xs text-muted-foreground space-y-1.5">
+                    {phone && (
+                        <div className="flex items-center gap-2">
+                            <Phone className="h-3 w-3 shrink-0" />
+                            <a href={`tel:${phone}`} className="text-white/80 hover:text-white transition-colors">{phone}</a>
+                        </div>
+                    )}
+                    {email && (
+                        <div className="flex items-center gap-2">
+                            <Mail className="h-3 w-3 shrink-0" />
+                            <a href={`mailto:${email}`} className="text-white/80 hover:text-white transition-colors truncate">{email}</a>
+                        </div>
+                    )}
+                </div>
 
-                <div className="grid grid-cols-2 gap-2 mt-2">
+                {/* Action Buttons */}
+                <div className="flex gap-2">
                     {phone ? (
-                        <Button variant="outline" size="sm" className="h-8 gap-2 w-full" onClick={(e) => { e.stopPropagation(); window.open(`tel:${phone}`); }}>
-                            <Phone className="h-3 w-3" /> Call
+                        <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-2" asChild>
+                            <a href={`tel:${phone}`}><Phone className="h-3 w-3" /> Call</a>
                         </Button>
                     ) : (
-                        <Button variant="outline" size="sm" className="h-8 gap-2 w-full" disabled>
+                        <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-2" disabled>
                             <Phone className="h-3 w-3" /> No Phone
                         </Button>
                     )}
-
                     {email ? (
-                        <Button variant="outline" size="sm" className="h-8 gap-2 w-full" onClick={(e) => { e.stopPropagation(); window.open(`mailto:${email}`); }}>
-                            <Mail className="h-3 w-3" /> Email
+                        <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-2" asChild>
+                            <a href={`mailto:${email}`}><Mail className="h-3 w-3" /> Email</a>
                         </Button>
                     ) : (
-                        <Button variant="outline" size="sm" className="h-8 gap-2 w-full" disabled>
+                        <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-2" disabled>
                             <Mail className="h-3 w-3" /> No Email
                         </Button>
                     )}
                 </div>
             </div>
         </div>
-    );
-}
-
-export function AddressModule({ originAddress, destAddress, originCity, originState, destCity, destState, stops }: AddressModuleProps) {
-    // Extract address info from stops array (CloudTrucks format)
-    // Stops have: location_address1, location_address2, location_city, location_state, location_zip, location_lat, location_long
-    const extractStopAddress = (stop: any) => {
-        const addr1 = stop?.location_address1 || stop?.address || '';
-        const addr2 = stop?.location_address2 || '';
-        const city = stop?.location_city || stop?.city || '';
-        const state = stop?.location_state || stop?.state || '';
-        const zip = stop?.location_zip || stop?.zip || '';
-        const lat = stop?.location_lat;
-        const lon = stop?.location_long || stop?.location_lon;
-
-        const fullAddress = [addr1, addr2].filter(Boolean).join(', ');
-        const cityStateZip = [city, state].filter(Boolean).join(', ') + (zip ? ` ${zip}` : '');
-
-        return {
-            address: fullAddress,
-            cityStateZip,
-            city,
-            state,
-            zip,
-            lat,
-            lon,
-            hasAddress: fullAddress.trim().length > 0,
-            type: stop?.type || stop?.type_detail || '',
-        };
-    };
-
-    // Find origin and destination stops
-    const originStop = (stops || []).find((s: any) => s.type === 'ORIGIN' || s.type_detail === 'PICKUP');
-    const destStop = (stops || []).find((s: any) => s.type === 'DESTINATION' || s.type_detail === 'DELIVERY');
-
-    const origin = originStop ? extractStopAddress(originStop) : {
-        address: originAddress || '',
-        cityStateZip: `${originCity}, ${originState}`,
-        city: originCity,
-        state: originState,
-        hasAddress: !!(originAddress && originAddress.trim()),
-        lat: null,
-        lon: null,
-    };
-
-    const dest = destStop ? extractStopAddress(destStop) : {
-        address: destAddress || '',
-        cityStateZip: `${destCity}, ${destState}`,
-        city: destCity,
-        state: destState,
-        hasAddress: !!(destAddress && destAddress.trim()),
-        lat: null,
-        lon: null,
-    };
-
-    // Get any additional stops (not origin/destination)
-    const additionalStops = (stops || [])
-        .filter((s: any) => s.type !== 'ORIGIN' && s.type !== 'DESTINATION')
-        .map(extractStopAddress)
-        .filter(s => s.hasAddress);
-
-    const hasAnyAddressData = origin.hasAddress || dest.hasAddress || additionalStops.length > 0;
-
-    const openInMaps = (address: string, city: string, state: string, lat?: number, lon?: number) => {
-        if (lat && lon) {
-            window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`, '_blank');
-        } else {
-            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address + ', ' + city + ', ' + state)}`, '_blank');
-        }
-    };
-
-    if (!hasAnyAddressData) {
-        return (
-            <div className="space-y-3">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                    <MapPin className="h-3 w-3" /> Addresses
-                </h4>
-                <div className="p-3 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-center">
-                    <p className="text-xs text-muted-foreground">
-                        Address data not available for this load.
-                    </p>
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                        Addresses may be revealed for Instant Book loads.
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="space-y-3">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                <MapPin className="h-3 w-3" /> Addresses
-            </h4>
-
-            <div className="space-y-2">
-                {/* Origin Address */}
-                <div className="p-3 rounded-md bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/50">
-                    <div className="flex items-start gap-2">
-                        <div className="w-2 h-2 rounded-full bg-green-500 mt-1.5 flex-shrink-0"></div>
-                        <div className="flex-1 min-w-0">
-                            <div className="text-xs font-medium text-green-700 dark:text-green-400">Pickup</div>
-                            {origin.hasAddress ? (
-                                <>
-                                    <div className="text-sm font-medium mt-0.5">{origin.address}</div>
-                                    <div className="text-xs text-muted-foreground">{origin.cityStateZip}</div>
-                                </>
-                            ) : (
-                                <div className="text-sm text-muted-foreground">{origin.cityStateZip}</div>
-                            )}
-                        </div>
-                        {origin.hasAddress && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2 text-xs"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    openInMaps(origin.address, origin.city, origin.state, origin.lat, origin.lon);
-                                }}
-                            >
-                                <Navigation className="h-3 w-3 mr-1" /> Map
-                            </Button>
-                        )}
-                    </div>
-                </div>
-
-                {/* Destination Address */}
-                <div className="p-3 rounded-md bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/50">
-                    <div className="flex items-start gap-2">
-                        <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 flex-shrink-0"></div>
-                        <div className="flex-1 min-w-0">
-                            <div className="text-xs font-medium text-red-700 dark:text-red-400">Delivery</div>
-                            {dest.hasAddress ? (
-                                <>
-                                    <div className="text-sm font-medium mt-0.5">{dest.address}</div>
-                                    <div className="text-xs text-muted-foreground">{dest.cityStateZip}</div>
-                                </>
-                            ) : (
-                                <div className="text-sm text-muted-foreground">{dest.cityStateZip}</div>
-                            )}
-                        </div>
-                        {dest.hasAddress && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2 text-xs"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    openInMaps(dest.address, dest.city, dest.state, dest.lat, dest.lon);
-                                }}
-                            >
-                                <Navigation className="h-3 w-3 mr-1" /> Map
-                            </Button>
-                        )}
-                    </div>
-                </div>
-
-                {/* Additional stops with addresses */}
-                {additionalStops.length > 0 && (
-                    <div className="space-y-2 pt-2 border-t border-dashed">
-                        <div className="text-xs font-medium text-muted-foreground">Additional Stops</div>
-                        {additionalStops.map((stop, idx) => (
-                            <div key={idx} className="p-2 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
-                                <div className="flex items-start gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-xs font-medium text-blue-700 dark:text-blue-400">{stop.type}</div>
-                                        <div className="text-sm font-medium mt-0.5">{stop.address}</div>
-                                        <div className="text-xs text-muted-foreground">{stop.cityStateZip}</div>
-                                    </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 px-2 text-xs"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            openInMaps(stop.address, stop.city, stop.state, stop.lat, stop.lon);
-                                        }}
-                                    >
-                                        <Navigation className="h-3 w-3 mr-1" /> Map
-                                    </Button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
+    )
 }

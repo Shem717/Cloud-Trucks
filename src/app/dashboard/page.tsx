@@ -21,19 +21,20 @@ export default async function DashboardPage() {
     // Fetch stats - REMOVED (Moved to Client Component for Real-time accuracy)
 
     return (
-        <div className="space-y-8">
-
+        <div className="h-[calc(100vh-theme(spacing.16))]">
             {/* Connection Card */}
             {!isConnected && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>CloudTrucks Account</CardTitle>
-                        <CardDescription>
-                            Connect your CloudTrucks account to begin automated load scanning.
-                        </CardDescription>
-                    </CardHeader>
-                    <ConnectForm />
-                </Card>
+                <div className="p-8">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>CloudTrucks Account</CardTitle>
+                            <CardDescription>
+                                Connect your CloudTrucks account to begin automated load scanning.
+                            </CardDescription>
+                        </CardHeader>
+                        <ConnectForm />
+                    </Card>
+                </div>
             )}
 
             {isConnected && (

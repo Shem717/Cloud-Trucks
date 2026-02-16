@@ -36,7 +36,7 @@ export function validateEnv() {
   }
 }
 
-// Auto-validate on import (server-side only)
-if (typeof window === 'undefined') {
+// Auto-validate on import (server-side only, skip in test)
+if (typeof window === 'undefined' && process.env.NODE_ENV !== 'test') {
   validateEnv();
 }

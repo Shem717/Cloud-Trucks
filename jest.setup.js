@@ -39,3 +39,8 @@ jest.mock('@/utils/supabase/server', () => ({
 jest.mock('@/utils/supabase/admin', () => ({
   createAdminClient: jest.fn(),
 }))
+
+// Mock env-validation to prevent auto-validate on import
+jest.mock('@/lib/env-validation', () => ({
+  validateEnv: jest.fn(),
+}))

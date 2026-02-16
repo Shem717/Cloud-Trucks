@@ -47,12 +47,7 @@ export function DashboardWrapper({ isPublic = false }: DashboardWrapperProps) {
     }
 
     return (
-        <>
-            {/* Search Bar — Primary entry point for drivers */}
-            <SearchCriteriaForm onSuccess={handleCriteriaAdded} />
-
-            {/* Command Center Feed */}
-            <DashboardFeed refreshTrigger={refreshTrigger} isPublic={isPublic} />
-        </>
+        /* Command Center Feed - Full Screen */
+        <DashboardFeed refreshTrigger={refreshTrigger} isPublic={isPublic} />
     )
 }

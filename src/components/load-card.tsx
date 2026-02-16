@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { CloudTrucksLoad, CloudTrucksLoadStop } from "@/workers/cloudtrucks-api-client";
 import { BrokerLogo } from "./broker-logo";
 import { WeatherBadge } from "./weather-badge";
-import { FinancialsModule, LogisticsModule, TrustModule, AddressModule } from "./load-card-modules";
+import { FinancialsModule, LogisticsModule, TrustModule, AddressModule, LoadDetailsModule } from "./load-card-modules";
 import { HOSBadge } from "./hos-tracker";
 import { BrokerReliabilityBadge } from "./broker-reliability";
 import { FuelStopOptimizer, FuelCostBadge } from "./fuel-stop-optimizer";
@@ -32,9 +32,10 @@ interface LoadCardProps {
     cabbieMode?: boolean;
     mpg?: number;
     fuelPrice?: number;
+    isWideMode?: boolean;
 }
 
-export function LoadCard({ load, isSaved, onToggleSaved, onViewMap, onAddToRoute, isInRouteBuilder, cabbieMode, mpg = 6.5, fuelPrice = 3.80 }: LoadCardProps) {
+export function LoadCard({ load, isSaved, onToggleSaved, onViewMap, onAddToRoute, isInRouteBuilder, cabbieMode, mpg = 6.5, fuelPrice = 3.80, isWideMode = false }: LoadCardProps) {
     const [isExpanded, setIsExpanded] = useState(false);
 
     // --- Derived Data ---
@@ -94,6 +95,137 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap, onAddToRoute
         return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
     };
 
+    // --- RENDER: WIDE MODE (Horizontal) ---
+    if (isWideMode && !cabbieMode) {
+        return (
+            <Card
+                onClick={() => setIsExpanded(!isExpanded)}
+                className={cn(
+                    "cursor-pointer hover:bg-white/5 transition-all duration-200 bg-card border-border mb-2",
+                    isExpanded && "ring-1 ring-primary/30 bg-white/5",
+                    isHotLoad && "border-l-4 border-l-orange-500"
+                )}
+            >
+                <div className="flex items-center gap-4 p-3 text-sm">
+                    {/* Rate & RPM */}
+                    <div className="flex flex-col min-w-[80px]">
+                        <span className="font-bold text-emerald-500 text-lg">${rate?.toLocaleString()}</span>
+                        {rpmFormatted && <span className="text-[10px] text-muted-foreground">${rpmFormatted}/mi</span>}
+                    </div>
+
+                    {/* Origin -> Dest */}
+                    <div className="flex-1 min-w-[200px] flex items-center gap-2">
+                        <div className="flex flex-col">
+                            <span className="font-medium text-white">{origin}</span>
+                            <span className="text-[10px] text-muted-foreground">{pickupDate ? formatDate(pickupDate) : 'ASAP'}</span>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground/50 mx-2" />
+                        <div className="flex flex-col">
+                            <span className="font-medium text-white">{dest}</span>
+                            <span className="text-[10px] text-muted-foreground">{deliveryDate ? formatDate(deliveryDate) : 'Open'}</span>
+                        </div>
+                    </div>
+
+                    {/* Distance & Weight */}
+                    <div className="flex flex-col w-[100px] text-right">
+                        <span className="font-mono text-white/80">{dist}mi</span>
+                        <span className="text-[10px] text-muted-foreground">{weightFormatted}lbs</span>
+                    </div>
+
+                    {/* Equipment & Badges */}
+                    <div className="flex flex-col items-end w-[80px] gap-1">
+                        <Badge variant="outline" className="text-[10px] h-5 px-1 bg-white/5 border-white/10 text-white/50 font-mono">
+                            {equipmentType.slice(0, 3)}
+                        </Badge>
+                        {isInstantBook && <Zap className="h-3 w-3 text-yellow-500" />}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-white/50 hover:text-white"
+                            onClick={onViewMap}
+                        >
+                            <Map className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn("h-8 w-8 hover:text-white", isSaved ? "text-amber-500" : "text-white/50")}
+                            onClick={onToggleSaved}
+                        >
+                            <Star className={cn("h-4 w-4", isSaved && "fill-current")} />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-white/50 hover:text-white"
+                            onClick={() => setIsExpanded(!isExpanded)}
+                        >
+                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Expanded Details (Reused) */}
+                <AnimatePresence>
+                    {isExpanded && (
+                        <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="bg-black/20 border-t border-white/5 px-4 pb-4"
+                        >
+                            <div className="pt-4 grid grid-cols-2 gap-4" onClick={(e) => e.stopPropagation()}>
+                                {/* Reusing modules but in a grid */}
+                                <div className="space-y-4">
+                                    <FinancialsModule
+                                        fuelCost={estimatedFuelCost}
+                                        tollCost={details.estimated_toll_cost}
+                                        revenuePerHour={details.estimated_revenue_per_hour}
+                                        tripRate={rate}
+                                    />
+                                    <LogisticsModule
+                                        originDeadhead={details.origin_deadhead_mi}
+                                        destDeadhead={details.dest_deadhead_mi}
+                                        truckLength={details.truck_length_ft}
+                                        weight={weight}
+                                        warnings={details.trailer_drop_warnings}
+                                        isTeam={isTeam}
+                                        hasAutoBid={hasAutoBid}
+                                    />
+                                </div>
+                                <div className="space-y-4">
+                                    <TrustModule
+                                        brokerName={details.broker_name}
+                                        mcNumber={details.broker_mc_number}
+                                        phone={details.contact_phone}
+                                        email={details.contact_email}
+                                    />
+                                    <AddressModule
+                                        originAddress={details.origin_address}
+                                        destAddress={details.dest_address}
+                                        originCity={details.origin_city}
+                                        originState={details.origin_state}
+                                        destCity={details.dest_city}
+                                        destState={details.dest_state}
+                                        stops={details.stops}
+                                        details={details}
+                                    />
+                                    <LoadDetailsModule details={details} />
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </Card>
+        );
+    }
+
+    // --- RENDER: STANDARD MODE (Vertical) ---
     return (
         <Card className={cn(
             "overflow-hidden transition-all duration-200 bg-card border-border",
@@ -413,7 +545,10 @@ export function LoadCard({ load, isSaved, onToggleSaved, onViewMap, onAddToRoute
                                 destCity={details.dest_city}
                                 destState={details.dest_state}
                                 stops={details.stops}
+                                details={details}
                             />
+
+                            <LoadDetailsModule details={details} />
                         </div>
                     </motion.div>
                 )}

@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 const routeLabels: Record<string, string> = {
     dashboard: 'Dashboard',
     interested: 'Saved Loads',
+    market: 'Market',
     routes: 'Route Planning',
     calendar: 'Calendar',
     settings: 'Settings',

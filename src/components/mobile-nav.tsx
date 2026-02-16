@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X, Home, Star, Map, LogOut, Settings } from 'lucide-react'
+import { Menu, X, Home, Star, Map, LogOut, Settings, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -19,6 +19,7 @@ export function MobileNav({ userEmail, signOutAction }: MobileNavProps) {
     const navItems = [
         { href: '/dashboard', label: 'Dashboard', icon: Home },
         { href: '/saved', label: 'Saved Loads', icon: Star },
+        { href: '/market', label: 'Market', icon: BarChart3 },
         { href: '/routes', label: 'Route Planning', icon: Map },
         { href: '/settings', label: 'Settings', icon: Settings },
     ]

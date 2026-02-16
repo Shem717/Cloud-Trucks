@@ -14,6 +14,7 @@ interface CityAutocompleteProps {
     defaultValue?: string;
     value?: string;
     onStateChange?: (state: string) => void;
+    onValueChange?: (value: string) => void;
     className?: string;
 }
 
@@ -24,6 +25,7 @@ export function CityAutocomplete({
     defaultValue = "",
     value: controlledValue,
     onStateChange,
+    onValueChange,
     className
 }: CityAutocompleteProps) {
     const [open, setOpen] = React.useState(false)
@@ -39,7 +41,10 @@ export function CityAutocomplete({
     }, [controlledValue]);
 
     const value = internalValue;
-    const setValue = setInternalValue;
+    const setValue = (val: string) => {
+        setInternalValue(val)
+        onValueChange?.(val)
+    }
 
     // On initial load, look up city state and call onStateChange
     React.useEffect(() => {
