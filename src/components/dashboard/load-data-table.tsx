@@ -46,6 +46,10 @@ const selectColumn: ColumnDef<any> = {
     ),
     enableSorting: false,
     enableHiding: false,
+    size: 40,
+    meta: {
+        className: "w-[40px]"
+    }
 }
 
 export const columns: ColumnDef<any>[] = [
@@ -53,6 +57,7 @@ export const columns: ColumnDef<any>[] = [
     {
         accessorKey: "status",
         header: "Status",
+        size: 70,
         cell: ({ row }) => {
             const status = row.getValue("status") as string
             return (
@@ -66,6 +71,7 @@ export const columns: ColumnDef<any>[] = [
     },
     {
         accessorKey: "rate",
+        size: 100,
         header: ({ column }) => {
             return (
                 <Button
@@ -94,12 +100,13 @@ export const columns: ColumnDef<any>[] = [
     {
         accessorKey: "origin",
         header: "Origin",
+        size: 140,
         cell: ({ row }) => {
             const city = row.original.origin_city
             const state = row.original.origin_state
             return (
-                <div className="flex flex-col">
-                    <span className="font-medium text-white">{city}, {state}</span>
+                <div className="flex flex-col min-w-0">
+                    <span className="font-medium text-white truncate">{city}, {state}</span>
                     <span className="text-[10px] text-muted-foreground">DH: {row.original.origin_deadhead_mi || 0}mi</span>
                 </div>
             )
@@ -108,12 +115,13 @@ export const columns: ColumnDef<any>[] = [
     {
         accessorKey: "destination",
         header: "Destination",
+        size: 140,
         cell: ({ row }) => {
             const city = row.original.dest_city
             const state = row.original.dest_state
             return (
-                <div className="flex flex-col">
-                    <span className="font-medium text-white">{city}, {state}</span>
+                <div className="flex flex-col min-w-0">
+                    <span className="font-medium text-white truncate">{city}, {state}</span>
                     <span className="text-[10px] text-muted-foreground">DH: {row.original.dest_deadhead_mi || 0}mi</span>
                 </div>
             )
@@ -121,6 +129,7 @@ export const columns: ColumnDef<any>[] = [
     },
     {
         accessorKey: "distance",
+        size: 80,
         header: ({ column }) => {
             return (
                 <Button
@@ -149,6 +158,7 @@ export const columns: ColumnDef<any>[] = [
     {
         accessorKey: "dates",
         header: "Dates",
+        size: 140,
         cell: ({ row }) => {
             return (
                 <div className="flex flex-col text-[10px]">
@@ -161,6 +171,7 @@ export const columns: ColumnDef<any>[] = [
     {
         accessorKey: "equipment",
         header: "Eq",
+        size: 50,
         cell: ({ row }) => {
             const eq = Array.isArray(row.original.equipment) ? row.original.equipment[0] : row.original.equipment
             return (
@@ -172,6 +183,7 @@ export const columns: ColumnDef<any>[] = [
     },
     {
         accessorKey: "weight",
+        size: 80,
         header: ({ column }) => {
             return (
                 <Button
