@@ -212,7 +212,7 @@ export function ProSearchHeader({ onSuccess }: ProSearchHeaderProps) {
                     </Popover>
 
                     {/* Equipment Section */}
-                    <div className="flex-1 flex items-center px-3 border-r border-white/5 h-full hover:bg-white/5 transition-colors min-w-[120px] group/input">
+                    <div className="flex-1 flex items-center px-3 border-r border-white/5 h-full hover:bg-white/5 transition-colors min-w-[150px] group/input">
                         <Select name="equipment_type" defaultValue="Any">
                             <SelectTrigger className="bg-transparent border-none h-full p-0 text-xs font-medium focus:ring-0 w-full shadow-none gap-2">
                                 <span className="text-[9px] font-bold text-muted-foreground mr-1 group-hover/input:text-white transition-colors">EQ</span>
@@ -229,7 +229,7 @@ export function ProSearchHeader({ onSuccess }: ProSearchHeaderProps) {
                     </div>
 
                     {/* Booking Type Section */}
-                    <div className="flex-1 flex items-center px-3 h-full hover:bg-white/5 transition-colors min-w-[120px] group/input">
+                    <div className="flex-1 flex items-center px-3 h-full hover:bg-white/5 transition-colors min-w-[150px] group/input">
                         <Select name="booking_type" defaultValue="Any">
                             <SelectTrigger className="bg-transparent border-none h-full p-0 text-xs font-medium focus:ring-0 w-full shadow-none gap-2">
                                 <span className="text-[9px] font-bold text-muted-foreground mr-1 group-hover/input:text-white transition-colors">BK</span>

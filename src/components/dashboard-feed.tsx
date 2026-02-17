@@ -960,15 +960,9 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                             <div className="flex-1 flex items-center justify-center">
                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                             </div>
-                        ) : sortedLoads.length === 0 ? (
-                            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
-                                <Truck size={48} className="mb-4 opacity-20" />
-                                <p>No loads found matching your criteria.</p>
-                                <Button variant="link" onClick={handleCreateCriteria}>Create a new search</Button>
-                            </div>
                         ) : (
                             <div className="flex-1 overflow-hidden p-4 flex flex-col">
-                                {/* Toolbar */}
+                                {/* Toolbar - Always visible */}
                                 <div className="flex items-center justify-between mb-4">
                                     <div className="flex items-center gap-2">
                                         <div className="text-sm text-muted-foreground mr-2">Showing {sortedLoads.length} loads</div>
@@ -1023,8 +1017,16 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                     </div>
                                 </div>
 
-                                {/* DATA GRID */}
-                                <div className="flex-1 overflow-hidden rounded-md border border-white/10">
+                                {/* Content Area */}
+                                {sortedLoads.length === 0 ? (
+                                    <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
+                                        <Truck size={48} className="mb-4 opacity-20" />
+                                        <p>No loads found matching your criteria.</p>
+                                        <Button variant="link" onClick={handleCreateCriteria}>Create a new search</Button>
+                                    </div>
+                                ) : (
+                                    /* DATA GRID */
+                                    <div className="flex-1 overflow-hidden rounded-md border border-white/10">
                                     <LoadDataTable
                                         data={sortedLoads.map(l => ({
                                             ...l.details,
@@ -1069,8 +1071,8 @@ export function DashboardFeed({ refreshTrigger = 0, isPublic = false }: Dashboar
                                         }}
                                     />
                                 </div>
+                                )}
                             </div>
-
                         )}
                     </div>
                 </ProMain>
